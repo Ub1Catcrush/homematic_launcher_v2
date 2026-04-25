@@ -1,0 +1,197 @@
+name: Build, Sign and Upload APK in Releases
+on:
+#  push:
+#    paths:
+#      - 'dependencies.gradle'
+#  pull_request:
+#    paths:
+#      - 'dependencies.gradle'
+  workflow_dispatch:
+
+#on:
+#  push:
+#    branches:
+#      - 'master'
+#    paths:
+#      - 'app/**'
+#      - 'app/*'
+#      - 'gradle/**'
+#      - 'gradle/*'
+#  pull_request:
+#    branches:
+#      - 'master'
+#    paths:
+#      - 'app/**'
+#      - 'app/*'
+#      - 'gradle/**'
+#      - 'gradle/*'
+#  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Upload APK in Releases
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Grant Permission to Execute
+        run: chmod +x gradlew
+      
+#      - name: Increment patch version
+#        uses: yoichiro/gh-action-increment-value@v5
+#        with:
+#          target_directory: ''
+#          target_file: 'dependencies.gradle'
+#          prefix: 'versionPatch:'
+#          suffix: ']'
+#          commit_message: '[skip ci] Increments the patch version to'
+
+      # Run Build Project
+      - name: Build gradle project
+        run: bash ./gradlew build --stacktrace
+
+      # Create APK Debug
+      - name: Build apk debug APK
+        run: bash ./gradlew assembleDebug --stacktrace
+
+      # Create APK Release
+      - name: Build apk release APK
+        run: bash ./gradlew assembleRelease --stacktrace
+
+      # Create Bundle AAB Release
+      # Noted for main module build [main_project_module]:bundleRelease
+      - name: Build bundle release AAB
+        run: bash ./gradlew bundleRelease --stacktrace
+
+      - name: Extract version from dependencies.gradle
+        id: get_version
+        run: |
+          # Suche nach dem Key, extrahiere den Wert nach dem Doppelpunkt und entferne Kommas/Leerzeichen
+          MAJOR=$(sed -n 's/.*versionMajor:\s*\([0-9]*\).*/\1/p' dependencies.gradle)
+          MINOR=$(sed -n 's/.*versionMinor:\s*\([0-9]*\).*/\1/p' dependencies.gradle)
+          PATCH=$(sed -n 's/.*versionPatch:\s*\([0-9]*\).*/\1/p' dependencies.gradle)
+      
+          # Validierung: Falls ein Wert leer ist, wird v0.0.0 als Fallback gesetzt
+          VERSION_TAG="v${MAJOR:-0}.${MINOR:-0}.${PATCH:-0}"
+          
+          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
+          echo "tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+          
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1.1.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION_TAG }}
+          name: Release ${{ env.VERSION_TAG }}
+          release_name: Release ${{ env.VERSION_TAG }}
+#          tag_name: release-v${{ github.run_number }}
+#          release_name: Automatic Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Decode keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > my-release-key.jks
+            
+      - name: Align APK
+        run: |
+          $ANDROID_HOME/build-tools/34.0.0/zipalign -v 4 \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            app/build/outputs/apk/release/app-release-signed.apk
+            
+      - name: Align AAB
+        run: |
+          $ANDROID_HOME/build-tools/34.0.0/zipalign -v 4 \
+            app/build/outputs/bundle/release/app-release.aab \
+            app/build/outputs/bundle/release/app-release-signed.aab
+
+      - name: Sign APK with apksigner
+        run: |
+          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+            --ks my-release-key.jks \
+            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            app/build/outputs/apk/release/app-release-signed.apk
+            
+      - name: Sign AAB with apksigner
+        run: |
+          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+            --min-sdk-version 26 \
+            --ks my-release-key.jks \
+            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            app/build/outputs/bundle/release/app-release-signed.aab
+      
+      - name: Verify aligned APK signature
+        run: |
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify \
+            --verbose --print-certs \
+            app/build/outputs/apk/release/app-release-signed.apk
+
+      - name: Verify aligned AAB signature
+        run: |
+          # Ermittelt die Browser-Download-URL der neuesten bundletool-all-*.jar
+          URL=$(curl -s https://api.github.com/repos/google/bundletool/releases/latest \
+            | jq -r '.assets[] | select(.name | test("bundletool-all-.*\\.jar")) | .browser_download_url')
+          curl -L "$URL" -o bundletool.jar
+          # Ausführung des Verifizierungs-Befehls
+          java -jar bundletool.jar validate --bundle=app/build/outputs/bundle/release/app-release-signed.aab
+
+      - name: Upload APKs to Github Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: apk files
+          path: app/build/outputs/apk/**/*.apk
+
+      - name: Upload AABs to Github Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: aab files
+          path: app/build/outputs/bundle/**/*.aab
+
+      - name: Upload Debug APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: app/build/outputs/apk/debug/app-debug.apk
+          asset_name: app-debug.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Signed Release APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: app/build/outputs/apk/release/app-release-signed.apk
+          asset_name: app-release-signed.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Signed Release AAB to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: app/build/outputs/bundle/release/app-release-signed.aab
+          asset_name: app-release-signed.aab
+          asset_content_type: application/vnd.android.package-archive
