@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== CCU VERBINDUNG ========== -->
+    <PreferenceCategory android:title="@string/pref_category_ccu">
+
+        <EditTextPreference
+            android:key="sync_ccu_name"
+            android:title="@string/pref_title_ccu_host"
+            android:defaultValue="homematic-ccu2"
+            android:summary="homematic-ccu2"
+            android:persistent="true"
+            android:inputType="text" />
+
+        <EditTextPreference
+            android:key="ccu_port"
+            android:title="@string/pref_title_ccu_port"
+            android:defaultValue=""
+            android:summary="@string/pref_summary_ccu_port"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <SwitchPreferenceCompat
+            android:key="ccu_https"
+            android:title="@string/pref_title_ccu_https"
+            android:summary="@string/pref_summary_ccu_https"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="ccu_api_path"
+            android:title="@string/pref_title_ccu_api_path"
+            android:defaultValue="/addons/xmlapi/"
+            android:summary="/addons/xmlapi/"
+            android:persistent="true"
+            android:inputType="text" />
+
+        <ListPreference
+            android:key="connection_timeout"
+            android:title="@string/pref_title_connection_timeout"
+            android:entries="@array/pref_timeout_titles"
+            android:entryValues="@array/pref_timeout_values"
+            android:defaultValue="5"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_check_ccu"
+            android:title="@string/pref_title_check_ccu"
+            android:summary="@string/pref_summary_tap_to_test" />
+
+        <EditTextPreference
+            android:key="ccu_sid"
+            android:title="@string/pref_title_ccu_sid"
+            android:summary="@string/pref_summary_ccu_sid"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="textPassword" />
+
+    </PreferenceCategory>
+
+    <!-- ========== SYNCHRONISATION ========== -->
+    <PreferenceCategory android:title="@string/pref_category_sync">
+
+        <ListPreference
+            android:key="sync_frequency"
+            android:title="@string/pref_title_sync_frequency"
+            android:entries="@array/pref_sync_frequency_titles"
+            android:entryValues="@array/pref_sync_frequency_values"
+            android:defaultValue="30"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="auto_reload_on_reconnect"
+            android:title="@string/pref_title_auto_reload"
+            android:summary="@string/pref_summary_auto_reload"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_reload_now"
+            android:title="@string/pref_title_reload_now"
+            android:summary="@string/pref_summary_reload_now" />
+
+    </PreferenceCategory>
+
+    <!-- ========== NETZWERK ========== -->
+    <PreferenceCategory android:title="@string/pref_category_network">
+
+        <Preference
+            android:key="action_check_network"
+            android:title="@string/pref_title_check_network"
+            android:summary="@string/pref_summary_tap_to_check" />
+
+    </PreferenceCategory>
+
+    <!-- ========== ANZEIGE ========== -->
+    <PreferenceCategory android:title="@string/pref_category_display">
+
+        <ListPreference
+            android:key="theme_mode"
+            android:title="@string/pref_title_theme_mode"
+            android:entries="@array/pref_theme_mode_titles"
+            android:entryValues="@array/pref_theme_mode_values"
+            android:defaultValue="system"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="keep_screen_on"
+            android:title="@string/pref_title_keep_screen_on"
+            android:summary="@string/pref_summary_keep_screen_on"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="show_status_bar"
+            android:title="@string/pref_title_show_status_bar"
+            android:summary="@string/pref_summary_show_status_bar"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="disable_display_switch"
+            android:title="@string/pref_title_disable_display"
+            android:summary="@string/pref_description_disable_display"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <ListPreference
+            android:key="disable_display_period"
+            android:title="@string/pref_title_disable_display_period"
+            android:entries="@array/pref_disable_display_period_titles"
+            android:entryValues="@array/pref_disable_display_period_values"
+            android:defaultValue="120"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <!-- ========== BENACHRICHTIGUNGEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_notifications">
+
+        <SwitchPreferenceCompat
+            android:key="notifications_show_reload_popups"
+            android:title="@string/pref_title_reload_notifications"
+            android:summary="@string/pref_summary_reload_notifications"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <!-- ========== ENTWICKLER / TEST ========== -->
+    <PreferenceCategory android:title="@string/pref_category_developer">
+
+        <SwitchPreferenceCompat
+            android:key="test_switch"
+            android:title="@string/pref_title_test_mode"
+            android:summary="@string/pref_description_test_mode"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="outdoor_room_name"
+            android:title="@string/pref_title_outdoor_room_name"
+            android:summary="@string/pref_summary_outdoor_room_name"
+            android:defaultValue="Aussen"
+            android:persistent="true"
+            android:inputType="text" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

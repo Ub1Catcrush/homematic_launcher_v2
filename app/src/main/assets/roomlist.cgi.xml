@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<roomList>
+	<room name='Arbeitszimmer UG' ise_id='1229'>
+		<channel ise_id='2811'/>
+		<channel ise_id='2702'/>
+		<channel ise_id='2635'/>
+		<channel ise_id='2556'/>
+		<channel ise_id='2758'/>
+		<channel ise_id='2761'/>
+		<channel ise_id='2788'/>
+	</room>
+	<room name='Aussen' ise_id='1233'>
+		<channel ise_id='2857'/>
+	</room>
+	<room name='Badezimmer EG' ise_id='1231'>
+		<channel ise_id='2395'/>
+	</room>
+	<room name='Badezimmer OG' ise_id='1230'>
+		<channel ise_id='2033'/>
+		<channel ise_id='2092'/>
+		<channel ise_id='1980'/>
+		<channel ise_id='1983'/>
+		<channel ise_id='2010'/>
+	</room>
+	<room name='Badezimmer UG' ise_id='1234'>
+		<channel ise_id='2960'/>
+		<channel ise_id='2893'/>
+		<channel ise_id='3016'/>
+		<channel ise_id='3019'/>
+		<channel ise_id='3046'/>
+	</room>
+	<room name='Gang UG' ise_id='1232'>
+		<channel ise_id='3148'/>
+		<channel ise_id='3081'/>
+	</room>
+	<room name='Kinderzimmer OG' ise_id='1227'>
+		<channel ise_id='1572'/>
+		<channel ise_id='1619'/>
+		<channel ise_id='1505'/>
+		<channel ise_id='1675'/>
+		<channel ise_id='1678'/>
+		<channel ise_id='1705'/>
+	</room>
+	<room name='Küche EG' ise_id='1225'>
+		<channel ise_id='2239'/>
+		<channel ise_id='2286'/>
+		<channel ise_id='2192'/>
+		<channel ise_id='2159'/>
+		<channel ise_id='2165'/>
+		<channel ise_id='2368'/>
+		<channel ise_id='2337'/>
+		<channel ise_id='3288'/>
+		<channel ise_id='3291'/>
+		<channel ise_id='3318'/>
+	</room>
+	<room name='Schlafzimmer OG' ise_id='1226'>
+		<channel ise_id='1367'/>
+		<channel ise_id='1320'/>
+		<channel ise_id='1426'/>
+		<channel ise_id='1267'/>
+		<channel ise_id='1270'/>
+		<channel ise_id='1297'/>
+	</room>
+	<room name='Wohnzimmer EG' ise_id='1224'>
+		<channel ise_id='2497'/>
+		<channel ise_id='2442'/>
+		<channel ise_id='3226'/>
+		<channel ise_id='3229'/>
+		<channel ise_id='3256'/>
+	</room>
+	<room name='Zimmer DG' ise_id='1228'>
+		<channel ise_id='1736'/>
+		<channel ise_id='1924'/>
+		<channel ise_id='1857'/>
+		<channel ise_id='1792'/>
+		<channel ise_id='1795'/>
+		<channel ise_id='1822'/>
+	</room>
+</roomList>

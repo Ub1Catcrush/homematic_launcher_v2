@@ -1,0 +1,194 @@
+<resources>
+    <string name="app_name">HomeMatic</string>
+    <string name="action_settings">Einstellungen</string>
+    <string name="action_refresh">Neu laden</string>
+    <string name="title_activity_settings">Einstellungen</string>
+
+    <!-- Preference categories -->
+    <string name="pref_category_ccu">CCU Verbindung</string>
+    <string name="pref_category_sync">Synchronisation</string>
+    <string name="pref_category_network">Netzwerk</string>
+    <string name="pref_category_display">Anzeige</string>
+    <string name="pref_category_notifications">Benachrichtigungen</string>
+    <string name="pref_category_developer">Entwickler</string>
+
+    <!-- CCU connection -->
+    <string name="pref_title_ccu_host">CCU Hostname / IP</string>
+    <string name="pref_title_ccu_port">CCU Port (optional)</string>
+    <string name="pref_summary_ccu_port">Leer = Standard (80/443)</string>
+    <string name="pref_title_ccu_https">HTTPS verwenden</string>
+    <string name="pref_summary_ccu_https">Verschlüsselte Verbindung zur CCU</string>
+    <string name="pref_title_ccu_api_path">API-Pfad</string>
+    <string name="pref_title_connection_timeout">Verbindungs-Timeout</string>
+    <string name="pref_title_check_ccu">CCU-Verbindung testen</string>
+    <string name="pref_summary_tap_to_test">Tippen zum Testen</string>
+
+    <!-- Sync -->
+    <string name="pref_title_sync_frequency">Sync-Intervall</string>
+    <string name="pref_title_auto_reload">Auto-Reload bei Netzwerkwiederkehr</string>
+    <string name="pref_summary_auto_reload">Daten sofort laden wenn Netzwerk verfügbar</string>
+    <string name="pref_title_reload_now">Jetzt neu laden</string>
+    <string name="pref_summary_reload_now">Sofortiger Datenabruf vom CCU</string>
+
+    <!-- Network -->
+    <string name="pref_title_check_network">Netzwerkstatus prüfen</string>
+    <string name="pref_summary_tap_to_check">Tippen für aktuellen Status</string>
+
+    <!-- Display -->
+    <string name="pref_title_keep_screen_on">Bildschirm immer aktiv</string>
+    <string name="pref_summary_keep_screen_on">Bildschirm-Timeout verhindern</string>
+    <string name="pref_title_show_status_bar">Statusleiste anzeigen</string>
+    <string name="pref_summary_show_status_bar">System-Statusleiste einblenden (Neustart nötig)</string>
+    <string name="pref_title_disable_display">Bildschirm automatisch abschalten</string>
+    <string name="pref_description_disable_display">Nach Inaktivität den Bildschirm ausschalten</string>
+    <string name="pref_title_disable_display_period">Abschalt-Zeitraum</string>
+
+    <!-- Notifications -->
+    <string name="pref_title_reload_notifications">Lade-Meldungen anzeigen</string>
+    <string name="pref_summary_reload_notifications">Toast-Nachrichten beim Datenladen</string>
+
+    <!-- Developer -->
+    <string name="pref_title_test_mode">Testmodus</string>
+    <string name="pref_description_test_mode">Lokale XML-Testdaten verwenden (kein CCU nötig)</string>
+
+    <string name="status_initializing">Initialisiere…</string>
+    <string name="fab_doorbell_description">Türklingel-Video</string>
+    <string name="room_title_placeholder">Raum</string>
+
+    <!-- LoadProgress stage labels — shown in status bar during data load -->
+    <string name="load_idle">Bereit</string>
+    <string name="load_fetching">Lade Daten von CCU…</string>
+    <string name="load_fetch_done">Daten empfangen, parse XML…</string>
+    <string name="load_parsing">Parse XML…</string>
+    <string name="load_parse_done">XML geparst, baue Index…</string>
+    <string name="load_building_maps">Baue Geräte-Index…</string>
+    <string name="load_done">Fertig</string>
+    <string name="load_error">Fehler beim Laden</string>
+
+    <!-- Error messages (also used by HomeMatic background thread via appContext) -->
+    <string name="error_unknown">Unbekannter Fehler</string>
+    <string name="error_empty_response">Leere Antwort vom CCU-Server empfangen</string>
+    <string name="error_http">HTTP %1$d von %2$s</string>
+
+    <!-- Room adapter labels (used by RoomAdapter to build tile content) -->
+    <string name="label_set_temp">Soll-Temp.</string>
+    <string name="label_actual_temp">Akt. Temp.</string>
+    <string name="label_humidity">Feuchtigkeit</string>
+    <string name="label_windows">Fenster</string>
+
+    <string name="pref_title_ccu_sid">Session-ID (SID)</string>
+    <string name="pref_summary_ccu_sid">Optional: SID für authentifizierte CCU-Anfragen (sid=…)</string>
+
+    <string name="pref_title_theme_mode">Farbschema</string>
+    <string-array name="pref_theme_mode_titles">
+        <item>Systemeinstellung</item>
+        <item>Hell (Light)</item>
+        <item>Dunkel (Dark)</item>
+    </string-array>
+    <string-array name="pref_theme_mode_values">
+        <item>system</item>
+        <item>light</item>
+        <item>dark</item>
+    </string-array>
+
+    <!-- Outdoor room preference -->
+    <string name="pref_title_outdoor_room_name">Name des Außenraums</string>
+    <string name="pref_summary_outdoor_room_name">Raumname der als Außenreferenz für Schimmelwarnung gilt</string>
+
+    <!-- Network status descriptions (used by NetworkUtils) -->
+    <string name="network_status_none">Kein Netzwerk verfügbar</string>
+    <string name="network_status_unavailable">Netzwerkeigenschaften nicht abrufbar</string>
+    <string name="network_status_wifi_signal">WLAN: %1$s (Signal: %2$d/4)</string>
+    <string name="network_status_wifi">WLAN: %1$s</string>
+    <string name="network_status_ethernet">Ethernet</string>
+    <string name="network_status_cellular">Mobilfunk</string>
+    <string name="network_status_other">Sonstige Verbindung</string>
+
+    <!-- CCU reachability test (Settings) -->
+    <string name="pref_summary_ccu_reachable">✓ CCU erreichbar (%1$s)</string>
+    <string name="pref_summary_ccu_unreachable">✗ CCU nicht erreichbar (%1$s)</string>
+    <string name="pref_summary_checking">Prüfe Verbindung…</string>
+
+    <!-- Status bar strings -->
+    <string name="status_offline">⚠ Offline</string>
+    <string name="status_error">⚠ %1$s</string>
+    <string name="status_ok">✓ %1$s%2$s</string>
+    <string name="status_connecting">● %1$s</string>
+    <string name="status_sync_at">Sync: %1$s</string>
+
+    <!-- Toast messages -->
+    <string name="toast_ui_updated">Oberfläche aktualisiert</string>
+    <string name="toast_loading">Lade Daten…</string>
+    <string name="toast_display_timeout">Bildschirm-Timeout erreicht (DeviceAdmin benötigt)</string>
+
+    <!-- Snackbar messages -->
+    <string name="snackbar_doorbell_not_configured">Türklingel-Video: noch nicht konfiguriert</string>
+    <string name="snackbar_network_lost">Netzwerkverbindung getrennt</string>
+    <string name="snackbar_load_error">Ladefehler: %1$s</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_restart_title">Neustart erforderlich</string>
+    <string name="dialog_restart_message">Die Statusleisten-Einstellung wird beim nächsten App-Start wirksam.</string>
+
+    <!-- Sync frequency entries -->
+    <string-array name="pref_sync_frequency_titles">
+        <item>5 Sekunden</item>
+        <item>15 Sekunden</item>
+        <item>30 Sekunden</item>
+        <item>1 Minute</item>
+        <item>5 Minuten</item>
+        <item>15 Minuten</item>
+        <item>30 Minuten</item>
+        <item>60 Minuten</item>
+        <item>Nie</item>
+    </string-array>
+    <string-array name="pref_sync_frequency_values">
+        <item>5</item>
+        <item>15</item>
+        <item>30</item>
+        <item>60</item>
+        <item>300</item>
+        <item>900</item>
+        <item>1800</item>
+        <item>3600</item>
+        <item>-1</item>
+    </string-array>
+
+    <!-- Display off period entries -->
+    <string-array name="pref_disable_display_period_titles">
+        <item>15 Sekunden</item>
+        <item>30 Sekunden</item>
+        <item>1 Minute</item>
+        <item>2 Minuten</item>
+        <item>3 Minuten</item>
+        <item>5 Minuten</item>
+        <item>10 Minuten</item>
+        <item>15 Minuten</item>
+    </string-array>
+    <string-array name="pref_disable_display_period_values">
+        <item>15</item>
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+        <item>180</item>
+        <item>300</item>
+        <item>600</item>
+        <item>900</item>
+    </string-array>
+
+    <!-- Connection timeout entries -->
+    <string-array name="pref_timeout_titles">
+        <item>3 Sekunden</item>
+        <item>5 Sekunden</item>
+        <item>10 Sekunden</item>
+        <item>15 Sekunden</item>
+        <item>30 Sekunden</item>
+    </string-array>
+    <string-array name="pref_timeout_values">
+        <item>3</item>
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>30</item>
+    </string-array>
+</resources>

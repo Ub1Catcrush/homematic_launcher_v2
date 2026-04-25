@@ -1,0 +1,8 @@
+.gradle
+.idea
+.kotlin
+/local.properties
+/app/build/
+/app/debug/
+/app/release/
+/build

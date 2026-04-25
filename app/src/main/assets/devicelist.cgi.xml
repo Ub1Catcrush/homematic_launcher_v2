@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<deviceList>
+	<device name='Aussenthermometer' address='LEQ0799373' ise_id='2837' interface='BidCos-RF' device_type='HM-WDS10-TH-O' ready_config='true'>
+		<channel name='Aussenthermometer:1' type='22' address='LEQ0799373:1' ise_id='2857' direction='SENDER' parent_device='2837' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Balkontür WZ EG' address='MEQ0174279' ise_id='2468' interface='BidCos-RF' device_type='HM-Sec-SCo' ready_config='true'>
+		<channel name='Balkontür WZ EG:1' type='37' address='MEQ0174279:1' ise_id='2497' direction='SENDER' parent_device='2468' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Dachfenster DG' address='MEQ0172925' ise_id='1707' interface='BidCos-RF' device_type='HM-Sec-SCo' ready_config='true'>
+		<channel name='Dachfenster DG:1' type='37' address='MEQ0172925:1' ise_id='1736' direction='SENDER' parent_device='1707' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 1 AZ UG' address='LEQ1254034' ise_id='2790' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 1 AZ UG:1' type='38' address='LEQ1254034:1' ise_id='2811' direction='SENDER' parent_device='2790' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 1 KiZ OG' address='LEQ1253826' ise_id='1551' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 1 KiZ OG:1' type='38' address='LEQ1253826:1' ise_id='1572' direction='SENDER' parent_device='1551' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 1 Küche EG' address='LEQ1254048' ise_id='2218' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 1 Küche EG:1' type='38' address='LEQ1254048:1' ise_id='2239' direction='SENDER' parent_device='2218' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 1 SZ OG' address='LEQ1253123' ise_id='1346' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 1 SZ OG:1' type='38' address='LEQ1253123:1' ise_id='1367' direction='SENDER' parent_device='1346' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 2 AZ UG' address='LEQ1254392' ise_id='2681' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 2 AZ UG:1' type='38' address='LEQ1254392:1' ise_id='2702' direction='SENDER' parent_device='2681' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 2 KiZ OG' address='LEQ1254395' ise_id='1598' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 2 KiZ OG:1' type='38' address='LEQ1254395:1' ise_id='1619' direction='SENDER' parent_device='1598' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 2 Küche EG' address='LEQ1254051' ise_id='2265' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 2 Küche EG:1' type='38' address='LEQ1254051:1' ise_id='2286' direction='SENDER' parent_device='2265' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 2 SZ OG' address='LEQ1253181' ise_id='1299' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 2 SZ OG:1' type='38' address='LEQ1253181:1' ise_id='1320' direction='SENDER' parent_device='1299' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster 3 Küche EG' address='LEQ1254116' ise_id='2171' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster 3 Küche EG:1' type='38' address='LEQ1254116:1' ise_id='2192' direction='SENDER' parent_device='2171' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster Bad EG' address='LEQ1253866' ise_id='2374' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster Bad EG:1' type='38' address='LEQ1253866:1' ise_id='2395' direction='SENDER' parent_device='2374' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster Bad OG' address='LEQ1253882' ise_id='2012' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster Bad OG:1' type='38' address='LEQ1253882:1' ise_id='2033' direction='SENDER' parent_device='2012' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster Bad UG' address='LEQ1253823' ise_id='2939' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster Bad UG:1' type='38' address='LEQ1253823:1' ise_id='2960' direction='SENDER' parent_device='2939' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster DG' address='LEQ1253132' ise_id='1903' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster DG:1' type='38' address='LEQ1253132:1' ise_id='1924' direction='SENDER' parent_device='1903' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster Gang UG' address='LEQ1252972' ise_id='3127' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster Gang UG:1' type='38' address='LEQ1252972:1' ise_id='3148' direction='SENDER' parent_device='3127' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Fenster WZ EG' address='LEQ1253374' ise_id='2421' interface='BidCos-RF' device_type='HM-Sec-RHS' ready_config='true'>
+		<channel name='Fenster WZ EG:1' type='38' address='LEQ1253374:1' ise_id='2442' direction='SENDER' parent_device='2421' index='1' group_partner='' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat 1 AZ UG' address='LEQ0782812' ise_id='2602' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat 1 AZ UG:1' type='22' address='LEQ0782812:1' ise_id='2632' direction='RECEIVER' parent_device='2602' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 1 AZ UG:2' type='17' address='LEQ0782812:2' ise_id='2633' direction='RECEIVER' parent_device='2602' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 1 AZ UG:3' type='26' address='LEQ0782812:3' ise_id='2634' direction='RECEIVER' parent_device='2602' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 1 AZ UG:4' type='17' address='LEQ0782812:4' ise_id='2635' direction='SENDER' parent_device='2602' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 1 AZ UG:5' type='17' address='LEQ0782812:5' ise_id='2679' direction='RECEIVER' parent_device='2602' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 1 AZ UG:6' type='17' address='LEQ0782812:6' ise_id='2680' direction='RECEIVER' parent_device='2602' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat 2 AZ UG' address='LEQ0782918' ise_id='2523' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat 2 AZ UG:1' type='22' address='LEQ0782918:1' ise_id='2553' direction='RECEIVER' parent_device='2523' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 2 AZ UG:2' type='17' address='LEQ0782918:2' ise_id='2554' direction='RECEIVER' parent_device='2523' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 2 AZ UG:3' type='26' address='LEQ0782918:3' ise_id='2555' direction='RECEIVER' parent_device='2523' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 2 AZ UG:4' type='17' address='LEQ0782918:4' ise_id='2556' direction='SENDER' parent_device='2523' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 2 AZ UG:5' type='17' address='LEQ0782918:5' ise_id='2600' direction='RECEIVER' parent_device='2523' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat 2 AZ UG:6' type='17' address='LEQ0782918:6' ise_id='2601' direction='RECEIVER' parent_device='2523' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat Bad OG' address='LEQ0862076' ise_id='2059' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat Bad OG:1' type='22' address='LEQ0862076:1' ise_id='2089' direction='RECEIVER' parent_device='2059' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad OG:2' type='17' address='LEQ0862076:2' ise_id='2090' direction='RECEIVER' parent_device='2059' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad OG:3' type='26' address='LEQ0862076:3' ise_id='2091' direction='RECEIVER' parent_device='2059' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad OG:4' type='17' address='LEQ0862076:4' ise_id='2092' direction='SENDER' parent_device='2059' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad OG:5' type='17' address='LEQ0862076:5' ise_id='2136' direction='RECEIVER' parent_device='2059' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad OG:6' type='17' address='LEQ0862076:6' ise_id='2137' direction='RECEIVER' parent_device='2059' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat Bad UG' address='LEQ0865628' ise_id='2860' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat Bad UG:1' type='22' address='LEQ0865628:1' ise_id='2890' direction='RECEIVER' parent_device='2860' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad UG:2' type='17' address='LEQ0865628:2' ise_id='2891' direction='RECEIVER' parent_device='2860' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad UG:3' type='26' address='LEQ0865628:3' ise_id='2892' direction='RECEIVER' parent_device='2860' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad UG:4' type='17' address='LEQ0865628:4' ise_id='2893' direction='SENDER' parent_device='2860' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad UG:5' type='17' address='LEQ0865628:5' ise_id='2937' direction='RECEIVER' parent_device='2860' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Bad UG:6' type='17' address='LEQ0865628:6' ise_id='2938' direction='RECEIVER' parent_device='2860' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat DG' address='LEQ0776812' ise_id='1824' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat DG:1' type='22' address='LEQ0776812:1' ise_id='1854' direction='RECEIVER' parent_device='1824' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat DG:2' type='17' address='LEQ0776812:2' ise_id='1855' direction='RECEIVER' parent_device='1824' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat DG:3' type='26' address='LEQ0776812:3' ise_id='1856' direction='RECEIVER' parent_device='1824' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat DG:4' type='17' address='LEQ0776812:4' ise_id='1857' direction='SENDER' parent_device='1824' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat DG:5' type='17' address='LEQ0776812:5' ise_id='1901' direction='RECEIVER' parent_device='1824' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat DG:6' type='17' address='LEQ0776812:6' ise_id='1902' direction='RECEIVER' parent_device='1824' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat Gang UG' address='LEQ0865889' ise_id='3048' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat Gang UG:1' type='22' address='LEQ0865889:1' ise_id='3078' direction='RECEIVER' parent_device='3048' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Gang UG:2' type='17' address='LEQ0865889:2' ise_id='3079' direction='RECEIVER' parent_device='3048' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Gang UG:3' type='26' address='LEQ0865889:3' ise_id='3080' direction='RECEIVER' parent_device='3048' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Gang UG:4' type='17' address='LEQ0865889:4' ise_id='3081' direction='SENDER' parent_device='3048' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Gang UG:5' type='17' address='LEQ0865889:5' ise_id='3125' direction='RECEIVER' parent_device='3048' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat Gang UG:6' type='17' address='LEQ0865889:6' ise_id='3126' direction='RECEIVER' parent_device='3048' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat KiZ OG' address='LEQ0782894' ise_id='1472' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat KiZ OG:1' type='22' address='LEQ0782894:1' ise_id='1502' direction='RECEIVER' parent_device='1472' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat KiZ OG:2' type='17' address='LEQ0782894:2' ise_id='1503' direction='RECEIVER' parent_device='1472' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat KiZ OG:3' type='26' address='LEQ0782894:3' ise_id='1504' direction='RECEIVER' parent_device='1472' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat KiZ OG:4' type='17' address='LEQ0782894:4' ise_id='1505' direction='SENDER' parent_device='1472' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat KiZ OG:5' type='17' address='LEQ0782894:5' ise_id='1549' direction='RECEIVER' parent_device='1472' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat KiZ OG:6' type='17' address='LEQ0782894:6' ise_id='1550' direction='RECEIVER' parent_device='1472' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Heizthermostat SZ OG' address='LEQ0862059' ise_id='1393' interface='BidCos-RF' device_type='HM-CC-RT-DN' ready_config='true'>
+		<channel name='Heizthermostat SZ OG:1' type='22' address='LEQ0862059:1' ise_id='1423' direction='RECEIVER' parent_device='1393' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat SZ OG:2' type='17' address='LEQ0862059:2' ise_id='1424' direction='RECEIVER' parent_device='1393' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat SZ OG:3' type='26' address='LEQ0862059:3' ise_id='1425' direction='RECEIVER' parent_device='1393' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat SZ OG:4' type='17' address='LEQ0862059:4' ise_id='1426' direction='SENDER' parent_device='1393' index='4' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat SZ OG:5' type='17' address='LEQ0862059:5' ise_id='1470' direction='RECEIVER' parent_device='1393' index='5' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Heizthermostat SZ OG:6' type='17' address='LEQ0862059:6' ise_id='1471' direction='RECEIVER' parent_device='1393' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Schalter Küche' address='LEQ1098987' ise_id='2138' interface='BidCos-RF' device_type='HM-PB-2-WM55-2' ready_config='true'>
+		<channel name='Schalter Küche:1' type='32' address='LEQ1098987:1' ise_id='2159' direction='SENDER' parent_device='2138' index='1' group_partner='2165' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+		<channel name='Schalter Küche:2' type='32' address='LEQ1098987:2' ise_id='2165' direction='SENDER' parent_device='2138' index='2' group_partner='2159' aes_available='true' transmission_mode='AES' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Steckdose 1 Küche' address='LEQ0871462' ise_id='2343' interface='BidCos-RF' device_type='HM-LC-Sw1-Pl-2' ready_config='true'>
+		<channel name='Steckdose 1 Küche:1' type='26' address='LEQ0871462:1' ise_id='2368' direction='RECEIVER' parent_device='2343' index='1' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Steckdose 2 Küche' address='LEQ0871497' ise_id='2312' interface='BidCos-RF' device_type='HM-LC-Sw1-Pl-2' ready_config='true'>
+		<channel name='Steckdose 2 Küche:1' type='26' address='LEQ0871497:1' ise_id='2337' direction='RECEIVER' parent_device='2312' index='1' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat AZ UG' address='MEQ0050844' ise_id='2728' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat AZ UG:1' type='22' address='MEQ0050844:1' ise_id='2758' direction='SENDER' parent_device='2728' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat AZ UG:2' type='17' address='MEQ0050844:2' ise_id='2761' direction='SENDER' parent_device='2728' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat AZ UG:3' type='26' address='MEQ0050844:3' ise_id='2786' direction='RECEIVER' parent_device='2728' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat AZ UG:6' type='17' address='MEQ0050844:6' ise_id='2787' direction='RECEIVER' parent_device='2728' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat AZ UG:7' type='26' address='MEQ0050844:7' ise_id='2788' direction='SENDER' parent_device='2728' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat Bad OG' address='LEQ1480307' ise_id='1950' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat Bad OG:1' type='22' address='LEQ1480307:1' ise_id='1980' direction='SENDER' parent_device='1950' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad OG:2' type='17' address='LEQ1480307:2' ise_id='1983' direction='SENDER' parent_device='1950' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad OG:3' type='26' address='LEQ1480307:3' ise_id='2008' direction='RECEIVER' parent_device='1950' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad OG:6' type='17' address='LEQ1480307:6' ise_id='2009' direction='RECEIVER' parent_device='1950' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad OG:7' type='26' address='LEQ1480307:7' ise_id='2010' direction='SENDER' parent_device='1950' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat Bad UG' address='MEQ0050880' ise_id='2986' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat Bad UG:1' type='22' address='MEQ0050880:1' ise_id='3016' direction='SENDER' parent_device='2986' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad UG:2' type='17' address='MEQ0050880:2' ise_id='3019' direction='SENDER' parent_device='2986' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad UG:3' type='26' address='MEQ0050880:3' ise_id='3044' direction='RECEIVER' parent_device='2986' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad UG:6' type='17' address='MEQ0050880:6' ise_id='3045' direction='RECEIVER' parent_device='2986' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Bad UG:7' type='26' address='MEQ0050880:7' ise_id='3046' direction='SENDER' parent_device='2986' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat DG' address='LEQ1480311' ise_id='1762' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat DG:1' type='22' address='LEQ1480311:1' ise_id='1792' direction='SENDER' parent_device='1762' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat DG:2' type='17' address='LEQ1480311:2' ise_id='1795' direction='SENDER' parent_device='1762' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat DG:3' type='26' address='LEQ1480311:3' ise_id='1820' direction='RECEIVER' parent_device='1762' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat DG:6' type='17' address='LEQ1480311:6' ise_id='1821' direction='RECEIVER' parent_device='1762' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat DG:7' type='26' address='LEQ1480311:7' ise_id='1822' direction='SENDER' parent_device='1762' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat KiZ OG' address='MEQ0050827' ise_id='1645' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat KiZ OG:1' type='22' address='MEQ0050827:1' ise_id='1675' direction='SENDER' parent_device='1645' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat KiZ OG:2' type='17' address='MEQ0050827:2' ise_id='1678' direction='SENDER' parent_device='1645' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat KiZ OG:3' type='26' address='MEQ0050827:3' ise_id='1703' direction='RECEIVER' parent_device='1645' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat KiZ OG:6' type='17' address='MEQ0050827:6' ise_id='1704' direction='RECEIVER' parent_device='1645' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat KiZ OG:7' type='26' address='MEQ0050827:7' ise_id='1705' direction='SENDER' parent_device='1645' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat Küche EG' address='MEQ0050897' ise_id='3258' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat Küche EG:1' type='22' address='MEQ0050897:1' ise_id='3288' direction='SENDER' parent_device='3258' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Küche EG:2' type='17' address='MEQ0050897:2' ise_id='3291' direction='SENDER' parent_device='3258' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Küche EG:3' type='26' address='MEQ0050897:3' ise_id='3316' direction='RECEIVER' parent_device='3258' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Küche EG:6' type='17' address='MEQ0050897:6' ise_id='3317' direction='RECEIVER' parent_device='3258' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat Küche EG:7' type='26' address='MEQ0050897:7' ise_id='3318' direction='SENDER' parent_device='3258' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat SZ OG' address='LEQ1480313' ise_id='1237' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat SZ OG:1' type='22' address='LEQ1480313:1' ise_id='1267' direction='SENDER' parent_device='1237' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat SZ OG:2' type='17' address='LEQ1480313:2' ise_id='1270' direction='SENDER' parent_device='1237' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat SZ OG:3' type='26' address='LEQ1480313:3' ise_id='1295' direction='RECEIVER' parent_device='1237' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat SZ OG:6' type='17' address='LEQ1480313:6' ise_id='1296' direction='RECEIVER' parent_device='1237' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat SZ OG:7' type='26' address='LEQ1480313:7' ise_id='1297' direction='SENDER' parent_device='1237' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+	<device name='Wandthermostat WZ EG' address='MEQ0050835' ise_id='3196' interface='BidCos-RF' device_type='HM-TC-IT-WM-W-EU' ready_config='true'>
+		<channel name='Wandthermostat WZ EG:1' type='22' address='MEQ0050835:1' ise_id='3226' direction='SENDER' parent_device='3196' index='1' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat WZ EG:2' type='17' address='MEQ0050835:2' ise_id='3229' direction='SENDER' parent_device='3196' index='2' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat WZ EG:3' type='26' address='MEQ0050835:3' ise_id='3254' direction='RECEIVER' parent_device='3196' index='3' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat WZ EG:6' type='17' address='MEQ0050835:6' ise_id='3255' direction='RECEIVER' parent_device='3196' index='6' group_partner='' aes_available='true' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+		<channel name='Wandthermostat WZ EG:7' type='26' address='MEQ0050835:7' ise_id='3256' direction='SENDER' parent_device='3196' index='7' group_partner='' aes_available='false' transmission_mode='DEFAULT' visible='true' ready_config='true' operate='true' />
+	</device>
+</deviceList>

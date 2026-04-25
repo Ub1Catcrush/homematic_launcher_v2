@@ -1,0 +1,23 @@
+<resources>
+    <!--
+        DayNight theme: automatically switches between light/dark based on system setting.
+        User can override via THEME_MODE preference (light/dark/system).
+        The black windowBackground is kept for the main launcher screen (Kiosk mode).
+    -->
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <!-- Settings Activity uses a standard (non-black) background for readability -->
+    <style name="SettingsTheme" parent="Theme.Material3.DayNight">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+</resources>
