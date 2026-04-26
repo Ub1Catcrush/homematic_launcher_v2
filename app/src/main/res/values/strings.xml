@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HomeMaticLauncher</string>
     <string name="action_settings">Einstellungen</string>
@@ -22,6 +23,16 @@
     <string name="pref_title_connection_timeout">Verbindungs-Timeout</string>
     <string name="pref_title_check_ccu">CCU-Verbindung testen</string>
     <string name="pref_summary_tap_to_test">Tippen zum Testen</string>
+    <string name="pref_title_ccu_sid">Session-ID (SID)</string>
+    <string name="pref_summary_ccu_sid">Optional: SID für authentifizierte CCU-Anfragen (sid=…)</string>
+
+    <!-- CCU test results -->
+    <string name="pref_summary_ccu_reachable">✓ CCU erreichbar (%1$s)</string>
+    <string name="pref_summary_ccu_unreachable">✗ CCU nicht erreichbar (%1$s)</string>
+    <string name="pref_summary_checking">Prüfe Verbindung…</string>
+    <string name="pref_summary_ccu_auth_ok">✓ Erreichbar + Auth OK (%1$s)</string>
+    <string name="pref_summary_ccu_auth_fail">⚠ Erreichbar, SID ungültig (%1$s)</string>
+    <string name="pref_summary_ccu_no_sid">✓ Erreichbar (keine SID konfiguriert)</string>
 
     <!-- Sync -->
     <string name="pref_title_sync_frequency">Sync-Intervall</string>
@@ -29,12 +40,14 @@
     <string name="pref_summary_auto_reload">Daten sofort laden wenn Netzwerk verfügbar</string>
     <string name="pref_title_reload_now">Jetzt neu laden</string>
     <string name="pref_summary_reload_now">Sofortiger Datenabruf vom CCU</string>
+    <string name="pref_summary_reload_started">Ladevorgang gestartet…</string>
 
     <!-- Network -->
     <string name="pref_title_check_network">Netzwerkstatus prüfen</string>
     <string name="pref_summary_tap_to_check">Tippen für aktuellen Status</string>
 
     <!-- Display -->
+    <string name="pref_title_theme_mode">Farbschema</string>
     <string name="pref_title_keep_screen_on">Bildschirm immer aktiv</string>
     <string name="pref_summary_keep_screen_on">Bildschirm-Timeout verhindern</string>
     <string name="pref_title_show_status_bar">Statusleiste anzeigen</string>
@@ -43,6 +56,10 @@
     <string name="pref_description_disable_display">Nach Inaktivität den Bildschirm ausschalten</string>
     <string name="pref_title_disable_display_period">Abschalt-Zeitraum</string>
 
+    <!-- Language -->
+    <string name="pref_title_app_language">App-Sprache</string>
+    <string name="pref_summary_app_language_restart">Neustart der App erforderlich</string>
+
     <!-- Notifications -->
     <string name="pref_title_reload_notifications">Lade-Meldungen anzeigen</string>
     <string name="pref_summary_reload_notifications">Toast-Nachrichten beim Datenladen</string>
@@ -50,11 +67,24 @@
     <!-- Developer -->
     <string name="pref_title_test_mode">Testmodus</string>
     <string name="pref_description_test_mode">Lokale XML-Testdaten verwenden (kein CCU nötig)</string>
+    <string name="pref_title_outdoor_room_name">Name des Außenraums</string>
+    <string name="pref_summary_outdoor_room_name">Raumname der als Außenreferenz für Schimmelwarnung gilt</string>
 
+    <!-- Generic summaries -->
+    <string name="summary_enabled">Aktiv</string>
+    <string name="summary_disabled">Deaktiviert</string>
+    <string name="pref_chars_set">Zeichen gesetzt</string>
+
+    <!-- Status bar -->
     <string name="status_initializing">Initialisiere…</string>
+    <string name="status_offline">⚠ Offline</string>
+    <string name="status_error">⚠ %1$s</string>
+    <string name="status_ok">✓ %1$s%2$s</string>
+    <string name="status_connecting">● %1$s</string>
+    <string name="status_sync_at">Sync: %1$s</string>
     <string name="room_title_placeholder">Raum</string>
 
-    <!-- LoadProgress stage labels — shown in status bar during data load -->
+    <!-- LoadProgress stage labels -->
     <string name="load_idle">Bereit</string>
     <string name="load_fetching">Lade Daten von CCU…</string>
     <string name="load_fetch_done">Daten empfangen, parse XML…</string>
@@ -64,56 +94,16 @@
     <string name="load_done">Fertig</string>
     <string name="load_error">Fehler beim Laden</string>
 
-    <!-- Error messages (also used by HomeMatic background thread via appContext) -->
+    <!-- Error messages -->
     <string name="error_unknown">Unbekannter Fehler</string>
     <string name="error_empty_response">Leere Antwort vom CCU-Server empfangen</string>
     <string name="error_http">HTTP %1$d von %2$s</string>
 
-    <!-- Room adapter labels (used by RoomAdapter to build tile content) -->
+    <!-- Room adapter labels -->
     <string name="label_set_temp">Soll-Temp.</string>
     <string name="label_actual_temp">Akt. Temp.</string>
     <string name="label_humidity">Feuchtigkeit</string>
     <string name="label_windows">Fenster</string>
-
-    <string name="pref_title_ccu_sid">Session-ID (SID)</string>
-    <string name="pref_summary_ccu_sid">Optional: SID für authentifizierte CCU-Anfragen (sid=…)</string>
-
-    <string name="pref_title_theme_mode">Farbschema</string>
-    <string-array name="pref_theme_mode_titles">
-        <item>Systemeinstellung</item>
-        <item>Hell (Light)</item>
-        <item>Dunkel (Dark)</item>
-    </string-array>
-    <string-array name="pref_theme_mode_values">
-        <item>system</item>
-        <item>light</item>
-        <item>dark</item>
-    </string-array>
-
-    <!-- Outdoor room preference -->
-    <string name="pref_title_outdoor_room_name">Name des Außenraums</string>
-    <string name="pref_summary_outdoor_room_name">Raumname der als Außenreferenz für Schimmelwarnung gilt</string>
-
-    <!-- Network status descriptions (used by NetworkUtils) -->
-    <string name="network_status_none">Kein Netzwerk verfügbar</string>
-    <string name="network_status_unavailable">Netzwerkeigenschaften nicht abrufbar</string>
-    <string name="network_status_wifi_signal">WLAN: %1$s (Signal: %2$d/4)</string>
-    <string name="network_status_wifi">WLAN: %1$s</string>
-    <string name="network_status_ethernet">Ethernet</string>
-    <string name="network_status_cellular">Mobilfunk</string>
-    <string name="network_status_other">Sonstige Verbindung</string>
-
-    <!-- CCU reachability test (Settings) -->
-    <string name="pref_summary_ccu_reachable">✓ CCU erreichbar (%1$s)</string>
-    <string name="pref_summary_ccu_unreachable">✗ CCU nicht erreichbar (%1$s)</string>
-    <string name="pref_summary_checking">Prüfe Verbindung…</string>
-
-    <!-- Status bar strings -->
-    <string name="status_offline">⚠ Offline</string>
-    <string name="status_error">⚠ %1$s</string>
-    <string name="status_ok">✓ %1$s%2$s</string>
-    <string name="status_connecting">● %1$s</string>
-    <string name="status_sync_at">Sync: %1$s</string>
 
     <!-- Toast messages -->
     <string name="toast_ui_updated">Oberfläche aktualisiert</string>
@@ -128,6 +118,18 @@
     <!-- Dialogs -->
     <string name="dialog_restart_title">Neustart erforderlich</string>
     <string name="dialog_restart_message">Die Statusleisten-Einstellung wird beim nächsten App-Start wirksam.</string>
+    <string name="dialog_language_restart_message">Die Spracheinstellung wird nach einem Neustart der App wirksam.</string>
+    <string name="dialog_btn_restart_now">Jetzt neu starten</string>
+    <string name="dialog_btn_later">Später</string>
+
+    <!-- Network status descriptions -->
+    <string name="network_status_none">Kein Netzwerk verfügbar</string>
+    <string name="network_status_unavailable">Netzwerkeigenschaften nicht abrufbar</string>
+    <string name="network_status_wifi_signal">WLAN: %1$s (Signal: %2$d/4)</string>
+    <string name="network_status_wifi">WLAN: %1$s</string>
+    <string name="network_status_ethernet">Ethernet</string>
+    <string name="network_status_cellular">Mobilfunk</string>
+    <string name="network_status_other">Sonstige Verbindung</string>
 
     <!-- Sync frequency entries -->
     <string-array name="pref_sync_frequency_titles">
@@ -189,5 +191,29 @@
         <item>10</item>
         <item>15</item>
         <item>30</item>
+    </string-array>
+
+    <!-- Theme mode -->
+    <string-array name="pref_theme_mode_titles">
+        <item>Systemeinstellung</item>
+        <item>Hell (Light)</item>
+        <item>Dunkel (Dark)</item>
+    </string-array>
+    <string-array name="pref_theme_mode_values">
+        <item>system</item>
+        <item>light</item>
+        <item>dark</item>
+    </string-array>
+
+    <!-- Language selection -->
+    <string-array name="pref_language_titles">
+        <item>Systemsprache</item>
+        <item>Deutsch</item>
+        <item>Englisch</item>
+    </string-array>
+    <string-array name="pref_language_values">
+        <item>system</item>
+        <item>de</item>
+        <item>en</item>
     </string-array>
 </resources>

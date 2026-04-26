@@ -9,18 +9,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
-import android.widget.ArrayAdapter
 import android.widget.ImageView
 import android.widget.TableLayout
 import android.widget.TableRow
 import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 import com.homematic.Datapoint
 import com.homematic.Room
 
-class RoomAdapter(context: Context, rooms: List<Room>) : ArrayAdapter<Room>(context, -1, rooms) {
-
-    private val rooms: List<Room> = rooms
-    private val inflater: LayoutInflater = LayoutInflater.from(context)
+class RoomAdapter(private val context: Context, private val rooms: List<Room>) :
+    RecyclerView.Adapter<RoomAdapter.ViewHolder>() {
 
     // Text size in SP — respects user font scaling
     private val textSizeSp = 12f
@@ -28,20 +26,28 @@ class RoomAdapter(context: Context, rooms: List<Room>) : ArrayAdapter<Room>(cont
     // Direct reference — STATE_DEVICES is a val Set, no conversion or allocation per call
     private val stateDeviceSet: Set<String> = HomeMatic.STATE_DEVICES
 
-    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-        // Always inflate fresh — StaggeredGridView doesn't recycle in a standard way,
-        // and the per-view ID map must be local to avoid cross-item corruption.
-        val rowView = inflater.inflate(R.layout.room_item, parent, false)
-        val tableLayout = rowView.findViewById<TableLayout>(R.id.item_content)
-        val titleTextView = rowView.findViewById<TextView>(R.id.item_title_text)
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tableLayout: TableLayout = view.findViewById(R.id.item_content)
+        val titleTextView: TextView = view.findViewById(R.id.item_title_text)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.room_item, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        // Clear previously bound rows — ViewHolder is reused by RecyclerView
+        holder.tableLayout.removeAllViews()
+        holder.titleTextView.clearAnimation()
 
         val room = rooms[position]
-        titleTextView.text = room.name
-
-        // Pass titleTextView directly — avoids rootView.findViewById traversal
-        addRoomView(tableLayout, room, titleTextView)
-        return rowView
+        holder.titleTextView.text = room.name
+        addRoomView(holder.tableLayout, room, holder.titleTextView)
     }
+
+    override fun getItemCount(): Int = rooms.size
 
     private fun addRoomView(table: TableLayout, room: Room, titleView: TextView) {
         if (room.channels.isEmpty()) return

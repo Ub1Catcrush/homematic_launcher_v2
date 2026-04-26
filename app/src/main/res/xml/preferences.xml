@@ -43,11 +43,6 @@
             android:defaultValue="5"
             android:persistent="true" />
 
-        <Preference
-            android:key="action_check_ccu"
-            android:title="@string/pref_title_check_ccu"
-            android:summary="@string/pref_summary_tap_to_test" />
-
         <EditTextPreference
             android:key="ccu_sid"
             android:title="@string/pref_title_ccu_sid"
@@ -55,6 +50,11 @@
             android:defaultValue=""
             android:persistent="true"
             android:inputType="textPassword" />
+
+        <Preference
+            android:key="action_check_ccu"
+            android:title="@string/pref_title_check_ccu"
+            android:summary="@string/pref_summary_tap_to_test" />
 
     </PreferenceCategory>
 
@@ -101,6 +101,14 @@
             android:title="@string/pref_title_theme_mode"
             android:entries="@array/pref_theme_mode_titles"
             android:entryValues="@array/pref_theme_mode_values"
+            android:defaultValue="system"
+            android:persistent="true" />
+
+        <ListPreference
+            android:key="app_language"
+            android:title="@string/pref_title_app_language"
+            android:entries="@array/pref_language_titles"
+            android:entryValues="@array/pref_language_values"
             android:defaultValue="system"
             android:persistent="true" />
 

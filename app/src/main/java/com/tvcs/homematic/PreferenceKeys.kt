@@ -21,4 +21,5 @@ object PreferenceKeys {
     const val OUTDOOR_ROOM_NAME   = "outdoor_room_name"
     const val CCU_SID             = "ccu_sid"
     const val THEME_MODE          = "theme_mode"
+    const val APP_LANGUAGE        = "app_language"
 }

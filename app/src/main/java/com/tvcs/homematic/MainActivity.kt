@@ -31,8 +31,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.snackbar.Snackbar
-import com.grid.StaggeredGridView
 import com.homematic.Room
 import kotlinx.coroutines.*
 import java.time.LocalDateTime
@@ -40,6 +41,10 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(LocaleHelper.wrap(base))
+    }
 
     companion object {
         const val PACKAGE_NAME  = "com.tvcs.homematic"
@@ -54,7 +59,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var toolbar: Toolbar
-    private lateinit var gridView: StaggeredGridView
+    private lateinit var gridView: RecyclerView
     private lateinit var statusTextView: TextView
     private lateinit var loadingIndicator: ProgressBar
 
@@ -62,6 +67,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mAdapter: RoomAdapter
 
     private var isPaused = false
+    /** True between onStart() and onStop() — guards network callback from triggering
+     *  the initial load before the BroadcastReceiver is registered. */
+    private var isStarted = false
     private var reloadJob: Job? = null
     private var timeJob: Job? = null
     // Guard against concurrent loads (timer + network callback firing simultaneously)
@@ -95,7 +103,6 @@ class MainActivity : AppCompatActivity() {
                     mRooms.clear()
                     HomeMatic.myRoomList?.rooms?.let { mRooms.addAll(it) }
                     mAdapter.notifyDataSetChanged()
-                    gridView.invalidate()
                     updateNetworkStatus()
                     if (showPopups) showToast(getString(R.string.toast_ui_updated))
                 }
@@ -152,7 +159,8 @@ class MainActivity : AppCompatActivity() {
         loadingIndicator = findViewById(R.id.loading_indicator)
         gridView        = findViewById(R.id.grid_view)
         mAdapter        = RoomAdapter(this, mRooms)
-        gridView.setAdapter(mAdapter)
+        gridView.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+        gridView.adapter = mAdapter
 
         // Show cached data immediately if available, then reload in background
         if (HomeMatic.isLoaded) {
@@ -200,7 +208,11 @@ class MainActivity : AppCompatActivity() {
             override fun onAvailable(network: Network) {
                 runOnUiThread {
                     updateNetworkStatus()
-                    if (sharedPreferences.getBoolean(PreferenceKeys.AUTO_RELOAD_ON_RECONNECT, true)) {
+                    // Only auto-reload on RE-connect (not on initial startup).
+                    // The initial load is triggered from onStart() after the
+                    // BroadcastReceiver is registered, so ACTION_UPDATED_DATA
+                    // won't be lost.
+                    if (isStarted && sharedPreferences.getBoolean(PreferenceKeys.AUTO_RELOAD_ON_RECONNECT, true)) {
                         loadCcuData()
                     }
                 }
@@ -310,6 +322,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        isStarted = true
         val filter = IntentFilter().apply {
             addAction(ACTION_UPDATED_DATA)
             addAction(ACTION_RELOAD_DATA)
@@ -327,12 +340,16 @@ class MainActivity : AppCompatActivity() {
         if (syncInterval != oldSyncInterval) {
             scheduleReloadData(syncInterval)
         }
+        // Trigger an immediate load now that the BroadcastReceiver is registered.
+        // This ensures ACTION_UPDATED_DATA is never sent to an unregistered receiver.
+        loadCcuData()
         scheduleTimeUpdate()
         updateNetworkStatus()
     }
 
     override fun onStop() {
         super.onStop()
+        isStarted = false
         unregisterReceiver(broadcastReceiver)
         reloadJob?.cancel()
         timeJob?.cancel()

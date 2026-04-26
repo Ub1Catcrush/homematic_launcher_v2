@@ -112,4 +112,72 @@ object NetworkUtils {
             false
         }
     }
+
+    /**
+     * Result of a CCU connection + optional SID authentication test.
+     */
+    data class CcuTestResult(
+        val reachable: Boolean,
+        /** null = no SID configured, true = SID valid, false = SID rejected */
+        val authOk: Boolean?,
+        val host: String
+    )
+
+    /**
+     * Tests TCP reachability AND — when a SID is configured — validates it against the
+     * CCU XML-API by fetching `systemNotification.cgi?sid=…`.
+     *
+     * Auth is considered successful when the HTTP response is 200 and the body contains
+     * a valid XML root element (not an error/empty document).
+     * A 200 with `<not_authenticated/>` or an empty body counts as auth failure.
+     *
+     * Runs on IO dispatcher — safe to call from any coroutine context.
+     */
+    suspend fun testCcuConnection(
+        host: String,
+        https: Boolean,
+        port: String?,
+        apiPath: String,
+        sid: String,
+        timeoutMs: Int = 5000
+    ): CcuTestResult = withContext(Dispatchers.IO) {
+        // Step 1: TCP reachability
+        val tcpPort = when {
+            !port.isNullOrBlank() -> port.toIntOrNull() ?: (if (https) 443 else 80)
+            else                  -> if (https) 443 else 80
+        }
+        val reachable = try {
+            Socket().use { it.connect(InetSocketAddress(host, tcpPort), timeoutMs); true }
+        } catch (e: Exception) { false }
+
+        if (!reachable) return@withContext CcuTestResult(false, null, host)
+
+        // Step 2: If no SID configured, skip auth check
+        if (sid.isBlank()) return@withContext CcuTestResult(true, null, host)
+
+        // Step 3: Authenticate SID against XML-API
+        val protocol = if (https) "https" else "http"
+        val portPart = if (port.isNullOrBlank()) "" else ":$port"
+        val url = "$protocol://$host$portPart${apiPath}systemNotification.cgi?sid=$sid"
+        val authOk = try {
+            val con = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = timeoutMs
+                readTimeout    = timeoutMs
+                requestMethod  = "GET"
+            }
+            val code = con.responseCode
+            if (code != java.net.HttpURLConnection.HTTP_OK) {
+                false
+            } else {
+                val body = con.inputStream.bufferedReader().readText().trim()
+                // Auth failure: empty body or CCU returns <not_authenticated/> or similar error root
+                body.isNotEmpty()
+                    && !body.contains("<not_authenticated", ignoreCase = true)
+                    && !body.contains("<error", ignoreCase = true)
+                    && body.startsWith("<")
+            }
+        } catch (e: Exception) { false }
+
+        CcuTestResult(true, authOk, host)
+    }
 }
