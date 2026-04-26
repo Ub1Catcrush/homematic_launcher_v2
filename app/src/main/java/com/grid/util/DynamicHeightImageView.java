@@ -3,11 +3,12 @@ package com.grid.util;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.ImageView;
+import androidx.appcompat.widget.AppCompatImageView;
 
 /**
- * An {@link ImageView} layout that maintains a consistent width to height aspect ratio.
+ * An {@link AppCompatImageView} layout that maintains a consistent width to height aspect ratio.
  */
-public class DynamicHeightImageView extends ImageView {
+public class DynamicHeightImageView extends AppCompatImageView {
 
     private double mHeightRatio;
 
