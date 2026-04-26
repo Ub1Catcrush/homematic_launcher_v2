@@ -42,6 +42,7 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     companion object {
+        const val PACKAGE_NAME  = "com.tvcs.homematic"
         const val ACTION_UPDATED_DATA = "com.tvcs.homematic.updated_data"
         const val ACTION_RELOAD_DATA  = "com.tvcs.homematic.reload_data"
 
@@ -403,7 +404,7 @@ class MainActivity : AppCompatActivity() {
             progressJob.cancel()  // stop polling once load is complete
 
             result.onSuccess {
-                sendBroadcast(Intent(ACTION_UPDATED_DATA).setPackage(packageName))
+                sendBroadcast(Intent(ACTION_UPDATED_DATA).setPackage(PACKAGE_NAME))
             }.onFailure { e ->
                 setLoading(false)
                 updateNetworkStatus()
@@ -425,7 +426,7 @@ class MainActivity : AppCompatActivity() {
         reloadJob = lifecycleScope.launch {
             delay(1000L)
             while (isActive) {
-                if (!isPaused) sendBroadcast(Intent(ACTION_RELOAD_DATA).setPackage(packageName))
+                if (!isPaused) sendBroadcast(Intent(ACTION_RELOAD_DATA).setPackage(PACKAGE_NAME))
                 delay(interval * 1000L)
             }
         }

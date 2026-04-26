@@ -9,6 +9,7 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
+import com.tvcs.homematic.MainActivity.Companion.PACKAGE_NAME
 import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
@@ -86,7 +87,7 @@ class SettingsActivity : AppCompatActivity() {
 
         private fun setupActions() {
             findPreference<Preference>("action_reload_now")?.setOnPreferenceClickListener {
-                requireContext().sendBroadcast(Intent(MainActivity.ACTION_RELOAD_DATA))
+                requireContext().sendBroadcast(Intent(MainActivity.ACTION_RELOAD_DATA).setPackage(PACKAGE_NAME))
                 it.summary = "Ladevorgang gestartet…"
                 true
             }
