@@ -2,14 +2,14 @@ package com.grid.util;
 
 import android.content.Context;
 import android.util.AttributeSet;
-import android.widget.TextView;
+import androidx.appcompat.widget.AppCompatTextView;
 
 /**
  *
- * A {@link TextView} that maintains a consistent width to height aspect ratio.
+ * A {@link AppCompatTextView} that maintains a consistent width to height aspect ratio.
  * In the real world this would likely extend ImageView.
  */
-public class DynamicHeightTextView extends TextView {
+public class DynamicHeightTextView extends AppCompatTextView  {
 
     private double mHeightRatio;
 
