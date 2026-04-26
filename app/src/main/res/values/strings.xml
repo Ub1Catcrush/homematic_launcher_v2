@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">HomeMatic</string>
+    <string name="app_name">HomeMaticLauncher</string>
     <string name="action_settings">Einstellungen</string>
     <string name="action_refresh">Neu laden</string>
     <string name="title_activity_settings">Einstellungen</string>
