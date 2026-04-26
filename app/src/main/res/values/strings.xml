@@ -52,7 +52,6 @@
     <string name="pref_description_test_mode">Lokale XML-Testdaten verwenden (kein CCU nötig)</string>
 
     <string name="status_initializing">Initialisiere…</string>
-    <string name="fab_doorbell_description">Türklingel-Video</string>
     <string name="room_title_placeholder">Raum</string>
 
     <!-- LoadProgress stage labels — shown in status bar during data load -->
