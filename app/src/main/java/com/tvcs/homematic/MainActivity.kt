@@ -403,7 +403,7 @@ class MainActivity : AppCompatActivity() {
             progressJob.cancel()  // stop polling once load is complete
 
             result.onSuccess {
-                sendBroadcast(Intent(ACTION_UPDATED_DATA))
+                sendBroadcast(Intent(ACTION_UPDATED_DATA).setPackage(packageName))
             }.onFailure { e ->
                 setLoading(false)
                 updateNetworkStatus()
@@ -425,7 +425,7 @@ class MainActivity : AppCompatActivity() {
         reloadJob = lifecycleScope.launch {
             delay(1000L)
             while (isActive) {
-                if (!isPaused) sendBroadcast(Intent(ACTION_RELOAD_DATA))
+                if (!isPaused) sendBroadcast(Intent(ACTION_RELOAD_DATA).setPackage(packageName))
                 delay(interval * 1000L)
             }
         }
