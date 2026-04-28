@@ -216,4 +216,104 @@
         <item>de</item>
         <item>en</item>
     </string-array>
+
+
+    <!-- NEW v2.0.3 ─────────────────────────────────────────────────────── -->
+
+    <!-- SSL / self-signed cert -->
+    <string name="pref_title_ccu_trust_self_signed">Selbst-signiertes Zertifikat akzeptieren</string>
+    <string name="pref_summary_ccu_trust_self_signed">Zertifikatsprüfung deaktivieren (nur im lokalen Netz verwenden)</string>
+
+    <!-- Mold thresholds -->
+    <string name="pref_category_thermostat">Schimmelwarnung</string>
+    <string name="pref_title_mold_warning_rh">Warnschwelle rel. Luftfeuchtigkeit (%)</string>
+    <string name="pref_summary_mold_warning_rh">Gelbe Warnung ab diesem Wert (Standard: 65)</string>
+    <string name="pref_title_mold_urgent_rh">Kritische Schwelle rel. Luftfeuchtigkeit (%)</string>
+    <string name="pref_summary_mold_urgent_rh">Rote Warnung ab diesem Wert (Standard: 75)</string>
+
+    <!-- Max window indicators -->
+    <string name="pref_title_max_window_indicators">Max. Fenster-Indikatoren pro Raum</string>
+    <string name="pref_summary_max_window_indicators">Anzahl Fensterzustands-Punkte (Standard: 5, max: 10)</string>
+
+    <!-- Background notifications -->
+    <string name="pref_title_notify_background">Hintergrund-Benachrichtigungen aktiv</string>
+    <string name="pref_summary_notify_background">Alle 15 Minuten CCU im Hintergrund prüfen (WorkManager)</string>
+    <string name="pref_title_notify_lowbat">Batterie-leer Meldungen</string>
+    <string name="pref_title_notify_sabotage">Sabotagemeldungen (Sensor geöffnet)</string>
+    <string name="pref_title_notify_fault">Gerätefehler-Meldungen</string>
+    <string name="pref_title_notify_window_open">Offene Fenster melden</string>
+    <string name="pref_summary_notify_window_open">Benachrichtigung wenn Fenster offen oder gekippt</string>
+
+    <!-- Notification channel names -->
+    <string name="notif_channel_alert_name">CCU Alarme</string>
+    <string name="notif_channel_alert_desc">Batterie, Sabotage, Gerätefehler</string>
+    <string name="notif_channel_window_name">Fensterstatus</string>
+    <string name="notif_channel_window_desc">Offene und gekippte Fenster</string>
+
+    <!-- Notification titles -->
+    <string name="notif_lowbat_title">🔋 Batterie leer</string>
+    <string name="notif_sabotage_title">⚠ Sabotage erkannt</string>
+    <string name="notif_fault_title">⚠ Gerätefehler</string>
+    <string name="notif_window_title">🪟 Fenster offen</string>
+
+    <!-- Thermostat dialog -->
+    <string name="thermostat_dialog_title">Solltemperatur: %1$s</string>
+    <string name="thermostat_label">%.1f°C</string>
+    <string name="thermostat_set_ok">✓ Solltemperatur auf %.1f°C gesetzt</string>
+    <string name="thermostat_set_error">Fehler beim Setzen: %1$s</string>
+
+    <!-- AppWidget -->
+    <string name="widget_description">HomeMatic Raumstatus-Widget</string>
+    <string name="widget_set_temp_fmt">Soll: %.1f°C</string>
+    <string name="widget_window_closed">✓ geschlossen</string>
+    <string name="widget_window_tilted">↗ gekippt</string>
+    <string name="widget_window_open">✗ offen</string>
+    <string name="widget_last_update">Stand: %1$s</string>
+
+    <!-- Outdoor weather in tile (used in RoomAdapter for outdoor room) -->
+    <string name="label_outdoor_temp">Außentemperatur</string>
+    <string name="label_outdoor_humidity">Außenfeuchte</string>
+
+    <plurals name="notif_lowbat_text">
+        <item quantity="one">%d Gerät</item>
+        <item quantity="other">%d Geräte</item>
+    </plurals>
+
+    <!-- Permission strings -->
+    <string name="perm_notif_rationale_title">Benachrichtigungen aktivieren</string>
+    <string name="perm_notif_rationale_message">HomeMatic Launcher kann dich benachrichtigen wenn Batterien leer sind, Sensoren Sabotage melden oder Fenster offen bleiben. Möchtest du Benachrichtigungen zulassen?</string>
+    <string name="perm_notif_denied_title">Benachrichtigungen dauerhaft gesperrt</string>
+    <string name="perm_notif_denied_message">Benachrichtigungen wurden dauerhaft abgelehnt. Um sie zu aktivieren, öffne die App-Einstellungen und erteile die Berechtigung manuell.</string>
+    <string name="perm_btn_grant">Erlauben</string>
+    <string name="perm_btn_not_now">Nicht jetzt</string>
+    <string name="perm_btn_open_settings">Einstellungen öffnen</string>
+
+    <!-- Device profile UI -->
+    <string name="title_device_profile">Geräte-Profil</string>
+    <string name="pref_category_device_profile">Geräte-Profil</string>
+    <string name="pref_title_open_device_profile">Gerätetype und Feldnamen konfigurieren</string>
+    <string name="pref_summary_open_device_profile">Devicetypen, Datenpunkt-Feldnamen und Zustandswerte anpassen</string>
+
+    <string name="profile_btn_reset">Defaults wiederherstellen</string>
+    <string name="profile_btn_reload">Jetzt neu laden</string>
+    <string name="profile_defaults_prefix">Standard: %1$s</string>
+    <string name="profile_input_hint">Kommagetrennte Werte (leer = nur Defaults)</string>
+
+    <string name="profile_label_window_device_types">Fenster-/Türkontakt device_type</string>
+    <string name="profile_label_thermostat_device_types">Thermostat device_type</string>
+    <string name="profile_label_temp_device_types">Temperatursensor device_type</string>
+    <string name="profile_label_humidity_device_types">Feuchtesensor device_type</string>
+
+    <string name="profile_label_set_temp_fields">Solltemperatur Feldname(n)</string>
+    <string name="profile_label_actual_temp_fields">Ist-Temperatur Feldname(n)</string>
+    <string name="profile_label_humidity_fields">Luftfeuchtigkeit Feldname(n)</string>
+    <string name="profile_label_state_fields">Zustand (Fenster) Feldname(n)</string>
+    <string name="profile_label_lowbat_fields">Batterie-leer Feldname(n)</string>
+    <string name="profile_label_sabotage_fields">Sabotage Feldname(n)</string>
+    <string name="profile_label_fault_fields">Gerätefehler Feldname(n)</string>
+
+    <string name="profile_label_state_closed">Wert = geschlossen</string>
+    <string name="profile_label_state_tilted">Wert = gekippt</string>
+    <string name="profile_label_state_open">Wert = offen</string>
+
 </resources>

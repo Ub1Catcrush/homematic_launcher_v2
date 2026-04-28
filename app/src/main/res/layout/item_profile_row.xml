@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="16dp">
+
+    <!-- Field label -->
+    <TextView
+        android:id="@+id/profile_row_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:textSize="13sp"
+        android:paddingBottom="2dp"
+        android:text="Label" />
+
+    <!-- Built-in defaults (informational, not editable) -->
+    <TextView
+        android:id="@+id/profile_row_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="11sp"
+        android:alpha="0.6"
+        android:paddingBottom="4dp"
+        android:text="Defaults: …" />
+
+    <!-- User input — comma-separated additions / overrides -->
+    <EditText
+        android:id="@+id/profile_row_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="text"
+        android:singleLine="true"
+        android:background="?android:attr/editTextBackground" />
+
+</LinearLayout>

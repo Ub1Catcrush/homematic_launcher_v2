@@ -7,10 +7,9 @@ android {
     compileSdk=36
 
     defaultConfig {
-
         applicationId="com.tvcs.homematic"
         minSdk=26
-        targetSdk=34
+        targetSdk=36
         versionName "${app_versions.versionMajor}.${app_versions.versionMinor}.${app_versions.versionPatch}"
         versionCode app_versions.versionMajor * 1000000 + app_versions.versionMinor * 10000 + app_versions.versionPatch
     }
@@ -27,10 +26,6 @@ android {
         targetCompatibility=JavaVersion.VERSION_17
     }
 
-//    kotlinOptions {
-//        jvmTarget = '17'
-//    }
-
     buildFeatures {
         viewBinding=true
     }
@@ -44,8 +39,10 @@ dependencies {
     implementation 'androidx.preference:preference-ktx:1.2.1'
     implementation 'androidx.work:work-runtime-ktx:2.11.2'
 
-    implementation 'com.google.android.material:material:1.13.0'
+    // Notification support
+    implementation 'androidx.core:core:1.18.0'
 
+    implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.security:security-crypto:1.1.0'
 
     // Kotlin Coroutines
@@ -53,6 +50,8 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2'
 
     // XML parsing — Simple XML
+    // Note: simple-xml 2.7.1 is stable for this use case.
+    // Migration to kotlinx.serialization-xml is tracked as a future task.
     implementation 'org.simpleframework:simple-xml:2.7.1'
 
     testImplementation 'junit:junit:4.13.2'

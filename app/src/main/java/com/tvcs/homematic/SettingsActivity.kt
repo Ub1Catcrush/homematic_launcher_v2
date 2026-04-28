@@ -1,5 +1,6 @@
 package com.tvcs.homematic
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
@@ -12,15 +13,12 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
 import androidx.preference.SwitchPreferenceCompat
-import com.tvcs.homematic.MainActivity.Companion.PACKAGE_NAME
 import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
 
-    override fun attachBaseContext(base: android.content.Context) {
+    override fun attachBaseContext(base: Context) =
         super.attachBaseContext(LocaleHelper.wrap(base))
-    }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,10 +32,8 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
-        android.R.id.home -> { finish(); true }
-        else -> super.onOptionsItemSelected(item)
-    }
+    override fun onOptionsItemSelected(item: MenuItem) =
+        if (item.itemId == android.R.id.home) { finish(); true } else super.onOptionsItemSelected(item)
 
     class SettingsFragment : PreferenceFragmentCompat() {
 
@@ -52,50 +48,41 @@ class SettingsActivity : AppCompatActivity() {
         private fun bindSummaries() {
             val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
 
-            // EditText prefs: show current value as summary (non-empty only)
+            // EditText preferences — show current value as summary
             listOf(
                 PreferenceKeys.CCU_HOST,
                 PreferenceKeys.CCU_API_PATH,
-                PreferenceKeys.OUTDOOR_ROOM_NAME
+                PreferenceKeys.OUTDOOR_ROOM_NAME,
+                PreferenceKeys.MOLD_WARNING_RH,
+                PreferenceKeys.MOLD_URGENT_RH,
+                PreferenceKeys.MAX_WINDOW_INDICATORS
             ).forEach { key ->
                 findPreference<EditTextPreference>(key)?.apply {
                     val cur = prefs.getString(key, "") ?: ""
                     if (cur.isNotEmpty()) summary = cur
                     onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
-                        p.summary = v.toString().ifEmpty { null }
-                        true
+                        p.summary = v.toString().ifEmpty { null }; true
                     }
                 }
             }
 
-            // CCU Port: show value or fallback string
             findPreference<EditTextPreference>(PreferenceKeys.CCU_PORT)?.apply {
-                val cur = prefs.getString(PreferenceKeys.CCU_PORT, "") ?: ""
-                summary = cur.ifEmpty { getString(R.string.pref_summary_ccu_port) }
+                summary = (prefs.getString(PreferenceKeys.CCU_PORT, "") ?: "")
+                    .ifEmpty { getString(R.string.pref_summary_ccu_port) }
                 onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
-                    p.summary = v.toString().ifEmpty { getString(R.string.pref_summary_ccu_port) }
-                    true
+                    p.summary = v.toString().ifEmpty { getString(R.string.pref_summary_ccu_port) }; true
                 }
             }
 
-            // SID: show masked hint when set, or default summary
             findPreference<EditTextPreference>(PreferenceKeys.CCU_SID)?.apply {
                 val cur = prefs.getString(PreferenceKeys.CCU_SID, "") ?: ""
-                summary = if (cur.isNotEmpty())
-                    "••••••  (${cur.length} ${getString(R.string.pref_chars_set)})"
-                else
-                    getString(R.string.pref_summary_ccu_sid)
+                summary = sidSummary(cur)
                 onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
-                    val s = v.toString()
-                    p.summary = if (s.isNotEmpty())
-                        "••••••  (${s.length} ${getString(R.string.pref_chars_set)})"
-                    else
-                        getString(R.string.pref_summary_ccu_sid)
-                    true
+                    p.summary = sidSummary(v.toString()); true
                 }
             }
 
-            // ListPreferences: show the human-readable label as summary
+            // List preferences — show selected entry label
             listOf(
                 PreferenceKeys.SYNC_FREQUENCY,
                 PreferenceKeys.CONNECTION_TIMEOUT,
@@ -108,97 +95,98 @@ class SettingsActivity : AppCompatActivity() {
                     if (idx >= 0) summary = entries[idx]
                     onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
                         val lp = p as ListPreference
-                        val i = lp.findIndexOfValue(v.toString())
+                        val i  = lp.findIndexOfValue(v.toString())
                         p.summary = if (i >= 0) lp.entries[i] else v.toString()
-                        // Language change needs restart
-                        if (key == PreferenceKeys.APP_LANGUAGE) {
-                            showLanguageRestartDialog()
-                        }
+                        if (key == PreferenceKeys.APP_LANGUAGE) showLanguageRestartDialog()
                         true
                     }
                 }
             }
 
-            // Switch prefs: show "Aktiv" / "Deaktiviert" as dynamic summary
+            // Switch preferences — enabled / disabled summary
             listOf(
                 PreferenceKeys.CCU_HTTPS,
+                PreferenceKeys.CCU_TRUST_SELF_SIGNED,
                 PreferenceKeys.KEEP_SCREEN_ON,
                 PreferenceKeys.SHOW_STATUS_BAR,
                 PreferenceKeys.DISABLE_DISPLAY,
                 PreferenceKeys.SHOW_RELOAD_POPUPS,
                 PreferenceKeys.AUTO_RELOAD_ON_RECONNECT,
+                PreferenceKeys.NOTIFY_BACKGROUND,
+                PreferenceKeys.NOTIFY_LOWBAT,
+                PreferenceKeys.NOTIFY_SABOTAGE,
+                PreferenceKeys.NOTIFY_FAULT,
+                PreferenceKeys.NOTIFY_WINDOW_OPEN,
                 PreferenceKeys.TEST_MODE
             ).forEach { key ->
                 findPreference<SwitchPreferenceCompat>(key)?.apply {
                     summary = switchSummary(isChecked)
                     onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
                         p.summary = switchSummary(v as Boolean)
+                        if (key == PreferenceKeys.NOTIFY_BACKGROUND)
+                            CcuNotificationWorker.schedule(requireContext(), v)
                         true
                     }
                 }
             }
         }
 
-        private fun switchSummary(checked: Boolean): String = getString(
-            if (checked) R.string.summary_enabled else R.string.summary_disabled
-        )
+        private fun sidSummary(s: String) =
+            if (s.isNotEmpty()) "••••••  (${s.length} ${getString(R.string.pref_chars_set)})"
+            else getString(R.string.pref_summary_ccu_sid)
+
+        private fun switchSummary(on: Boolean) =
+            getString(if (on) R.string.summary_enabled else R.string.summary_disabled)
 
         // ── Action preferences ────────────────────────────────────────────────
 
         private fun setupActions() {
-            // Reload now
             findPreference<Preference>("action_reload_now")?.setOnPreferenceClickListener {
                 requireContext().sendBroadcast(
-                    Intent(MainActivity.ACTION_RELOAD_DATA).setPackage(PACKAGE_NAME)
+                    Intent(MainActivity.ACTION_RELOAD_DATA)
+                        .setPackage(MainActivity.PACKAGE_NAME)
                 )
-                it.summary = getString(R.string.pref_summary_reload_started)
-                true
+                it.summary = getString(R.string.pref_summary_reload_started); true
             }
 
-            // Network status check
             findPreference<Preference>("action_check_network")?.setOnPreferenceClickListener {
-                val status = NetworkUtils.getNetworkStatus(requireContext())
-                it.summary = status.description
-                true
+                it.summary = NetworkUtils.getNetworkStatus(requireContext()).description; true
             }
 
-            // CCU connection + auth test
             findPreference<Preference>("action_check_ccu")?.setOnPreferenceClickListener { pref ->
                 pref.summary = getString(R.string.pref_summary_checking)
-                val prefs   = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                val ctx     = requireContext()
+                val prefs   = PreferenceManager.getDefaultSharedPreferences(ctx)
                 val host    = HomeMatic.getCcuHost()
                 val https   = HomeMatic.isCcuHttps()
                 val port    = prefs.getString(PreferenceKeys.CCU_PORT, "") ?: ""
                 val apiPath = prefs.getString(PreferenceKeys.CCU_API_PATH, "/addons/xmlapi/") ?: "/addons/xmlapi/"
                 val sid     = prefs.getString(PreferenceKeys.CCU_SID, "") ?: ""
                 val timeout = (prefs.getString(PreferenceKeys.CONNECTION_TIMEOUT, "5")?.toIntOrNull() ?: 5) * 1000
-
                 viewLifecycleOwner.lifecycleScope.launch {
                     val result = NetworkUtils.testCcuConnection(host, https, port, apiPath, sid, timeout)
                     pref.summary = when {
-                        !result.reachable ->
-                            getString(R.string.pref_summary_ccu_unreachable, host)
-                        result.authOk == null ->
-                            getString(R.string.pref_summary_ccu_no_sid)
-                        result.authOk ->
-                            getString(R.string.pref_summary_ccu_auth_ok, host)
-                        else ->
-                            getString(R.string.pref_summary_ccu_auth_fail, host)
+                        !result.reachable     -> getString(R.string.pref_summary_ccu_unreachable, host)
+                        result.authOk == null -> getString(R.string.pref_summary_ccu_no_sid)
+                        result.authOk         -> getString(R.string.pref_summary_ccu_auth_ok,    host)
+                        else                  -> getString(R.string.pref_summary_ccu_auth_fail,  host)
                     }
                 }
                 true
             }
-        }
 
-        // ── Language restart dialog ────────────────────────────────────────────
+            // Open DeviceProfileActivity
+            findPreference<Preference>("action_open_device_profile")?.setOnPreferenceClickListener {
+                startActivity(Intent(requireContext(), DeviceProfileActivity::class.java))
+                true
+            }
+        }
 
         private fun showLanguageRestartDialog() {
             AlertDialog.Builder(requireContext())
                 .setTitle(R.string.dialog_restart_title)
                 .setMessage(R.string.dialog_language_restart_message)
-                .setPositiveButton(R.string.dialog_btn_restart_now) { _, _ ->
-                    restartApp()
-                }
+                .setPositiveButton(R.string.dialog_btn_restart_now) { _, _ -> restartApp() }
                 .setNegativeButton(R.string.dialog_btn_later, null)
                 .show()
         }

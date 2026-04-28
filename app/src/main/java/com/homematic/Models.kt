@@ -18,15 +18,14 @@ data class Datapoint(
     @field:Attribute(name = "timestamp", required = false) var timestamp: Long = 0
 ) {
     companion object {
-        const val TYPE_SET_TEMPERATURE = "SET_TEMPERATURE"
-        const val TYPE_TEMPERATURE = "TEMPERATURE"
+        const val TYPE_SET_TEMPERATURE    = "SET_TEMPERATURE"
+        const val TYPE_TEMPERATURE        = "TEMPERATURE"
         const val TYPE_ACTUAL_TEMPERATURE = "ACTUAL_TEMPERATURE"
-        const val TYPE_HUMIDITY = "HUMIDITY"
-        const val TYPE_STATE = "STATE"
-        const val TYPE_LOWBAT = "LOWBAT"
-        // Available for future use:
-        const val TYPE_SABOTAGE = "SABOTAGE"
-        const val TYPE_FAULT_REPORTING = "FAULT_REPORTING"
+        const val TYPE_HUMIDITY           = "HUMIDITY"
+        const val TYPE_STATE              = "STATE"
+        const val TYPE_LOWBAT             = "LOWBAT"
+        const val TYPE_SABOTAGE           = "SABOTAGE"
+        const val TYPE_FAULT_REPORTING    = "FAULT_REPORTING"
     }
 }
 
@@ -90,4 +89,28 @@ data class Notification(
 @Root(name = "systemNotification", strict = false)
 data class SystemNotification(
     @field:ElementList(inline = true, required = false, entry = "notification") var notifications: MutableList<Notification> = mutableListOf()
+)
+
+/**
+ * Immutable snapshot of all parsed CCU data.
+ * Replaced atomically via AtomicReference in HomeMatic — eliminates partial-update races
+ * between the background load thread and the UI thread reading individual fields.
+ *
+ * All maps are read-only after construction; do not cast to mutable.
+ */
+data class HmState(
+    val deviceList:         Devicelist,
+    val roomList:           Roomlist,
+    val stateList:          Statelist,
+    val systemNotification: SystemNotification?,
+    val devices:            Map<Int, Device>,
+    val channels:           Map<Int, Channel>,
+    val channel2Device:     Map<Int, Int>,
+    /**
+     * Notification map: key = device name.
+     * Includes LOWBAT, SABOTAGE and FAULT_REPORTING entries.
+     * Value holds the most-severe notification for that device.
+     */
+    val notifications:      Map<String, Notification>,
+    val loadTime:           Long
 )

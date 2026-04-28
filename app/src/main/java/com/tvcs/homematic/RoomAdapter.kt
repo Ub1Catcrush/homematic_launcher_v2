@@ -13,35 +13,28 @@ import android.widget.ImageView
 import android.widget.TableLayout
 import android.widget.TableRow
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.homematic.Datapoint
 import com.homematic.Room
 
-class RoomAdapter(private val context: Context, private val rooms: List<Room>) :
+class RoomAdapter(private val context: Context, private val rooms: MutableList<Room>) :
     RecyclerView.Adapter<RoomAdapter.ViewHolder>() {
 
-    // Text size in SP — respects user font scaling
     private val textSizeSp = 12f
 
-    // Direct reference — STATE_DEVICES is a val Set, no conversion or allocation per call
-    private val stateDeviceSet: Set<String> = HomeMatic.STATE_DEVICES
+    var onSetTemperatureRequest: ((iseId: Int, currentValue: Double, roomName: String) -> Unit)? = null
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tableLayout: TableLayout = view.findViewById(R.id.item_content)
-        val titleTextView: TextView = view.findViewById(R.id.item_title_text)
+        val tableLayout: TableLayout  = view.findViewById(R.id.item_content)
+        val titleTextView: TextView   = view.findViewById(R.id.item_title_text)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.room_item, parent, false)
-        return ViewHolder(view)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
+        ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.room_item, parent, false))
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        // Clear previously bound rows — ViewHolder is reused by RecyclerView
         holder.tableLayout.removeAllViews()
         holder.titleTextView.clearAnimation()
-
         val room = rooms[position]
         holder.titleTextView.text = room.name
         addRoomView(holder.tableLayout, room, holder.titleTextView)
@@ -49,103 +42,153 @@ class RoomAdapter(private val context: Context, private val rooms: List<Room>) :
 
     override fun getItemCount(): Int = rooms.size
 
+    fun updateRooms(newRooms: List<Room>) {
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = rooms.size
+            override fun getNewListSize() = newRooms.size
+            override fun areItemsTheSame(o: Int, n: Int) = rooms[o].ise_id == newRooms[n].ise_id
+            override fun areContentsTheSame(o: Int, n: Int) = rooms[o] == newRooms[n]
+        })
+        rooms.clear()
+        rooms.addAll(newRooms)
+        diff.dispatchUpdatesTo(this)
+    }
+
+    // ── Room tile builder ────────────────────────────────────────────────────
+
     private fun addRoomView(table: TableLayout, room: Room, titleView: TextView) {
         if (room.channels.isEmpty()) return
 
-        val outdoorName = HomeMatic.getOutdoorRoomName()
+        // Snapshot profile once per tile — avoids repeated pref reads during bind
+        val prof         = HomeMatic.profile
+        val outdoorName  = HomeMatic.getOutdoorRoomName()
+        val maxIndicators = HomeMatic.getMaxWindowIndicators()
+        val isOutdoor    = room.name == outdoorName
 
-        // First pass: does this room have any window sensors?
-        val hasWindows = room.name != outdoorName && room.channels.any { channel ->
-            val chan = HomeMatic.myChannels[channel.ise_id] ?: return@any false
-            chan.datapoints.any { data ->
-                if (data.type != Datapoint.TYPE_STATE) return@any false
-                val devId = HomeMatic.myChannel2Device[chan.ise_id] ?: return@any false
-                val dev = HomeMatic.myDevices[devId] ?: return@any false
-                dev.device_type in stateDeviceSet
-            }
+        // ── Indicator row ────────────────────────────────────────────────────
+        val availIndicators = ArrayDeque<ImageView>(maxIndicators)
+        val indicatorRow    = TableRow(context)
+        val hasWindows = !isOutdoor && room.channels.any { rc ->
+            val chan  = HomeMatic.myChannels[rc.ise_id] ?: return@any false
+            val devId = HomeMatic.myChannel2Device[chan.ise_id] ?: return@any false
+            val dev   = HomeMatic.myDevices[devId] ?: return@any false
+            dev.device_type in prof.windowDeviceTypes &&
+                chan.datapoints.any { it.type in prof.stateFields }
         }
-
-        // Indicator row — up to 3 window state slots
-        val availIndicators = ArrayDeque<ImageView>(3)
-        val indicatorRow = TableRow(context)
-
         indicatorRow.addView(
             if (hasWindows) makeTextView(context.getString(R.string.label_windows))
-            else makeSpacer(minWidthDp = 100)
+            else            makeSpacer(100)
         )
-        repeat(3) {
-            indicatorRow.addView(makeSpacer())
-            val indicator = makeIndicator()
-            availIndicators.addLast(indicator)
-            indicatorRow.addView(indicator)
+        repeat(maxIndicators) {
+            indicatorRow.addView(makeSpacer(4))
+            val ind = makeIndicator()
+            availIndicators.addLast(ind)
+            indicatorRow.addView(ind)
         }
         table.addView(indicatorRow)
 
-        // Per-tile view map — scoped here, avoids cross-item ID collisions
-        val localViewMap = HashMap<Int, Int>(8)
-
-        var temperature = 0.0
-        var relHum = 0.0
-        var hasSetTemp = false
+        // ── Data rows ────────────────────────────────────────────────────────
+        var actualTemp    = 0.0
+        var relHum        = 0.0
         var hasActualTemp = false
-        var lowBat = false
+        var hasSetTemp    = false
+        var hasHumidity   = false
+        var setTempIseId  = 0
+        var setTempValue  = 0.0
+        var notifType: String? = null
 
-        for (channel in room.channels) {
-            val chan = HomeMatic.myChannels[channel.ise_id] ?: continue
+        for (rc in room.channels) {
+            val chan  = HomeMatic.myChannels[rc.ise_id] ?: continue
+            val devId = HomeMatic.myChannel2Device[chan.ise_id]
+            val dev   = devId?.let { HomeMatic.myDevices[it] }
 
-            for (data in chan.datapoints) {
-                when (data.type) {
+            // Notification badge — pick highest severity across all devices in room
+            if (dev != null) {
+                val n = HomeMatic.myNotifications[dev.name]
+                if (n != null) {
+                    val sev = HomeMatic.notificationSeverity(n.type, prof)
+                    if (notifType == null || sev > HomeMatic.notificationSeverity(notifType, prof))
+                        notifType = n.type
+                }
+            }
 
-                    Datapoint.TYPE_LOWBAT ->
-                        lowBat = data.value.equals("true", ignoreCase = true)
-
-                    Datapoint.TYPE_SET_TEMPERATURE -> if (!hasSetTemp) {
-                        table.addView(createDataRow(channel.ise_id,
+            for (dp in chan.datapoints) {
+                when {
+                    // ── Solltemperatur ───────────────────────────────────────
+                    dp.type in prof.setTempFields && !hasSetTemp -> {
+                        setTempIseId = dp.ise_id
+                        setTempValue = dp.value.toDoubleOrNull() ?: 0.0
+                        val row = table.addDataRow(
                             context.getString(R.string.label_set_temp),
-                            formatTemp(data.value) + data.valueunit, localViewMap))
+                            formatTemp(dp.value) + dp.valueunit
+                        )
+                        if (setTempIseId > 0) {
+                            row.setOnLongClickListener {
+                                onSetTemperatureRequest?.invoke(setTempIseId, setTempValue, room.name)
+                                true
+                            }
+                        }
                         hasSetTemp = true
                     }
 
-                    Datapoint.TYPE_TEMPERATURE,
-                    Datapoint.TYPE_ACTUAL_TEMPERATURE -> if (!hasActualTemp) {
-                        temperature = data.value.toDoubleOrNull() ?: 0.0
-                        table.addView(createDataRow(channel.ise_id,
-                            context.getString(R.string.label_actual_temp),
-                            formatTemp(data.value) + data.valueunit, localViewMap))
+                    // ── Ist-Temperatur ───────────────────────────────────────
+                    dp.type in prof.actualTempFields && !hasActualTemp -> {
+                        actualTemp = dp.value.toDoubleOrNull() ?: 0.0
+                        table.addDataRow(
+                            if (isOutdoor) context.getString(R.string.label_outdoor_temp)
+                            else           context.getString(R.string.label_actual_temp),
+                            formatTemp(dp.value) + dp.valueunit
+                        )
                         hasActualTemp = true
                     }
 
-                    Datapoint.TYPE_HUMIDITY -> {
-                        relHum = data.value.toDoubleOrNull() ?: 0.0
-                        table.addView(createDataRow(channel.ise_id,
-                            context.getString(R.string.label_humidity),
-                            "${data.value}${data.valueunit}", localViewMap))
+                    // ── Luftfeuchtigkeit ─────────────────────────────────────
+                    dp.type in prof.humidityFields && !hasHumidity -> {
+                        relHum = dp.value.toDoubleOrNull() ?: 0.0
+                        table.addDataRow(
+                            if (isOutdoor) context.getString(R.string.label_outdoor_humidity)
+                            else           context.getString(R.string.label_humidity),
+                            "${dp.value}${dp.valueunit}"
+                        )
+                        hasHumidity = true
                     }
 
-                    Datapoint.TYPE_STATE -> {
-                        val devId = HomeMatic.myChannel2Device[chan.ise_id] ?: continue
-                        val dev = HomeMatic.myDevices[devId] ?: continue
-                        if (dev.device_type !in stateDeviceSet) continue
+                    // ── Fensterzustand ───────────────────────────────────────
+                    dp.type in prof.stateFields -> {
+                        if (dev == null || dev.device_type !in prof.windowDeviceTypes) continue
                         if (availIndicators.isEmpty()) continue
-                        val indicator = availIndicators.removeLast()
-                        localViewMap[chan.ise_id] = indicator.id
-                        indicator.background = ColorDrawable(windowStateColor(data.value))
+                        val ind = availIndicators.removeLast()
+                        ind.background = ColorDrawable(windowStateColor(dp.value, prof))
                     }
                 }
             }
         }
 
-        // Ventilation/LowBat warning → blink room title
-        val warning = if (room.name != outdoorName && relHum > 0.0)
-            HomeMatic.getWarning(relHum, temperature) >= 1 || lowBat
-        else lowBat
-
-        applyWarningAnimation(titleView, warning)
+        // ── Warning animation ────────────────────────────────────────────────
+        val moldWarning = !isOutdoor && relHum > 0.0 && HomeMatic.getWarning(relHum, actualTemp) >= 1
+        applyWarningAnimation(titleView, moldWarning || notifType != null, notifType)
     }
 
-    // ── View factory helpers ─────────────────────────────────────────────
+    // ── View factory helpers ─────────────────────────────────────────────────
 
-    private fun makeTextView(text: String): TextView = TextView(context).apply {
+    /** Adds a label/value row and returns it so callers can attach click listeners. */
+    private fun TableLayout.addDataRow(label: String, value: String): TableRow {
+        val row = TableRow(context)
+        row.addView(makeTextView(label))
+        val valueTv = TextView(context).apply {
+            id = View.generateViewId()
+            text = value
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSp)
+            setTextColor(Color.WHITE)
+            textAlignment = View.TEXT_ALIGNMENT_VIEW_END
+            (layoutParams as? TableRow.LayoutParams)?.span = 5
+        }
+        row.addView(valueTv)
+        addView(row)
+        return row
+    }
+
+    private fun makeTextView(text: String) = TextView(context).apply {
         id = View.generateViewId()
         this.text = text
         setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSp)
@@ -153,74 +196,44 @@ class RoomAdapter(private val context: Context, private val rooms: List<Room>) :
         textAlignment = View.TEXT_ALIGNMENT_VIEW_START
     }
 
-    private fun makeSpacer(minWidthDp: Int = 10): ImageView = ImageView(context).apply {
+    private fun makeSpacer(minWidthDp: Int = 10) = ImageView(context).apply {
         id = View.generateViewId()
         minimumHeight = 1
-        minimumWidth = dpToPx(minWidthDp)
+        minimumWidth  = dpToPx(minWidthDp)
     }
 
-    private fun makeIndicator(): ImageView = ImageView(context).apply {
+    private fun makeIndicator() = ImageView(context).apply {
         id = View.generateViewId()
         scaleType = ImageView.ScaleType.FIT_XY
-        val size = dpToPx(10)
-        minimumHeight = size
-        minimumWidth = size
-        maxHeight = size
-        maxWidth = size
-        background = ColorDrawable(0xFF888888.toInt())  // default: grey = no data
+        val sz = dpToPx(10)
+        minimumHeight = sz; minimumWidth = sz; maxHeight = sz; maxWidth = sz
+        background = ColorDrawable(0xFF888888.toInt())
     }
 
-    private fun createDataRow(
-        iseId: Int,
-        label: String,
-        value: String,
-        localViewMap: HashMap<Int, Int>
-    ): TableRow {
-        val row = TableRow(context)
-        val labelTv = makeTextView(label)
-        val valueTv = TextView(context).apply {
-            id = View.generateViewId()
-            text = value
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSp)
-            setTextColor(Color.WHITE)
-            textAlignment = View.TEXT_ALIGNMENT_VIEW_END
-        }
-        row.addView(labelTv)
-        row.addView(valueTv)
-        localViewMap[iseId] = valueTv.id
-        (valueTv.layoutParams as? TableRow.LayoutParams)?.apply {
-            span = 5
-            valueTv.layoutParams = this
-        }
-        return row
+    // ── State colour — uses configurable profile values ───────────────────────
+
+    private fun windowStateColor(value: String, prof: DeviceProfile): Int = when {
+        value in prof.stateClosedValues -> 0xFF00FF00.toInt()   // green  — closed
+        value in prof.stateTiltedValues -> 0xFFFFD700.toInt()   // gold   — tilted
+        value in prof.stateOpenValues   -> 0xFFFF0000.toInt()   // red    — open
+        else                            -> 0xFF888888.toInt()   // grey   — unknown
     }
 
-    private fun applyWarningAnimation(view: View, warning: Boolean) {
+    private fun applyWarningAnimation(view: View, warning: Boolean, notifType: String?) {
         if (warning) {
-            if (view.animation == null) {
-                AlphaAnimation(0.2f, 1.0f).apply {
-                    duration = 600
-                    repeatMode = Animation.REVERSE
-                    repeatCount = Animation.INFINITE
-                    view.startAnimation(this)
-                }
+            if (view.animation != null) return
+            val duration = if (notifType in HomeMatic.profile.sabotageFields) 300L else 600L
+            AlphaAnimation(0.2f, 1.0f).apply {
+                this.duration = duration
+                repeatMode    = Animation.REVERSE
+                repeatCount   = Animation.INFINITE
+                view.startAnimation(this)
             }
         } else {
             view.clearAnimation()
         }
     }
 
-    /** Maps HomeMatic STATE values to indicator colors. */
-    private fun windowStateColor(value: String): Int = when (value) {
-        "0", "false" -> 0xFF00FF00.toInt()   // geschlossen — grün
-        "1"          -> 0xFFFFD700.toInt()   // gekippt     — gold
-        "2", "true"  -> 0xFFFF0000.toInt()   // offen       — rot
-        else         -> 0xFF888888.toInt()   // unbekannt   — grau
-    }
-
-    private fun dpToPx(dp: Int): Int =
-        (dp * context.resources.displayMetrics.density + 0.5f).toInt()
-
-    private fun formatTemp(value: String): String =
-        value.toFloatOrNull()?.let { "%.1f".format(it) } ?: value
+    private fun dpToPx(dp: Int) = (dp * context.resources.displayMetrics.density + 0.5f).toInt()
+    private fun formatTemp(v: String) = v.toFloatOrNull()?.let { "%.1f".format(it) } ?: v
 }

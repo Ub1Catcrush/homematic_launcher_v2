@@ -193,4 +193,94 @@
         <item>de</item>
         <item>en</item>
     </string-array>
+
+
+    <!-- NEW v2.0.3 ─────────────────────────────────────────────────────── -->
+    <string name="pref_title_ccu_trust_self_signed">Accept self-signed certificate</string>
+    <string name="pref_summary_ccu_trust_self_signed">Disable certificate validation (use only on local network)</string>
+
+    <string name="pref_category_thermostat">Mold warning</string>
+    <string name="pref_title_mold_warning_rh">Warning threshold relative humidity (%)</string>
+    <string name="pref_summary_mold_warning_rh">Yellow warning above this value (default: 65)</string>
+    <string name="pref_title_mold_urgent_rh">Critical threshold relative humidity (%)</string>
+    <string name="pref_summary_mold_urgent_rh">Red warning above this value (default: 75)</string>
+
+    <string name="pref_title_max_window_indicators">Max. window indicators per room</string>
+    <string name="pref_summary_max_window_indicators">Number of window state dots (default: 5, max: 10)</string>
+
+    <string name="pref_title_notify_background">Background notifications enabled</string>
+    <string name="pref_summary_notify_background">Poll CCU every 15 minutes in background (WorkManager)</string>
+    <string name="pref_title_notify_lowbat">Low battery alerts</string>
+    <string name="pref_title_notify_sabotage">Sabotage alerts (sensor opened)</string>
+    <string name="pref_title_notify_fault">Device fault alerts</string>
+    <string name="pref_title_notify_window_open">Notify on open windows</string>
+    <string name="pref_summary_notify_window_open">Notify when a window is open or tilted</string>
+
+    <string name="notif_channel_alert_name">CCU Alerts</string>
+    <string name="notif_channel_alert_desc">Battery, sabotage, device faults</string>
+    <string name="notif_channel_window_name">Window status</string>
+    <string name="notif_channel_window_desc">Open and tilted windows</string>
+
+    <string name="notif_lowbat_title">🔋 Battery low</string>
+    <string name="notif_sabotage_title">⚠ Sabotage detected</string>
+    <string name="notif_fault_title">⚠ Device fault</string>
+    <string name="notif_window_title">🪟 Window open</string>
+
+    <string name="thermostat_dialog_title">Target temperature: %1$s</string>
+    <string name="thermostat_label">%.1f°C</string>
+    <string name="thermostat_set_ok">✓ Target set to %.1f°C</string>
+    <string name="thermostat_set_error">Error setting temperature: %1$s</string>
+
+    <string name="widget_description">HomeMatic room status widget</string>
+    <string name="widget_set_temp_fmt">Set: %.1f°C</string>
+    <string name="widget_window_closed">✓ closed</string>
+    <string name="widget_window_tilted">↗ tilted</string>
+    <string name="widget_window_open">✗ open</string>
+    <string name="widget_last_update">Updated: %1$s</string>
+
+    <string name="label_outdoor_temp">Outdoor temp</string>
+    <string name="label_outdoor_humidity">Outdoor humidity</string>
+
+    <plurals name="notif_lowbat_text">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+
+    <!-- Permission strings -->
+    <string name="perm_notif_rationale_title">Enable notifications</string>
+    <string name="perm_notif_rationale_message">HomeMatic Launcher can notify you when batteries are low, sensors report sabotage, or windows remain open. Allow notifications?</string>
+    <string name="perm_notif_denied_title">Notifications permanently blocked</string>
+    <string name="perm_notif_denied_message">Notifications were permanently denied. To enable them, open the app settings and grant the permission manually.</string>
+    <string name="perm_btn_grant">Allow</string>
+    <string name="perm_btn_not_now">Not now</string>
+    <string name="perm_btn_open_settings">Open settings</string>
+
+    <!-- Device profile UI -->
+    <string name="title_device_profile">Device Profile</string>
+    <string name="pref_category_device_profile">Device Profile</string>
+    <string name="pref_title_open_device_profile">Configure device types and field names</string>
+    <string name="pref_summary_open_device_profile">Customise device types, datapoint field names and state values</string>
+
+    <string name="profile_btn_reset">Restore defaults</string>
+    <string name="profile_btn_reload">Reload now</string>
+    <string name="profile_defaults_prefix">Default: %1$s</string>
+    <string name="profile_input_hint">Comma-separated values (empty = defaults only)</string>
+
+    <string name="profile_label_window_device_types">Window/door contact device_type</string>
+    <string name="profile_label_thermostat_device_types">Thermostat device_type</string>
+    <string name="profile_label_temp_device_types">Temperature sensor device_type</string>
+    <string name="profile_label_humidity_device_types">Humidity sensor device_type</string>
+
+    <string name="profile_label_set_temp_fields">Set temperature field name(s)</string>
+    <string name="profile_label_actual_temp_fields">Actual temperature field name(s)</string>
+    <string name="profile_label_humidity_fields">Humidity field name(s)</string>
+    <string name="profile_label_state_fields">State (window) field name(s)</string>
+    <string name="profile_label_lowbat_fields">Low battery field name(s)</string>
+    <string name="profile_label_sabotage_fields">Sabotage field name(s)</string>
+    <string name="profile_label_fault_fields">Device fault field name(s)</string>
+
+    <string name="profile_label_state_closed">Value = closed</string>
+    <string name="profile_label_state_tilted">Value = tilted</string>
+    <string name="profile_label_state_open">Value = open</string>
+
 </resources>

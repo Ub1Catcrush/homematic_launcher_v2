@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Required for Android 13+ to post notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Required by WorkManager on some devices -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <supports-screens
         android:anyDensity="true"
@@ -48,6 +52,32 @@
                 android:name="androidx.core.app.PARENT_ACTIVITY"
                 android:value="com.tvcs.homematic.MainActivity" />
         </activity>
+
+
+        <activity
+            android:name=".DeviceProfileActivity"
+            android:exported="false"
+            android:label="@string/title_device_profile"
+            android:theme="@style/SettingsTheme"
+            android:parentActivityName=".SettingsActivity">
+            <meta-data
+                android:name="androidx.core.app.PARENT_ACTIVITY"
+                android:value="com.tvcs.homematic.SettingsActivity" />
+        </activity>
+
+        <!-- AppWidget (Home-Screen-Widget) -->
+        <receiver
+            android:name=".HmRoomWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/hm_widget_info" />
+        </receiver>
+
+        <!-- WorkManager initialization provider (auto-registered by WorkManager lib) -->
 
     </application>
 
