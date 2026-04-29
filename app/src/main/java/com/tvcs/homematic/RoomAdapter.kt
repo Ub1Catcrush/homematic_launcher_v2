@@ -3,6 +3,7 @@ package com.tvcs.homematic
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.util.Log
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
@@ -22,11 +23,14 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
 
     private val textSizeSp = 12f
 
+    /** Long-press on set-temperature row → thermostat slider dialog. */
     var onSetTemperatureRequest: ((iseId: Int, currentValue: Double, roomName: String) -> Unit)? = null
+    /** Tap on room tile → detail bottom sheet (#14). */
+    var onRoomTapped: ((room: Room) -> Unit)? = null
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tableLayout: TableLayout  = view.findViewById(R.id.item_content)
-        val titleTextView: TextView   = view.findViewById(R.id.item_title_text)
+        val tableLayout:   TableLayout = view.findViewById(R.id.item_content)
+        val titleTextView: TextView    = view.findViewById(R.id.item_title_text)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
@@ -37,10 +41,22 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
         holder.titleTextView.clearAnimation()
         val room = rooms[position]
         holder.titleTextView.text = room.name
-        addRoomView(holder.tableLayout, room, holder.titleTextView)
+
+        // #1 — Error boundary: a bad datapoint must not crash the whole RecyclerView scroll
+        try {
+            addRoomView(holder.tableLayout, room, holder.titleTextView)
+        } catch (e: Exception) {
+            Log.e("RoomAdapter", "Failed to build tile for room '${room.name}': ${e.message}", e)
+            showErrorTile(holder.tableLayout, room.name)
+        }
+
+        // #14 — Tap → detail bottom sheet
+        holder.itemView.setOnClickListener { onRoomTapped?.invoke(room) }
     }
 
     override fun getItemCount(): Int = rooms.size
+
+    // ── DiffUtil update ───────────────────────────────────────────────────────
 
     fun updateRooms(newRooms: List<Room>) {
         val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
@@ -54,16 +70,15 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
         diff.dispatchUpdatesTo(this)
     }
 
-    // ── Room tile builder ────────────────────────────────────────────────────
+    // ── Room tile builder ─────────────────────────────────────────────────────
 
     private fun addRoomView(table: TableLayout, room: Room, titleView: TextView) {
         if (room.channels.isEmpty()) return
 
-        // Snapshot profile once per tile — avoids repeated pref reads during bind
-        val prof         = HomeMatic.profile
-        val outdoorName  = HomeMatic.getOutdoorRoomName()
+        val prof          = HomeMatic.profile
+        val outdoorName   = HomeMatic.getOutdoorRoomName()
         val maxIndicators = HomeMatic.getMaxWindowIndicators()
-        val isOutdoor    = room.name == outdoorName
+        val isOutdoor     = room.name == outdoorName
 
         // ── Indicator row ────────────────────────────────────────────────────
         val availIndicators = ArrayDeque<ImageView>(maxIndicators)
@@ -96,25 +111,31 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
         var setTempIseId  = 0
         var setTempValue  = 0.0
         var notifType: String? = null
+        var missingChannels = 0
 
         for (rc in room.channels) {
-            val chan  = HomeMatic.myChannels[rc.ise_id] ?: continue
+            // #3 — Log missing channels visibly instead of silently skipping
+            val chan = HomeMatic.myChannels[rc.ise_id]
+            if (chan == null) {
+                missingChannels++
+                Log.w("RoomAdapter", "Room '${room.name}': channel ise_id=${rc.ise_id} not found in state map")
+                continue
+            }
+
             val devId = HomeMatic.myChannel2Device[chan.ise_id]
             val dev   = devId?.let { HomeMatic.myDevices[it] }
 
-            // Notification badge — pick highest severity across all devices in room
             if (dev != null) {
                 val n = HomeMatic.myNotifications[dev.name]
                 if (n != null) {
                     val sev = HomeMatic.notificationSeverity(n.type, prof)
-                    if (notifType == null || sev > HomeMatic.notificationSeverity(notifType, prof))
+                    if (notifType == null || sev > HomeMatic.notificationSeverity(notifType!!, prof))
                         notifType = n.type
                 }
             }
 
             for (dp in chan.datapoints) {
                 when {
-                    // ── Solltemperatur ───────────────────────────────────────
                     dp.type in prof.setTempFields && !hasSetTemp -> {
                         setTempIseId = dp.ise_id
                         setTempValue = dp.value.toDoubleOrNull() ?: 0.0
@@ -130,8 +151,6 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
                         }
                         hasSetTemp = true
                     }
-
-                    // ── Ist-Temperatur ───────────────────────────────────────
                     dp.type in prof.actualTempFields && !hasActualTemp -> {
                         actualTemp = dp.value.toDoubleOrNull() ?: 0.0
                         table.addDataRow(
@@ -141,8 +160,6 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
                         )
                         hasActualTemp = true
                     }
-
-                    // ── Luftfeuchtigkeit ─────────────────────────────────────
                     dp.type in prof.humidityFields && !hasHumidity -> {
                         relHum = dp.value.toDoubleOrNull() ?: 0.0
                         table.addDataRow(
@@ -152,8 +169,6 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
                         )
                         hasHumidity = true
                     }
-
-                    // ── Fensterzustand ───────────────────────────────────────
                     dp.type in prof.stateFields -> {
                         if (dev == null || dev.device_type !in prof.windowDeviceTypes) continue
                         if (availIndicators.isEmpty()) continue
@@ -164,14 +179,45 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
             }
         }
 
-        // ── Warning animation ────────────────────────────────────────────────
+        // #3 — Show a subtle indicator if data is inconsistent
+        if (missingChannels > 0) {
+            table.addDataRow(
+                context.getString(R.string.label_data_warning),
+                context.getString(R.string.label_channels_missing, missingChannels)
+            ).also { row ->
+                // Dim the row to distinguish from normal data
+                row.alpha = 0.5f
+            }
+        }
+
+        // #13 — Show data age when CCU is unreachable and we're showing stale data
+        val loadTime = HomeMatic.lastLoadTime
+        if (loadTime > 0L && HomeMatic.lastLoadError != null) {
+            val ageSecs  = (System.currentTimeMillis() - loadTime) / 1000L
+            val ageLabel = when {
+                ageSecs < 60   -> context.getString(R.string.age_seconds, ageSecs)
+                ageSecs < 3600 -> context.getString(R.string.age_minutes, ageSecs / 60)
+                else           -> context.getString(R.string.age_hours,   ageSecs / 3600)
+            }
+            table.addDataRow(context.getString(R.string.label_data_age), ageLabel)
+                .also { it.alpha = 0.5f }
+        }
+
         val moldWarning = !isOutdoor && relHum > 0.0 && HomeMatic.getWarning(relHum, actualTemp) >= 1
         applyWarningAnimation(titleView, moldWarning || notifType != null, notifType)
     }
 
-    // ── View factory helpers ─────────────────────────────────────────────────
+    /** Fallback tile shown when addRoomView() throws (#1). */
+    private fun showErrorTile(table: TableLayout, roomName: String) {
+        val row = TableRow(context)
+        val tv  = makeTextView("⚠ ${context.getString(R.string.label_tile_error)}")
+        tv.setTextColor(Color.YELLOW)
+        row.addView(tv)
+        table.addView(row)
+    }
 
-    /** Adds a label/value row and returns it so callers can attach click listeners. */
+    // ── View factory helpers ──────────────────────────────────────────────────
+
     private fun TableLayout.addDataRow(label: String, value: String): TableRow {
         val row = TableRow(context)
         row.addView(makeTextView(label))
@@ -210,13 +256,11 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
         background = ColorDrawable(0xFF888888.toInt())
     }
 
-    // ── State colour — uses configurable profile values ───────────────────────
-
     private fun windowStateColor(value: String, prof: DeviceProfile): Int = when {
-        value in prof.stateClosedValues -> 0xFF00FF00.toInt()   // green  — closed
-        value in prof.stateTiltedValues -> 0xFFFFD700.toInt()   // gold   — tilted
-        value in prof.stateOpenValues   -> 0xFFFF0000.toInt()   // red    — open
-        else                            -> 0xFF888888.toInt()   // grey   — unknown
+        value in prof.stateClosedValues -> 0xFF00FF00.toInt()
+        value in prof.stateTiltedValues -> 0xFFFFD700.toInt()
+        value in prof.stateOpenValues   -> 0xFFFF0000.toInt()
+        else                            -> 0xFF888888.toInt()
     }
 
     private fun applyWarningAnimation(view: View, warning: Boolean, notifType: String?) {

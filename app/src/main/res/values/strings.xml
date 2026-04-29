@@ -316,4 +316,57 @@
     <string name="profile_label_state_tilted">Wert = gekippt</string>
     <string name="profile_label_state_open">Wert = offen</string>
 
+
+    <!-- Edge-to-edge / content below status bar -->
+    <string name="pref_title_content_below_status_bar">Inhalt unterhalb Statusleiste beginnen</string>
+    <string name="pref_summary_content_below_status_bar">Deaktiviert edge-to-edge; Inhalt startet unterhalb der Systemstatusleiste (empfohlen für Kiosk-Betrieb)</string>
+
+    <!-- Error boundary / data quality -->
+    <string name="label_tile_error">Kachel konnte nicht geladen werden</string>
+    <string name="label_data_warning">⚠ Daten</string>
+    <string name="label_channels_missing">%d Kanal(Kanäle) fehlen</string>
+    <string name="label_data_age">Stand</string>
+    <string name="age_seconds">vor %d Sek.</string>
+    <string name="age_minutes">vor %d Min.</string>
+    <string name="age_hours">vor %d Std.</string>
+    <string name="error_load_timeout">Zeitüberschreitung beim Laden der CCU-Daten</string>
+
+    <!-- Room detail bottom sheet -->
+    <string name="detail_load_age">Stand: vor %d Sek.</string>
+    <string name="detail_channel_missing">Kanal nicht in Statelist</string>
+    <string name="detail_no_datapoints">Keine Datenpunkte</string>
+    <string name="detail_unknown_legend">★ = Datenpunkt nicht im Geräte-Profil konfiguriert</string>
+
+    <!-- Diagnostics -->
+    <string name="title_diagnostics">Diagnose</string>
+    <string name="diag_refresh">Neu laden und prüfen</string>
+    <string name="diag_not_loaded">CCU-Daten noch nicht geladen.</string>
+    <string name="diag_load_age">vor %d Sek.</string>
+    <string name="diag_load_age_unknown">unbekannt</string>
+    <string name="diag_status_ok">%1$d Geräte · %2$d Räume · Stand: %3$s</string>
+    <string name="diag_stats">Gesehene device_types: %1$d · Datenpunkt-Typen: %2$d
+Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
+    <string name="diag_none">Keine (alles bekannt ✓)</string>
+    <string name="diag_section_status">Status</string>
+    <string name="diag_section_stats">Statistik</string>
+    <string name="diag_section_unknown_device_types">Unbekannte device_types (nicht im Profil)</string>
+    <string name="diag_section_unknown_dp_types">Unbekannte Datenpunkt-Typen (nicht im Profil)</string>
+    <string name="diag_section_all_device_types">Alle gesehenen device_types</string>
+
+    <!-- Profile export/import -->
+    <string name="profile_btn_export">Profil exportieren</string>
+    <string name="profile_btn_import">Profil importieren</string>
+    <string name="profile_export_subject">HomeMatic Launcher – Geräte-Profil</string>
+    <string name="profile_export_chooser_title">Profil teilen via…</string>
+    <string name="profile_import_ok">Profil erfolgreich importiert ✓</string>
+    <string name="profile_import_error">Import fehlgeschlagen: %1$s</string>
+    <string name="profile_import_no_keys">Keine bekannten Profil-Schlüssel in der Datei</string>
+    <string name="profile_reset_done">Alle Profil-Einstellungen zurückgesetzt</string>
+
+    <!-- Settings additions -->
+    <string name="pref_title_open_diagnostics">CCU-Diagnose öffnen</string>
+    <string name="pref_summary_open_diagnostics">Unbekannte Gerätetype und Datenpunkte anzeigen</string>
+
+    <!-- Color resource reference (used in RoomDetailBottomSheet) -->
+
 </resources>

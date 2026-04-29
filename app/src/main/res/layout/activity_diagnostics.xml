@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <Button
+            android:id="@+id/btn_diag_refresh"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/diag_refresh"
+            android:layout_marginBottom="12dp" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textStyle="bold" android:text="@string/diag_section_status" android:paddingBottom="4dp"/>
+        <TextView android:id="@+id/diag_load_status"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:paddingBottom="12dp" android:text="–" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textStyle="bold" android:text="@string/diag_section_stats" android:paddingBottom="4dp"/>
+        <TextView android:id="@+id/diag_stats"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:paddingBottom="12dp" android:text="–" android:fontFamily="monospace"/>
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textStyle="bold" android:textColor="#FFCC00"
+            android:text="@string/diag_section_unknown_device_types" android:paddingBottom="4dp"/>
+        <TextView android:id="@+id/diag_unknown_device_types"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:paddingBottom="12dp" android:text="–" android:fontFamily="monospace"/>
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textStyle="bold" android:textColor="#FFCC00"
+            android:text="@string/diag_section_unknown_dp_types" android:paddingBottom="4dp"/>
+        <TextView android:id="@+id/diag_unknown_dp_types"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:paddingBottom="12dp" android:text="–" android:fontFamily="monospace"/>
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textStyle="bold" android:text="@string/diag_section_all_device_types" android:paddingBottom="4dp"/>
+        <TextView android:id="@+id/diag_known_device_types"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="–" android:fontFamily="monospace"/>
+
+    </LinearLayout>
+</ScrollView>

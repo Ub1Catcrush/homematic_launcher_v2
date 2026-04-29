@@ -27,6 +27,7 @@ object PreferenceKeys {
     const val THEME_MODE                = "theme_mode"
     const val APP_LANGUAGE              = "app_language"
     const val MAX_WINDOW_INDICATORS     = "max_window_indicators"
+    const val CONTENT_BELOW_STATUS_BAR  = "content_below_status_bar"
 
     // ── Notifications ─────────────────────────────────────────────────────────
     const val SHOW_RELOAD_POPUPS        = "notifications_show_reload_popups"

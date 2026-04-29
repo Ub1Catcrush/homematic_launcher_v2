@@ -283,4 +283,49 @@
     <string name="profile_label_state_tilted">Value = tilted</string>
     <string name="profile_label_state_open">Value = open</string>
 
+
+    <string name="pref_title_content_below_status_bar">Content starts below status bar</string>
+    <string name="pref_summary_content_below_status_bar">Disables edge-to-edge; content starts below the system status bar (recommended for kiosk use)</string>
+
+    <string name="label_tile_error">Room tile could not be loaded</string>
+    <string name="label_data_warning">⚠ Data</string>
+    <string name="label_channels_missing">%d channel(s) missing</string>
+    <string name="label_data_age">As of</string>
+    <string name="age_seconds">%d sec ago</string>
+    <string name="age_minutes">%d min ago</string>
+    <string name="age_hours">%d hrs ago</string>
+    <string name="error_load_timeout">Timeout loading CCU data</string>
+
+    <string name="detail_load_age">As of %d sec ago</string>
+    <string name="detail_channel_missing">Channel not in statelist</string>
+    <string name="detail_no_datapoints">No datapoints</string>
+    <string name="detail_unknown_legend">★ = Datapoint not configured in device profile</string>
+
+    <string name="title_diagnostics">Diagnostics</string>
+    <string name="diag_refresh">Reload and check</string>
+    <string name="diag_not_loaded">CCU data not yet loaded.</string>
+    <string name="diag_load_age">%d sec ago</string>
+    <string name="diag_load_age_unknown">unknown</string>
+    <string name="diag_status_ok">%1$d devices · %2$d rooms · as of %3$s</string>
+    <string name="diag_stats">Seen device_types: %1$d · Datapoint types: %2$d
+Unknown device_types: %3$d · Unknown DP types: %4$d</string>
+    <string name="diag_none">None (all known ✓)</string>
+    <string name="diag_section_status">Status</string>
+    <string name="diag_section_stats">Statistics</string>
+    <string name="diag_section_unknown_device_types">Unknown device_types (not in profile)</string>
+    <string name="diag_section_unknown_dp_types">Unknown datapoint types (not in profile)</string>
+    <string name="diag_section_all_device_types">All seen device_types</string>
+
+    <string name="profile_btn_export">Export profile</string>
+    <string name="profile_btn_import">Import profile</string>
+    <string name="profile_export_subject">HomeMatic Launcher – Device Profile</string>
+    <string name="profile_export_chooser_title">Share profile via…</string>
+    <string name="profile_import_ok">Profile imported successfully ✓</string>
+    <string name="profile_import_error">Import failed: %1$s</string>
+    <string name="profile_import_no_keys">No known profile keys found in file</string>
+    <string name="profile_reset_done">All profile settings reset to defaults</string>
+
+    <string name="pref_title_open_diagnostics">Open CCU diagnostics</string>
+    <string name="pref_summary_open_diagnostics">Show unknown device types and datapoints</string>
+
 </resources>

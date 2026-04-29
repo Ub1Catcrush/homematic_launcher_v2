@@ -5,4 +5,5 @@
     <color name="colorAccent">#FF4081</color>
     <color name="black">#000000</color>
     <color name="status_bar_bg">#AA000000</color>
+    <color name="detail_channel_header">#88CCFF</color>
 </resources>

@@ -133,6 +133,14 @@
             android:defaultValue="false"
             android:persistent="true" />
 
+
+        <SwitchPreferenceCompat
+            android:key="content_below_status_bar"
+            android:title="@string/pref_title_content_below_status_bar"
+            android:summary="@string/pref_summary_content_below_status_bar"
+            android:defaultValue="true"
+            android:persistent="true" />
+
         <SwitchPreferenceCompat
             android:key="disable_display_switch"
             android:title="@string/pref_title_disable_display"
@@ -251,6 +259,15 @@
             android:key="action_open_device_profile"
             android:title="@string/pref_title_open_device_profile"
             android:summary="@string/pref_summary_open_device_profile" />
+
+    </PreferenceCategory>
+
+    <!-- ========== DIAGNOSE ========== -->
+    <PreferenceCategory android:title="@string/title_diagnostics">
+        <Preference
+            android:key="action_open_diagnostics"
+            android:title="@string/pref_title_open_diagnostics"
+            android:summary="@string/pref_summary_open_diagnostics" />
 
     </PreferenceCategory>
 

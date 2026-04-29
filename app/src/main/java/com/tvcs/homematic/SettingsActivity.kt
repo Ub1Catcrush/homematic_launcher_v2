@@ -117,7 +117,8 @@ class SettingsActivity : AppCompatActivity() {
                 PreferenceKeys.NOTIFY_SABOTAGE,
                 PreferenceKeys.NOTIFY_FAULT,
                 PreferenceKeys.NOTIFY_WINDOW_OPEN,
-                PreferenceKeys.TEST_MODE
+                PreferenceKeys.TEST_MODE,
+                PreferenceKeys.CONTENT_BELOW_STATUS_BAR
             ).forEach { key ->
                 findPreference<SwitchPreferenceCompat>(key)?.apply {
                     summary = switchSummary(isChecked)
@@ -178,6 +179,12 @@ class SettingsActivity : AppCompatActivity() {
             // Open DeviceProfileActivity
             findPreference<Preference>("action_open_device_profile")?.setOnPreferenceClickListener {
                 startActivity(Intent(requireContext(), DeviceProfileActivity::class.java))
+                true
+            }
+
+            // Open DiagnosticsActivity
+            findPreference<Preference>("action_open_diagnostics")?.setOnPreferenceClickListener {
+                startActivity(Intent(requireContext(), DiagnosticsActivity::class.java))
                 true
             }
         }
