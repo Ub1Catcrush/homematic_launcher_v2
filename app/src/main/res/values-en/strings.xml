@@ -387,4 +387,30 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <!-- Camera status — RTSP failed but snapshot active -->
     <string name="camera_status_rtsp_failed_snapshot_ok">⚠ RTSP: %1$s | Snapshot active</string>
     <string name="camera_status_rtsp_and_snapshot_error">✗ RTSP: %1$s | Snapshot: %2$s</string>
+
+    <!-- DB Transit panel -->
+    <string name="pref_category_transit">Departure board (DB)</string>
+    <string name="pref_title_transit_enabled">Enable departure board</string>
+    <string name="pref_summary_transit_enabled">Show next connections above the camera</string>
+    <string name="pref_title_transit_from">From (station name)</string>
+    <string name="pref_summary_transit_from">Enter departure station name, then tap \'Search\'</string>
+    <string name="pref_title_transit_to">To (station name)</string>
+    <string name="pref_summary_transit_to">Enter destination station name, then tap \'Search\'</string>
+    <string name="pref_title_transit_search_from">Search \'From\' station</string>
+    <string name="pref_title_transit_search_to">Search \'To\' station</string>
+    <string name="pref_summary_transit_search">Enter station name above, then tap here</string>
+    <string name="pref_summary_transit_search_enter_name">⚠ Please enter a station name first</string>
+    <string name="pref_summary_transit_searching">Searching for \'%1$s\'…</string>
+    <string name="pref_summary_transit_no_results">No results for \'%1$s\'</string>
+    <string name="pref_summary_transit_search_error">✗ Error: %1$s</string>
+    <string name="pref_summary_transit_station_set">✓ %1$s (%2$s)</string>
+    <string name="transit_header">%1$s → %2$s</string>
+    <string name="transit_no_departures">No departures found</string>
+    <string name="transit_error">⚠ %1$s</string>
+    <string name="transit_on_time">✓</string>
+    <string name="transit_search_hint">Enter station name…</string>
+    <string name="transit_search_btn">Search</string>
+    <string name="transit_search_results_title">Select station</string>
+    <string name="transit_delay_min">+%1$d\'</string>
+    <string name="transit_cancelled">Cancelled</string>
 </resources>

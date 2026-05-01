@@ -1,6 +1,8 @@
 package com.tvcs.homematic
 
 import android.content.Context
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
@@ -62,7 +64,9 @@ class SettingsActivity : AppCompatActivity() {
                 PreferenceKeys.CAMERA_VIEW_HEIGHT_DP,
                 PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS,
                 PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL,
-                PreferenceKeys.ALT_LAUNCHER_PACKAGE
+                PreferenceKeys.ALT_LAUNCHER_PACKAGE,
+                PreferenceKeys.TRANSIT_FROM_NAME,
+                PreferenceKeys.TRANSIT_TO_NAME
             ).forEach { key ->
                 findPreference<EditTextPreference>(key)?.apply {
                     val cur = prefs.getString(key, "") ?: ""
@@ -137,7 +141,8 @@ class SettingsActivity : AppCompatActivity() {
                 PreferenceKeys.TEST_MODE,
                 PreferenceKeys.CONTENT_BELOW_STATUS_BAR,
                 PreferenceKeys.CAMERA_ENABLED,
-                PreferenceKeys.ALT_LAUNCHER_ENABLED
+                PreferenceKeys.ALT_LAUNCHER_ENABLED,
+                PreferenceKeys.TRANSIT_ENABLED
             ).forEach { key ->
                 findPreference<SwitchPreferenceCompat>(key)?.apply {
                     summary = switchSummary(isChecked)
@@ -208,6 +213,26 @@ class SettingsActivity : AppCompatActivity() {
             }
 
             // Test RTSP stream
+            findPreference<Preference>("action_transit_search_from")?.setOnPreferenceClickListener { pref ->
+                runTransitStopSearch(
+                    idKey    = PreferenceKeys.TRANSIT_FROM_ID,
+                    nameKey  = PreferenceKeys.TRANSIT_FROM_NAME,
+                    titleRes = R.string.pref_title_transit_search_from,
+                    pref     = pref
+                )
+                true
+            }
+
+            findPreference<Preference>("action_transit_search_to")?.setOnPreferenceClickListener { pref ->
+                runTransitStopSearch(
+                    idKey    = PreferenceKeys.TRANSIT_TO_ID,
+                    nameKey  = PreferenceKeys.TRANSIT_TO_NAME,
+                    titleRes = R.string.pref_title_transit_search_to,
+                    pref     = pref
+                )
+                true
+            }
+
             findPreference<Preference>("action_test_rtsp")?.setOnPreferenceClickListener { pref ->
                 val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
                 val url   = prefs.getString(PreferenceKeys.CAMERA_RTSP_URL, "") ?: ""
@@ -295,6 +320,68 @@ class SettingsActivity : AppCompatActivity() {
                     .show()
                 true
             }
+        }
+
+        private fun runTransitStopSearch(
+            idKey: String, nameKey: String, titleRes: Int, pref: Preference
+        ) {
+            val ctx = requireContext()
+            // Show an input dialog so the user doesn't need to save the EditText first
+            val input = EditText(ctx).apply {
+                hint = getString(R.string.transit_search_hint)
+                inputType = android.text.InputType.TYPE_CLASS_TEXT
+                val prefs = PreferenceManager.getDefaultSharedPreferences(ctx)
+                setText(prefs.getString(nameKey, "") ?: "")
+                selectAll()
+            }
+            val container = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                val pad = (16 * resources.displayMetrics.density).toInt()
+                setPadding(pad, 0, pad, 0)
+                addView(input)
+            }
+
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle(getString(titleRes))
+                .setView(container)
+                .setPositiveButton(R.string.transit_search_btn) { _, _ ->
+                    val query = input.text.toString().trim()
+                    if (query.isBlank()) {
+                        pref.summary = getString(R.string.pref_summary_transit_search_enter_name)
+                        return@setPositiveButton
+                    }
+                    pref.summary = getString(R.string.pref_summary_transit_searching, query)
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        when (val result = DbTransitRepository.searchStops(query)) {
+                            is DbTransitRepository.Result.Error ->
+                                pref.summary = getString(R.string.pref_summary_transit_search_error, result.message)
+                            is DbTransitRepository.Result.Success -> {
+                                val stops = result.data
+                                if (stops.isEmpty()) {
+                                    pref.summary = getString(R.string.pref_summary_transit_no_results, query)
+                                    return@launch
+                                }
+                                val labels = stops.map { it.name }.toTypedArray()
+                                androidx.appcompat.app.AlertDialog.Builder(ctx)
+                                    .setTitle(getString(R.string.transit_search_results_title))
+                                    .setItems(labels) { _, idx ->
+                                        val stop = stops[idx]
+                                        PreferenceManager.getDefaultSharedPreferences(ctx).edit()
+                                            .putString(idKey,   stop.id)
+                                            .putString(nameKey, stop.name)
+                                            .apply()
+                                        findPreference<androidx.preference.EditTextPreference>(nameKey)
+                                            ?.apply { text = stop.name; summary = stop.name }
+                                        pref.summary = getString(R.string.pref_summary_transit_station_set, stop.name, stop.id)
+                                    }
+                                    .setNegativeButton(android.R.string.cancel, null)
+                                    .show()
+                            }
+                        }
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
 
         private fun showLanguageRestartDialog() {

@@ -348,6 +348,40 @@
 
     </PreferenceCategory>
 
+    <!-- ========== DB TRANSIT ========== -->
+    <PreferenceCategory android:title="@string/pref_category_transit">
+
+        <SwitchPreferenceCompat
+            android:key="transit_enabled"
+            android:title="@string/pref_title_transit_enabled"
+            android:summary="@string/pref_summary_transit_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_from_name"
+            android:title="@string/pref_title_transit_from"
+            android:summary="@string/pref_summary_transit_from"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_to_name"
+            android:title="@string/pref_title_transit_to"
+            android:summary="@string/pref_summary_transit_to"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_transit_search_from"
+            android:title="@string/pref_title_transit_search_from"
+            android:summary="@string/pref_summary_transit_search" />
+
+        <Preference
+            android:key="action_transit_search_to"
+            android:title="@string/pref_title_transit_search_to"
+            android:summary="@string/pref_summary_transit_search" />
+
+    </PreferenceCategory>
+
     <!-- ========== LAUNCHER-WECHSEL ========== -->
     <PreferenceCategory android:title="@string/pref_category_launcher_switch">
 

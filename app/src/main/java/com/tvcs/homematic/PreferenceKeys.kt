@@ -80,6 +80,13 @@ object PreferenceKeys {
     /** Snapshot polling interval in seconds when in MJPEG fallback mode. */
     const val CAMERA_SNAPSHOT_INTERVAL  = "camera_snapshot_interval"
 
+    // ── DB Transit ───────────────────────────────────────────────────────────
+    const val TRANSIT_ENABLED   = "transit_enabled"
+    const val TRANSIT_FROM_ID   = "transit_from_id"
+    const val TRANSIT_FROM_NAME = "transit_from_name"
+    const val TRANSIT_TO_ID     = "transit_to_id"
+    const val TRANSIT_TO_NAME   = "transit_to_name"
+
     // ── Launcher switch ───────────────────────────────────────────────────────
     /** Package name of the alternative launcher to launch when tapping the FAB. */
     const val ALT_LAUNCHER_PACKAGE      = "alt_launcher_package"

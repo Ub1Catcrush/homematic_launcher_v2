@@ -42,6 +42,7 @@ import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.tvcs.homematic.TransitRowView
 import com.google.android.material.snackbar.Snackbar
 import com.homematic.Room
 import kotlinx.coroutines.*
@@ -69,7 +70,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var permissionHelper:    PermissionHelper
-    private lateinit var cameraViewController: CameraViewController
+    private lateinit var cameraViewController:  CameraViewController
+    private lateinit var transitViewController: DbTransitViewController
     private lateinit var sharedPreferences:   SharedPreferences
     private lateinit var toolbar:             Toolbar
     private lateinit var gridView:            RecyclerView
@@ -186,6 +188,27 @@ class MainActivity : AppCompatActivity() {
         )
         cameraViewController.attachToLifecycle(this)
         applyCameraPanel()
+
+        // ── Transit controller ────────────────────────────────────────────────
+        val transitRow1 = TransitRowView(this).also {
+            findViewById<android.widget.LinearLayout>(R.id.transit_row_1).addView(it)
+        }
+        val transitRow2 = TransitRowView(this).also {
+            findViewById<android.widget.LinearLayout>(R.id.transit_row_2).addView(it)
+        }
+        val transitRow3 = TransitRowView(this).also {
+            findViewById<android.widget.LinearLayout>(R.id.transit_row_3).addView(it)
+        }
+        transitViewController = DbTransitViewController(
+            context     = this,
+            panel       = findViewById(R.id.transit_panel),
+            headerLabel = findViewById(R.id.transit_header),
+            row1        = transitRow1,
+            row2        = transitRow2,
+            row3        = transitRow3,
+            errorLabel  = findViewById(R.id.transit_error)
+        )
+        transitViewController.attachToLifecycle(this)
 
         // ── FAB: Settings (right) ─────────────────────────────────────────────
         findViewById<FloatingActionButton>(R.id.fab_settings)
@@ -351,6 +374,14 @@ class MainActivity : AppCompatActivity() {
                     applyCameraPanel()
                     cameraViewController.applyPrefsChange()
                 }
+
+                // Transit panel
+                PreferenceKeys.TRANSIT_ENABLED,
+                PreferenceKeys.TRANSIT_FROM_ID,
+                PreferenceKeys.TRANSIT_FROM_NAME,
+                PreferenceKeys.TRANSIT_TO_ID,
+                PreferenceKeys.TRANSIT_TO_NAME ->
+                    transitViewController.applyPrefsChange()
 
                 // Launcher switch FAB
                 PreferenceKeys.ALT_LAUNCHER_ENABLED,
