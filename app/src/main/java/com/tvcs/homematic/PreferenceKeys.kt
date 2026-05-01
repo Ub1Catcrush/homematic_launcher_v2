@@ -68,4 +68,20 @@ object PreferenceKeys {
     const val PROFILE_STATE_CLOSED = "profile_state_closed_values"
     const val PROFILE_STATE_TILTED = "profile_state_tilted_values"
     const val PROFILE_STATE_OPEN   = "profile_state_open_values"
+    // ── Camera live view ──────────────────────────────────────────────────────
+    const val CAMERA_ENABLED            = "camera_enabled"
+    const val CAMERA_RTSP_URL           = "camera_rtsp_url"
+    const val CAMERA_SNAPSHOT_URL       = "camera_snapshot_url"
+    const val CAMERA_USERNAME           = "camera_username"
+    const val CAMERA_PASSWORD           = "camera_password"
+    const val CAMERA_VIEW_HEIGHT_DP     = "camera_view_height_dp"
+    /** How long (ms) to wait for RTSP before falling back to MJPEG snapshots. */
+    const val CAMERA_RTSP_TIMEOUT_MS    = "camera_rtsp_timeout_ms"
+    /** Snapshot polling interval in seconds when in MJPEG fallback mode. */
+    const val CAMERA_SNAPSHOT_INTERVAL  = "camera_snapshot_interval"
+
+    // ── Launcher switch ───────────────────────────────────────────────────────
+    /** Package name of the alternative launcher to launch when tapping the FAB. */
+    const val ALT_LAUNCHER_PACKAGE      = "alt_launcher_package"
+    const val ALT_LAUNCHER_ENABLED      = "alt_launcher_enabled"
 }

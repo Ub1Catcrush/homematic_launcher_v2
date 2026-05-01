@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.widget.RemoteViews
-import androidx.preference.PreferenceManager
 import androidx.work.*
 import com.homematic.Datapoint
 import java.time.LocalTime
@@ -46,10 +45,7 @@ class HmRoomWidget : AppWidgetProvider() {
                 return
             }
 
-            val prefs       = PreferenceManager.getDefaultSharedPreferences(context)
             val outdoorName = HomeMatic.getOutdoorRoomName()
-            val stateDevSet = HomeMatic.STATE_DEVICES
-
             // Use the first non-outdoor room as the default widget room
             val room = state.roomList.rooms.firstOrNull { it.name != outdoorName }
                 ?: state.roomList.rooms.firstOrNull()
@@ -68,27 +64,39 @@ class HmRoomWidget : AppWidgetProvider() {
                 }
             }
 
+            val prof = HomeMatic.profile
+
             for (rc in room.channels) {
-                val chan = state.channels[rc.ise_id] ?: continue
+                val chan  = state.channels[rc.ise_id] ?: continue
+                val devId = state.channel2Device[chan.ise_id] ?: continue
+                val dev   = state.devices[devId] ?: continue
+
                 for (dp in chan.datapoints) {
-                    when (dp.type) {
-                        Datapoint.TYPE_ACTUAL_TEMPERATURE, Datapoint.TYPE_TEMPERATURE ->
-                            if (actualTemp.isEmpty()) actualTemp = "%.1f°C".format(dp.value.toFloatOrNull() ?: 0f)
-                        Datapoint.TYPE_SET_TEMPERATURE ->
-                            if (setTemp.isEmpty()) setTemp = context.getString(R.string.widget_set_temp_fmt, dp.value.toFloatOrNull() ?: 0f)
-                        Datapoint.TYPE_HUMIDITY ->
-                            if (humidity.isEmpty()) humidity = "${dp.value}${dp.valueunit}"
-                        Datapoint.TYPE_STATE -> {
-                            val devId = state.channel2Device[chan.ise_id] ?: continue
-                            val dev   = state.devices[devId] ?: continue
-                            if (dev.device_type !in stateDevSet) continue
-                            if (windowState.isEmpty()) {
-                                windowState = when (dp.value) {
-                                    "0", "false" -> context.getString(R.string.widget_window_closed)
-                                    "1"          -> context.getString(R.string.widget_window_tilted)
-                                    "2", "true"  -> context.getString(R.string.widget_window_open)
-                                    else         -> ""
-                                }
+                    when {
+                        dp.type in prof.actualTempFields &&
+                                actualTemp.isEmpty() &&
+                                (dev.device_type in prof.tempDeviceTypes ||
+                                 dev.device_type in prof.thermostatDeviceTypes) ->
+                            actualTemp = "%.1f°C".format(dp.value.toFloatOrNull() ?: 0f)
+
+                        dp.type in prof.setTempFields &&
+                                setTemp.isEmpty() &&
+                                dev.device_type in prof.thermostatDeviceTypes ->
+                            setTemp = context.getString(R.string.widget_set_temp_fmt, dp.value.toFloatOrNull() ?: 0f)
+
+                        dp.type in prof.humidityFields &&
+                                humidity.isEmpty() &&
+                                dev.device_type in prof.humidityDeviceTypes ->
+                            humidity = "${dp.value}${dp.valueunit}"
+
+                        dp.type in prof.stateFields &&
+                                windowState.isEmpty() &&
+                                dev.device_type in prof.windowDeviceTypes -> {
+                            windowState = when {
+                                dp.value in prof.stateClosedValues -> context.getString(R.string.widget_window_closed)
+                                dp.value in prof.stateTiltedValues -> context.getString(R.string.widget_window_tilted)
+                                dp.value in prof.stateOpenValues   -> context.getString(R.string.widget_window_open)
+                                else                               -> ""
                             }
                         }
                     }

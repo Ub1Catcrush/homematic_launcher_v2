@@ -55,7 +55,14 @@ class SettingsActivity : AppCompatActivity() {
                 PreferenceKeys.OUTDOOR_ROOM_NAME,
                 PreferenceKeys.MOLD_WARNING_RH,
                 PreferenceKeys.MOLD_URGENT_RH,
-                PreferenceKeys.MAX_WINDOW_INDICATORS
+                PreferenceKeys.MAX_WINDOW_INDICATORS,
+                PreferenceKeys.CAMERA_RTSP_URL,
+                PreferenceKeys.CAMERA_SNAPSHOT_URL,
+                PreferenceKeys.CAMERA_USERNAME,
+                PreferenceKeys.CAMERA_VIEW_HEIGHT_DP,
+                PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS,
+                PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL,
+                PreferenceKeys.ALT_LAUNCHER_PACKAGE
             ).forEach { key ->
                 findPreference<EditTextPreference>(key)?.apply {
                     val cur = prefs.getString(key, "") ?: ""
@@ -71,6 +78,16 @@ class SettingsActivity : AppCompatActivity() {
                     .ifEmpty { getString(R.string.pref_summary_ccu_port) }
                 onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
                     p.summary = v.toString().ifEmpty { getString(R.string.pref_summary_ccu_port) }; true
+                }
+            }
+
+            findPreference<EditTextPreference>(PreferenceKeys.CAMERA_PASSWORD)?.apply {
+                val cur = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: ""
+                summary = if (cur.isNotEmpty()) "••••••" else getString(R.string.pref_summary_camera_password_unset)
+                onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+                    p.summary = if (v.toString().isNotEmpty()) "••••••"
+                    else getString(R.string.pref_summary_camera_password_unset)
+                    true
                 }
             }
 
@@ -118,7 +135,9 @@ class SettingsActivity : AppCompatActivity() {
                 PreferenceKeys.NOTIFY_FAULT,
                 PreferenceKeys.NOTIFY_WINDOW_OPEN,
                 PreferenceKeys.TEST_MODE,
-                PreferenceKeys.CONTENT_BELOW_STATUS_BAR
+                PreferenceKeys.CONTENT_BELOW_STATUS_BAR,
+                PreferenceKeys.CAMERA_ENABLED,
+                PreferenceKeys.ALT_LAUNCHER_ENABLED
             ).forEach { key ->
                 findPreference<SwitchPreferenceCompat>(key)?.apply {
                     summary = switchSummary(isChecked)
@@ -185,6 +204,95 @@ class SettingsActivity : AppCompatActivity() {
             // Open DiagnosticsActivity
             findPreference<Preference>("action_open_diagnostics")?.setOnPreferenceClickListener {
                 startActivity(Intent(requireContext(), DiagnosticsActivity::class.java))
+                true
+            }
+
+            // Test RTSP stream
+            findPreference<Preference>("action_test_rtsp")?.setOnPreferenceClickListener { pref ->
+                val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                val url   = prefs.getString(PreferenceKeys.CAMERA_RTSP_URL, "") ?: ""
+                if (url.isBlank()) {
+                    pref.summary = getString(R.string.pref_summary_camera_test_no_url); return@setOnPreferenceClickListener true
+                }
+                pref.summary = getString(R.string.pref_summary_camera_test_rtsp_starting)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching {
+                            val socket = java.net.Socket()
+                            val uri    = android.net.Uri.parse(url)
+                            val host   = uri.host ?: error("No host in URL")
+                            val port   = if (uri.port > 0) uri.port else 554
+                            socket.connect(java.net.InetSocketAddress(host, port), 4_000)
+                            socket.close()
+                            host to port
+                        }
+                    }
+                    pref.summary = result.fold(
+                        onSuccess = { (h, p) -> getString(R.string.pref_summary_camera_test_rtsp_ok, h, p) },
+                        onFailure = { e     -> getString(R.string.pref_summary_camera_test_rtsp_fail, e.message ?: "?") }
+                    )
+                }
+                true
+            }
+
+            // Test snapshot URL
+            findPreference<Preference>("action_test_snapshot")?.setOnPreferenceClickListener { pref ->
+                val prefs       = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                val snapshotUrl = prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_URL, "") ?: ""
+                val user        = prefs.getString(PreferenceKeys.CAMERA_USERNAME, "") ?: ""
+                val pass        = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: ""
+                if (snapshotUrl.isBlank()) {
+                    pref.summary = getString(R.string.pref_summary_camera_test_no_url); return@setOnPreferenceClickListener true
+                }
+                pref.summary = getString(R.string.pref_summary_camera_test_snapshot_starting)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching {
+                            val fullUrl = if (user.isNotBlank()) {
+                                val sep = if (snapshotUrl.contains("?")) "&" else "?"
+                                "${snapshotUrl}${sep}user=$user&password=$pass"
+                            } else snapshotUrl
+                            val con = (java.net.URL(fullUrl).openConnection() as java.net.HttpURLConnection).apply {
+                                connectTimeout = 5_000; readTimeout = 8_000; connect()
+                            }
+                            val code        = con.responseCode
+                            val contentType = con.contentType ?: ""
+                            con.disconnect()
+                            code to contentType
+                        }
+                    }
+                    pref.summary = result.fold(
+                        onSuccess = { (code, ct) ->
+                            if (code == 200) getString(R.string.pref_summary_camera_test_snapshot_ok, ct)
+                            else             getString(R.string.pref_summary_camera_test_snapshot_http, code)
+                        },
+                        onFailure = { e -> getString(R.string.pref_summary_camera_test_snapshot_fail, e.message ?: "?") }
+                    )
+                }
+                true
+            }
+
+            // Detect installed launchers — shows a chooser dialog and saves the package name
+            findPreference<Preference>("action_detect_launchers")?.setOnPreferenceClickListener { pref ->
+                val launchers = LauncherSwitchHelper.getInstalledLaunchers(requireContext())
+                if (launchers.isEmpty()) {
+                    pref.summary = getString(R.string.pref_summary_no_launchers_found)
+                    return@setOnPreferenceClickListener true
+                }
+                val labels  = launchers.map { it.second }.toTypedArray()
+                val pkgs    = launchers.map { it.first }.toTypedArray()
+                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle(getString(R.string.dialog_select_launcher_title))
+                    .setItems(labels) { _, idx ->
+                        val chosen = pkgs[idx]
+                        PreferenceManager.getDefaultSharedPreferences(requireContext())
+                            .edit().putString(PreferenceKeys.ALT_LAUNCHER_PACKAGE, chosen).apply()
+                        findPreference<EditTextPreference>(PreferenceKeys.ALT_LAUNCHER_PACKAGE)
+                            ?.apply { text = chosen; summary = chosen }
+                        pref.summary = getString(R.string.pref_summary_launcher_selected, labels[idx])
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
                 true
             }
         }

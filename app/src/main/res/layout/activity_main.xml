@@ -6,6 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- AppBar: Toolbar + status strip + progress bar -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -30,7 +31,6 @@
             android:textColor="@android:color/white"
             android:text="@string/status_initializing" />
 
-        <!-- Thin indeterminate bar shown while CCU data is being fetched -->
         <ProgressBar
             android:id="@+id/loading_indicator"
             style="@android:style/Widget.ProgressBar.Horizontal"
@@ -42,11 +42,85 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <include
-        layout="@layout/content_main"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+    <!-- Main content: grid scrolls, camera panel sticks to bottom -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-    <!-- Small settings gear button replaces doorbell FAB -->
+        <!-- Camera panel — fixed at the very bottom of the screen, full width -->
+        <LinearLayout
+            android:id="@+id/camera_panel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#CC000000"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Status label (LIVE / Snapshot / Connecting…) -->
+            <TextView
+                android:id="@+id/camera_status_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                android:textColor="#AAFFFFFF"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="" />
+
+            <!-- ExoPlayer surface for RTSP -->
+            <androidx.media3.ui.PlayerView
+                android:id="@+id/camera_player_view"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:visibility="gone"
+                app:use_controller="false"
+                app:resize_mode="fixed_width" />
+
+            <!-- ImageView for MJPEG snapshot fallback -->
+            <ImageView
+                android:id="@+id/camera_snapshot_view"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                android:contentDescription="@string/camera_snapshot_desc" />
+
+        </LinearLayout>
+
+        <!-- Room grid — constrained above the camera panel when visible -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/grid_view"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="#FF000000"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/camera_panel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- FAB left-bottom: switch to alternative launcher -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_launcher_switch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:src="@drawable/ic_launcher_switch"
+        android:contentDescription="@string/fab_launcher_switch_desc"
+        android:visibility="gone"
+        app:fabSize="mini"
+        app:backgroundTint="?attr/colorSurface"
+        app:tint="?attr/colorOnSurface" />
+
+    <!-- FAB right-bottom: settings -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_settings"
         android:layout_width="wrap_content"

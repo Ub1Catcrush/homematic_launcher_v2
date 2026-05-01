@@ -271,4 +271,106 @@
 
     </PreferenceCategory>
 
+
+    <!-- ========== KAMERA ========== -->
+    <PreferenceCategory android:title="@string/pref_category_camera">
+
+        <SwitchPreferenceCompat
+            android:key="camera_enabled"
+            android:title="@string/pref_title_camera_enabled"
+            android:summary="@string/pref_summary_camera_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="camera_rtsp_url"
+            android:title="@string/pref_title_camera_rtsp_url"
+            android:summary="@string/pref_summary_camera_rtsp_url"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="textUri" />
+
+        <EditTextPreference
+            android:key="camera_snapshot_url"
+            android:title="@string/pref_title_camera_snapshot_url"
+            android:summary="@string/pref_summary_camera_snapshot_url"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="textUri" />
+
+        <EditTextPreference
+            android:key="camera_username"
+            android:title="@string/pref_title_camera_username"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="text" />
+
+        <EditTextPreference
+            android:key="camera_password"
+            android:title="@string/pref_title_camera_password"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="textPassword" />
+
+        <EditTextPreference
+            android:key="camera_view_height_dp"
+            android:title="@string/pref_title_camera_height"
+            android:summary="@string/pref_summary_camera_height"
+            android:defaultValue="180"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="camera_rtsp_timeout_ms"
+            android:title="@string/pref_title_camera_rtsp_timeout"
+            android:summary="@string/pref_summary_camera_rtsp_timeout"
+            android:defaultValue="8000"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="camera_snapshot_interval"
+            android:title="@string/pref_title_camera_snapshot_interval"
+            android:summary="@string/pref_summary_camera_snapshot_interval"
+            android:defaultValue="5"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <Preference
+            android:key="action_test_rtsp"
+            android:title="@string/pref_title_camera_test_rtsp"
+            android:summary="@string/pref_summary_camera_test_rtsp" />
+
+        <Preference
+            android:key="action_test_snapshot"
+            android:title="@string/pref_title_camera_test_snapshot"
+            android:summary="@string/pref_summary_camera_test_snapshot" />
+
+    </PreferenceCategory>
+
+    <!-- ========== LAUNCHER-WECHSEL ========== -->
+    <PreferenceCategory android:title="@string/pref_category_launcher_switch">
+
+        <SwitchPreferenceCompat
+            android:key="alt_launcher_enabled"
+            android:title="@string/pref_title_alt_launcher_enabled"
+            android:summary="@string/pref_summary_alt_launcher_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="alt_launcher_package"
+            android:title="@string/pref_title_alt_launcher_package"
+            android:summary="@string/pref_summary_alt_launcher_package"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="text" />
+
+        <Preference
+            android:key="action_detect_launchers"
+            android:title="@string/pref_title_detect_launchers"
+            android:summary="@string/pref_summary_detect_launchers" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

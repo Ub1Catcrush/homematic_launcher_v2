@@ -328,4 +328,63 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_title_open_diagnostics">Open CCU diagnostics</string>
     <string name="pref_summary_open_diagnostics">Show unknown device types and datapoints</string>
 
+
+    <string name="profile_custom_values_label">Custom values (comma-separated, not in list above):</string>
+    <string name="profile_custom_input_hint">e.g. HmIP-XYZ, MY_FIELD</string>
+
+    <string name="pref_category_camera">Live Camera</string>
+    <string name="pref_title_camera_enabled">Enable camera view</string>
+    <string name="pref_summary_camera_enabled">Show live video at the bottom of the screen</string>
+    <string name="pref_title_camera_rtsp_url">RTSP URL</string>
+    <string name="pref_summary_camera_rtsp_url">e.g. rtsp://192.168.1.100:554/h264Preview_01_main</string>
+    <string name="pref_title_camera_snapshot_url">Snapshot URL (MJPEG fallback)</string>
+    <string name="pref_summary_camera_snapshot_url">e.g. http://192.168.1.100/cgi-bin/api.cgi?cmd=Snap&amp;channel=0</string>
+    <string name="pref_title_camera_username">Username</string>
+    <string name="pref_title_camera_password">Password</string>
+    <string name="pref_summary_camera_password_unset">Not set</string>
+    <string name="pref_title_camera_height">Video height (dp)</string>
+    <string name="pref_summary_camera_height">Height of the camera panel in dp (default: 180)</string>
+    <string name="pref_title_camera_rtsp_timeout">RTSP timeout (ms)</string>
+    <string name="pref_summary_camera_rtsp_timeout">Time before falling back to MJPEG (default: 8000 ms)</string>
+    <string name="pref_title_camera_snapshot_interval">Snapshot interval (sec)</string>
+    <string name="pref_summary_camera_snapshot_interval">How often the still image refreshes (default: 5)</string>
+    <string name="camera_status_connecting">Connecting…</string>
+    <string name="camera_status_live_rtsp">● LIVE (RTSP)</string>
+    <string name="camera_status_buffering">Buffering…</string>
+    <string name="camera_status_rtsp_timeout">RTSP timeout — switching to snapshots</string>
+    <string name="camera_status_snapshot_mode">📷 Snapshot mode</string>
+    <string name="camera_status_snapshot_error">Snapshot error: %1$s</string>
+    <string name="camera_status_no_snapshot_url">No snapshot URL configured</string>
+    <string name="camera_snapshot_desc">Camera live view</string>
+
+    <string name="pref_category_launcher_switch">Launcher Switch</string>
+    <string name="pref_title_alt_launcher_enabled">Show launcher switch button</string>
+    <string name="pref_summary_alt_launcher_enabled">FAB bottom-left to switch to the alternative launcher</string>
+    <string name="pref_title_alt_launcher_package">Alternative launcher (package name)</string>
+    <string name="pref_summary_alt_launcher_package">e.g. com.google.android.apps.nexuslauncher</string>
+    <string name="pref_title_detect_launchers">Detect installed launchers</string>
+    <string name="pref_summary_detect_launchers">Shows all installed launchers for selection</string>
+    <string name="pref_summary_no_launchers_found">No other launchers found</string>
+    <string name="pref_summary_launcher_selected">Selected: %1$s</string>
+    <string name="dialog_select_launcher_title">Select launcher</string>
+    <string name="fab_launcher_switch_desc">Switch to other launcher</string>
+    <string name="launcher_switch_failed">Launcher not found. Check package name in settings.</string>
+
+
+    <!-- Camera test actions -->
+    <string name="pref_title_camera_test_rtsp">Test RTSP stream</string>
+    <string name="pref_summary_camera_test_rtsp">Check TCP connection to RTSP port</string>
+    <string name="pref_title_camera_test_snapshot">Test snapshot URL</string>
+    <string name="pref_summary_camera_test_snapshot">Check HTTP connection to snapshot endpoint</string>
+    <string name="pref_summary_camera_test_no_url">⚠ No URL configured</string>
+    <string name="pref_summary_camera_test_rtsp_starting">Connecting…</string>
+    <string name="pref_summary_camera_test_rtsp_ok">✓ Reachable: %1$s:%2$d</string>
+    <string name="pref_summary_camera_test_rtsp_fail">✗ Error: %1$s</string>
+    <string name="pref_summary_camera_test_snapshot_starting">Fetching snapshot…</string>
+    <string name="pref_summary_camera_test_snapshot_ok">✓ OK – content-type: %1$s</string>
+    <string name="pref_summary_camera_test_snapshot_http">✗ HTTP %1$d</string>
+    <string name="pref_summary_camera_test_snapshot_fail">✗ Error: %1$s</string>
+    <!-- Camera status — RTSP failed but snapshot active -->
+    <string name="camera_status_rtsp_failed_snapshot_ok">⚠ RTSP: %1$s | Snapshot active</string>
+    <string name="camera_status_rtsp_and_snapshot_error">✗ RTSP: %1$s | Snapshot: %2$s</string>
 </resources>

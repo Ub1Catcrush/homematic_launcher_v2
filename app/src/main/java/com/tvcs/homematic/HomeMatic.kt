@@ -74,6 +74,20 @@ object HomeMatic {
         stateOpenValues       = DeviceProfile.DEFAULT_STATE_OPEN_VALUES,
     )
 
+    /**
+     * Re-reads DeviceProfile from SharedPreferences and updates the [profile] singleton.
+     * Call after any PROFILE_* preference changes so the next render pass picks up
+     * the new mapping without a full CCU reload.
+     *
+     * Thread-safe: [profile] is @Volatile; written once, read many.
+     */
+    fun reloadProfile(context: Context) {
+        init(context)
+        profile = DeviceProfile.get(context)
+        Log.d(TAG, "Profile reloaded: windowTypes=${profile.windowDeviceTypes.size}, " +
+            "stateFields=${profile.stateFields}")
+    }
+
     // ── Legacy compatibility — RoomAdapter still references STATE_DEVICES ─────
     // Delegates to the live profile so old call sites work without changes.
     val STATE_DEVICES: Set<String> get() = profile.windowDeviceTypes

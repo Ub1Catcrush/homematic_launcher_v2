@@ -24,6 +24,8 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
@@ -35,6 +37,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.ui.PlayerView
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
@@ -60,26 +63,27 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_DISPLAY_ON    = "display_on"
         private const val KEY_SYNC_INTERVAL = "old_sync_interval"
         private const val KEY_TIMEOUT_SHOWN = "timeout_shown"
-
         private const val TEMP_STEP = 0.5
         private const val TEMP_MIN  = 5.0
         private const val TEMP_MAX  = 30.0
     }
 
-    // ── Permission helper — must be created in onCreate ───────────────────────
-    private lateinit var permissionHelper: PermissionHelper
+    private lateinit var permissionHelper:    PermissionHelper
+    private lateinit var cameraViewController: CameraViewController
+    private lateinit var sharedPreferences:   SharedPreferences
+    private lateinit var toolbar:             Toolbar
+    private lateinit var gridView:            RecyclerView
+    private lateinit var statusTextView:      TextView
+    private lateinit var loadingIndicator:    ProgressBar
+    private lateinit var cameraPanel:         LinearLayout
+    private lateinit var fabLauncherSwitch:   FloatingActionButton
 
-    private lateinit var sharedPreferences: SharedPreferences
-    private lateinit var toolbar: Toolbar
-    private lateinit var gridView: RecyclerView
-    private lateinit var statusTextView: TextView
-    private lateinit var loadingIndicator: ProgressBar
-
-    private val mRooms = ArrayList<Room>()
+    private val mRooms   = ArrayList<Room>()
     private lateinit var mAdapter: RoomAdapter
 
     private var isPaused  = false
     private var isStarted = false
+    private var pendingRecreate = false
     private var reloadJob: Job? = null
     private var timeJob:   Job? = null
     private var loadJob:   Job? = null
@@ -87,6 +91,7 @@ class MainActivity : AppCompatActivity() {
     private var oldSyncInterval          = -1
     private var mDisplayOn               = 0L
     private var displayTimeoutToastShown = false
+    private var backoffMultiplier        = 1
 
     private lateinit var preferenceChangeListener: SharedPreferences.OnSharedPreferenceChangeListener
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
@@ -113,7 +118,6 @@ class MainActivity : AppCompatActivity() {
                     setLoading(false)
                     mAdapter.updateRooms(HomeMatic.myRoomList?.rooms ?: emptyList())
                     updateStatusBar()
-                    // Push fresh data to home-screen widget
                     HmRoomWidget.requestUpdate(this@MainActivity)
                     if (showPopups) showToast(getString(R.string.toast_ui_updated))
                 }
@@ -130,9 +134,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // PermissionHelper MUST be created in onCreate — registers ActivityResultLauncher
         permissionHelper = PermissionHelper(this)
-
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
         HomeMatic.init(this)
         CcuNotificationWorker.createChannels(this)
@@ -147,22 +149,9 @@ class MainActivity : AppCompatActivity() {
         if (sharedPreferences.getBoolean(PreferenceKeys.KEEP_SCREEN_ON, true))
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // ── Edge-to-edge / content-below-statusbar handling ───────────────────
-        //
-        // targetSdk 35 enforces edge-to-edge automatically — WindowCompat.setDecorFitsSystemWindows
-        // is implicitly set to false, meaning content runs behind the status bar by default.
-        //
-        // We respect the user's "Inhalt unterhalb Statusleiste" preference:
-        //   true  → setDecorFitsSystemWindows(true)  — OS handles padding, content stays below bar
-        //   false → setDecorFitsSystemWindows(false) — edge-to-edge, we apply insets manually
-        //
-        // The CoordinatorLayout + AppBarLayout handle their own insets correctly in both modes;
-        // we only need to ensure the root view gets top-padding in edge-to-edge mode so the
-        // AppBar itself is not obscured.
-        val contentBelowStatusBar = sharedPreferences.getBoolean(PreferenceKeys.CONTENT_BELOW_STATUS_BAR, true)
-        applyEdgeToEdge(contentBelowStatusBar)
+        val contentBelow = sharedPreferences.getBoolean(PreferenceKeys.CONTENT_BELOW_STATUS_BAR, true)
+        applyEdgeToEdge(contentBelow)
 
-        // Legacy FLAG_FULLSCREEN for pre-R when status bar is hidden entirely
         if (!sharedPreferences.getBoolean(PreferenceKeys.SHOW_STATUS_BAR, false) &&
             Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             @Suppress("DEPRECATION")
@@ -180,26 +169,40 @@ class MainActivity : AppCompatActivity() {
         statusTextView   = findViewById(R.id.status_text)
         loadingIndicator = findViewById(R.id.loading_indicator)
         gridView         = findViewById(R.id.grid_view)
-        mAdapter         = RoomAdapter(this, mRooms)
-        mAdapter.onSetTemperatureRequest = { iseId, currentValue, roomName ->
-            showThermostatDialog(iseId, currentValue, roomName)
-        }
-        mAdapter.onRoomTapped = { room -> RoomDetailBottomSheet.show(supportFragmentManager, room) }
+        cameraPanel      = findViewById(R.id.camera_panel)
 
+        mAdapter = RoomAdapter(this, mRooms)
+        mAdapter.onSetTemperatureRequest = { iseId, v, room -> showThermostatDialog(iseId, v, room) }
+        mAdapter.onRoomTapped = { room -> RoomDetailBottomSheet.show(supportFragmentManager, room) }
         gridView.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
         gridView.adapter = mAdapter
 
-        // FAB → Settings
-        findViewById<FloatingActionButton>(R.id.fab_settings)
-            ?.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
+        // ── Camera controller ─────────────────────────────────────────────────
+        cameraViewController = CameraViewController(
+            context       = this,
+            playerView    = findViewById(R.id.camera_player_view),
+            snapshotView  = findViewById(R.id.camera_snapshot_view),
+            statusLabel   = findViewById(R.id.camera_status_label)
+        )
+        cameraViewController.attachToLifecycle(this)
+        applyCameraPanel()
 
-        // In edge-to-edge mode, let the FAB float above the navigation bar
-        if (!contentBelowStatusBar) {
-            val fab = findViewById<FloatingActionButton>(R.id.fab_settings)
-            ViewCompat.setOnApplyWindowInsetsListener(fab) { v, insets ->
-                val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-                v.updatePadding(bottom = nav.bottom)
-                insets
+        // ── FAB: Settings (right) ─────────────────────────────────────────────
+        findViewById<FloatingActionButton>(R.id.fab_settings)
+            .setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
+
+        // ── FAB: Launcher switch (left) ───────────────────────────────────────
+        fabLauncherSwitch = findViewById(R.id.fab_launcher_switch)
+        applyLauncherSwitchFab()
+
+        if (!contentBelow) {
+            listOf(R.id.fab_settings, R.id.fab_launcher_switch).forEach { fabId ->
+                val fab = findViewById<FloatingActionButton>(fabId) ?: return@forEach
+                ViewCompat.setOnApplyWindowInsetsListener(fab) { v, insets ->
+                    val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+                    v.updatePadding(bottom = nav.bottom)
+                    insets
+                }
             }
         }
 
@@ -208,10 +211,8 @@ class MainActivity : AppCompatActivity() {
 
         setupNetworkCallback()
         setupPreferenceListener()
-
         CcuNotificationWorker.schedule(this,
             sharedPreferences.getBoolean(PreferenceKeys.NOTIFY_BACKGROUND, false))
-
         permissionHelper.requestNotificationPermission()
     }
 
@@ -222,43 +223,52 @@ class MainActivity : AppCompatActivity() {
         out.putBoolean(KEY_TIMEOUT_SHOWN, displayTimeoutToastShown)
     }
 
+    // ── Camera panel ─────────────────────────────────────────────────────────
+
+    private fun applyCameraPanel() {
+        val enabled = cameraViewController.isEnabled()
+        cameraPanel.visibility = if (enabled) View.VISIBLE else View.GONE
+
+        // Adjust camera view height from preference
+        if (enabled) {
+            val heightDp = sharedPreferences.getString(PreferenceKeys.CAMERA_VIEW_HEIGHT_DP, "180")
+                ?.toIntOrNull() ?: 180
+            val heightPx = (heightDp * resources.displayMetrics.density).toInt()
+            listOf(R.id.camera_player_view, R.id.camera_snapshot_view).forEach { id ->
+                findViewById<View>(id)?.layoutParams?.height = heightPx
+            }
+        }
+    }
+
+    // ── Launcher switch FAB ───────────────────────────────────────────────────
+
+    private fun applyLauncherSwitchFab() {
+        val enabled = LauncherSwitchHelper.isEnabled(this)
+        fabLauncherSwitch.visibility = if (enabled) View.VISIBLE else View.GONE
+        if (enabled) {
+            fabLauncherSwitch.setOnClickListener {
+                if (!LauncherSwitchHelper.switchToAltLauncher(this)) {
+                    showSnackbar(getString(R.string.launcher_switch_failed), Snackbar.LENGTH_LONG)
+                }
+            }
+        }
+    }
+
     // ── Edge-to-edge ──────────────────────────────────────────────────────────
 
-    /**
-     * Controls whether content starts below the system status bar or behind it.
-     *
-     * [contentBelow] = true  → WindowCompat.setDecorFitsSystemWindows(window, true)
-     *                          The OS reserves space for status bar + nav bar automatically.
-     *                          Safe and simple — no manual inset handling required.
-     *
-     * [contentBelow] = false → WindowCompat.setDecorFitsSystemWindows(window, false)
-     *                          Edge-to-edge: content draws behind the status bar.
-     *                          We attach a WindowInsets listener to the CoordinatorLayout root
-     *                          so the AppBarLayout gets the correct top-padding and is not
-     *                          obscured by the status bar.
-     *
-     * Must be called BEFORE setContentView() so the window decorations are already set.
-     */
     private fun applyEdgeToEdge(contentBelow: Boolean) {
         WindowCompat.setDecorFitsSystemWindows(window, contentBelow)
-
         if (!contentBelow) {
-            // We apply insets AFTER setContentView() via a post-layout listener —
-            // defer to after the view tree exists.
             window.decorView.post {
                 val root = findViewById<View>(R.id.activity_main) ?: return@post
                 ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
                     val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                    // Apply top inset to the root so the AppBarLayout is pushed below the status bar.
-                    // CoordinatorLayout passes remaining insets to children automatically.
                     v.updatePadding(top = bars.top)
                     insets
                 }
             }
         }
     }
-
-    // ── Status bar visibility ─────────────────────────────────────────────────
 
     private fun hideStatusBarIfNeeded() {
         if (sharedPreferences.getBoolean(PreferenceKeys.SHOW_STATUS_BAR, false)) return
@@ -271,7 +281,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── App-bar status text ───────────────────────────────────────────────────
+    // ── Status bar ────────────────────────────────────────────────────────────
 
     private fun updateStatusBar() {
         val status    = NetworkUtils.getNetworkStatus(this)
@@ -285,12 +295,10 @@ class MainActivity : AppCompatActivity() {
             statusTextView.text = getString(progress.labelRes)
             return
         }
-
-        val syncInfo = if (HomeMatic.isLoaded && HomeMatic.lastLoadTime > 0L) {
+        val syncInfo = if (HomeMatic.isLoaded && HomeMatic.lastLoadTime > 0L)
             " · ${getString(R.string.status_sync_at, syncTimeFormatter.format(
                 java.time.Instant.ofEpochMilli(HomeMatic.lastLoadTime).atZone(ZoneId.systemDefault())
-            ))}"
-        } else ""
+            ))}" else ""
 
         val (color, text) = when {
             !status.isConnected             -> Color.RED    to getString(R.string.status_offline)
@@ -325,10 +333,55 @@ class MainActivity : AppCompatActivity() {
                 }
                 PreferenceKeys.NOTIFY_BACKGROUND ->
                     CcuNotificationWorker.schedule(this, sharedPreferences.getBoolean(key, false))
-                // Both status-bar settings require a recreate so the window decorations are re-applied
                 PreferenceKeys.SHOW_STATUS_BAR,
                 PreferenceKeys.CONTENT_BELOW_STATUS_BAR ->
+                    pendingRecreate = true
+                PreferenceKeys.APP_LANGUAGE ->
                     if (!isPaused) showRestartDialog()
+
+                // Camera — re-apply panel visibility + height + restart stream
+                PreferenceKeys.CAMERA_ENABLED,
+                PreferenceKeys.CAMERA_RTSP_URL,
+                PreferenceKeys.CAMERA_SNAPSHOT_URL,
+                PreferenceKeys.CAMERA_USERNAME,
+                PreferenceKeys.CAMERA_PASSWORD,
+                PreferenceKeys.CAMERA_VIEW_HEIGHT_DP,
+                PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS,
+                PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL -> {
+                    applyCameraPanel()
+                    cameraViewController.applyPrefsChange()
+                }
+
+                // Launcher switch FAB
+                PreferenceKeys.ALT_LAUNCHER_ENABLED,
+                PreferenceKeys.ALT_LAUNCHER_PACKAGE ->
+                    applyLauncherSwitchFab()
+
+                // Grid-only changes — re-render without CCU reload
+                PreferenceKeys.MAX_WINDOW_INDICATORS,
+                PreferenceKeys.OUTDOOR_ROOM_NAME,
+                PreferenceKeys.MOLD_WARNING_RH,
+                PreferenceKeys.MOLD_URGENT_RH,
+                PreferenceKeys.PROFILE_WINDOW_DEVICE_TYPES,
+                PreferenceKeys.PROFILE_THERMOSTAT_DEVICE_TYPES,
+                PreferenceKeys.PROFILE_TEMP_DEVICE_TYPES,
+                PreferenceKeys.PROFILE_HUMIDITY_DEVICE_TYPES,
+                PreferenceKeys.PROFILE_SET_TEMP_FIELDS,
+                PreferenceKeys.PROFILE_ACTUAL_TEMP_FIELDS,
+                PreferenceKeys.PROFILE_HUMIDITY_FIELDS,
+                PreferenceKeys.PROFILE_STATE_FIELDS,
+                PreferenceKeys.PROFILE_LOWBAT_FIELDS,
+                PreferenceKeys.PROFILE_SABOTAGE_FIELDS,
+                PreferenceKeys.PROFILE_FAULT_FIELDS,
+                PreferenceKeys.PROFILE_STATE_CLOSED,
+                PreferenceKeys.PROFILE_STATE_TILTED,
+                PreferenceKeys.PROFILE_STATE_OPEN -> {
+                    lifecycleScope.launch(Dispatchers.Default) {
+                        HomeMatic.reloadProfile(this@MainActivity)
+                        val rooms = HomeMatic.myRoomList?.rooms?.toList() ?: return@launch
+                        withContext(Dispatchers.Main) { mAdapter.rebindAll(rooms) }
+                    }
+                }
             }
         }
         sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
@@ -363,29 +416,24 @@ class MainActivity : AppCompatActivity() {
                     loadCcuData()
             }
             override fun onLost(network: Network) = runOnUiThread {
-                setLoading(false)
-                updateStatusBar()
+                setLoading(false); updateStatusBar()
                 showSnackbar(getString(R.string.snackbar_network_lost), Snackbar.LENGTH_LONG)
             }
         }
         cm.registerNetworkCallback(req, networkCallback!!)
     }
 
-    // ── CCU load — with withTimeout guard (#11) ────────────────────────────────
+    // ── CCU load ──────────────────────────────────────────────────────────────
 
     private fun loadCcuData() {
         if (loadJob?.isActive == true) return
         setLoading(true)
         loadJob = lifecycleScope.launch {
             val progressJob = launch { while (isActive) { updateStatusBar(); delay(200L) } }
-            // withTimeout wraps the entire load: even if the CCU never responds,
-            // the job terminates after (connectionTimeout + 2s) and doesn't block future refreshes.
             val timeoutMs = ((sharedPreferences.getString(PreferenceKeys.CONNECTION_TIMEOUT, "5")
-                ?.toIntOrNull() ?: 5) * 1000L) + 2000L
+                ?.toIntOrNull() ?: 5) * 1000L + 2000L) * 4
             val result = try {
-                withTimeout(timeoutMs * 4) {          // 4 requests max, each with its own timeout
-                    HomeMatic.loadDataAsync(this@MainActivity)
-                }
+                withTimeout(timeoutMs) { HomeMatic.loadDataAsync(this@MainActivity) }
             } catch (e: TimeoutCancellationException) {
                 Result.failure(Exception(getString(R.string.error_load_timeout)))
             }
@@ -400,32 +448,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Retry with exponential backoff (#10) ──────────────────────────────────
-
-    private var backoffMultiplier = 1
-
     private fun scheduleReloadData(interval: Int) {
-        oldSyncInterval     = interval
-        backoffMultiplier   = 1
-        reloadJob?.cancel()
+        oldSyncInterval = interval; backoffMultiplier = 1; reloadJob?.cancel()
         if (interval < 0) return
         reloadJob = lifecycleScope.launch {
             delay(1000L)
             while (isActive) {
                 if (!isPaused) {
                     sendBroadcast(Intent(ACTION_RELOAD_DATA).setPackage(PACKAGE_NAME))
-                    // After a load failure increase wait time up to 5× the normal interval
-                    val effectiveInterval = if (HomeMatic.lastLoadError != null) {
+                    val eff = if (HomeMatic.lastLoadError != null) {
                         backoffMultiplier = (backoffMultiplier * 2).coerceAtMost(16)
                         interval * backoffMultiplier.toLong()
-                    } else {
-                        backoffMultiplier = 1
-                        interval.toLong()
-                    }
-                    delay(effectiveInterval * 1000L)
-                } else {
-                    delay(1000L)
-                }
+                    } else { backoffMultiplier = 1; interval.toLong() }
+                    delay(eff * 1000L)
+                } else delay(1000L)
             }
         }
     }
@@ -434,10 +470,7 @@ class MainActivity : AppCompatActivity() {
         timeJob?.cancel()
         timeJob = lifecycleScope.launch {
             while (isActive) {
-                if (!isPaused) {
-                    toolbar.title = clockFormatter.format(LocalDateTime.now())
-                    checkDisplayTimeout()
-                }
+                if (!isPaused) { toolbar.title = clockFormatter.format(LocalDateTime.now()); checkDisplayTimeout() }
                 delay(1000L)
             }
         }
@@ -446,42 +479,31 @@ class MainActivity : AppCompatActivity() {
     // ── Thermostat dialog ─────────────────────────────────────────────────────
 
     private fun showThermostatDialog(iseId: Int, currentValue: Double, roomName: String) {
-        val steps    = ((TEMP_MAX - TEMP_MIN) / TEMP_STEP).toInt()
-        val initStep = ((currentValue - TEMP_MIN) / TEMP_STEP).toInt().coerceIn(0, steps)
-
-        val dialogView = layoutInflater.inflate(R.layout.dialog_thermostat, null)
-        val labelView  = dialogView.findViewById<TextView>(R.id.thermostat_value_label)
-        val seekBar    = dialogView.findViewById<SeekBar>(R.id.thermostat_seekbar)
-        seekBar.max      = steps
-        seekBar.progress = initStep
-        labelView.text   = getString(R.string.thermostat_label, currentValue)
-
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar, p: Int, fromUser: Boolean) {
-                labelView.text = getString(R.string.thermostat_label, TEMP_MIN + p * TEMP_STEP)
+        val steps = ((TEMP_MAX - TEMP_MIN) / TEMP_STEP).toInt()
+        val init  = ((currentValue - TEMP_MIN) / TEMP_STEP).toInt().coerceIn(0, steps)
+        val dv    = layoutInflater.inflate(R.layout.dialog_thermostat, null)
+        val lv    = dv.findViewById<TextView>(R.id.thermostat_value_label)
+        val sb    = dv.findViewById<SeekBar>(R.id.thermostat_seekbar)
+        sb.max = steps; sb.progress = init
+        lv.text = getString(R.string.thermostat_label, currentValue)
+        sb.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar, p: Int, f: Boolean) {
+                lv.text = getString(R.string.thermostat_label, TEMP_MIN + p * TEMP_STEP)
             }
-            override fun onStartTrackingTouch(sb: SeekBar) = Unit
-            override fun onStopTrackingTouch(sb: SeekBar)  = Unit
+            override fun onStartTrackingTouch(s: SeekBar) = Unit
+            override fun onStopTrackingTouch(s: SeekBar)  = Unit
         })
-
         AlertDialog.Builder(this)
-            .setTitle(getString(R.string.thermostat_dialog_title, roomName))
-            .setView(dialogView)
+            .setTitle(getString(R.string.thermostat_dialog_title, roomName)).setView(dv)
             .setPositiveButton(android.R.string.ok) { _, _ ->
-                val newTemp = TEMP_MIN + seekBar.progress * TEMP_STEP
+                val t = TEMP_MIN + sb.progress * TEMP_STEP
                 lifecycleScope.launch {
-                    HomeMatic.setDatapointValue(iseId, "%.1f".format(newTemp))
-                        .onSuccess {
-                            showToast(getString(R.string.thermostat_set_ok, newTemp))
-                            delay(500L); loadCcuData()
-                        }
-                        .onFailure { e ->
-                            showSnackbar(getString(R.string.thermostat_set_error, e.message), Snackbar.LENGTH_LONG)
-                        }
+                    HomeMatic.setDatapointValue(iseId, "%.1f".format(t))
+                        .onSuccess { showToast(getString(R.string.thermostat_set_ok, t)); delay(500); loadCcuData() }
+                        .onFailure { e -> showSnackbar(getString(R.string.thermostat_set_error, e.message), Snackbar.LENGTH_LONG) }
                 }
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .setNegativeButton(android.R.string.cancel, null).show()
     }
 
     // ── Display timeout ───────────────────────────────────────────────────────
@@ -493,29 +515,24 @@ class MainActivity : AppCompatActivity() {
         when {
             isOn  && mDisplayOn == 0L -> { mDisplayOn = System.currentTimeMillis(); displayTimeoutToastShown = false }
             isOn  && mDisplayOn  > 0L -> {
-                val period = sharedPreferences.getString(PreferenceKeys.DISABLE_DISPLAY_PERIOD, "120")?.toLongOrNull() ?: 120L
-                if (!displayTimeoutToastShown && mDisplayOn < System.currentTimeMillis() - period * 1000) {
-                    displayTimeoutToastShown = true
-                    showToast(getString(R.string.toast_display_timeout))
+                val p = sharedPreferences.getString(PreferenceKeys.DISABLE_DISPLAY_PERIOD, "120")?.toLongOrNull() ?: 120L
+                if (!displayTimeoutToastShown && mDisplayOn < System.currentTimeMillis() - p * 1000) {
+                    displayTimeoutToastShown = true; showToast(getString(R.string.toast_display_timeout))
                 }
             }
             !isOn && mDisplayOn != 0L -> { mDisplayOn = 0L; displayTimeoutToastShown = false }
         }
     }
 
-    // ── Lifecycle continued ───────────────────────────────────────────────────
+    // ── Activity lifecycle ────────────────────────────────────────────────────
 
     override fun onStart() {
         super.onStart()
         isStarted = true
-        val filter = IntentFilter().apply {
-            addAction(ACTION_UPDATED_DATA); addAction(ACTION_RELOAD_DATA)
-        }
+        val filter = IntentFilter().apply { addAction(ACTION_UPDATED_DATA); addAction(ACTION_RELOAD_DATA) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        else
-            @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(broadcastReceiver, filter)
-
+        else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(broadcastReceiver, filter)
         val interval = sharedPreferences.getString(PreferenceKeys.SYNC_FREQUENCY, "30")?.toIntOrNull() ?: 30
         if (interval != oldSyncInterval) scheduleReloadData(interval)
         loadCcuData()
@@ -527,12 +544,18 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
         isStarted = false
         unregisterReceiver(broadcastReceiver)
-        reloadJob?.cancel()
-        timeJob?.cancel()
+        reloadJob?.cancel(); timeJob?.cancel()
     }
 
     override fun onPause()  { super.onPause();  isPaused = true  }
-    override fun onResume() { super.onResume(); isPaused = false }
+    override fun onResume() {
+        super.onResume()
+        isPaused = false
+        if (pendingRecreate) {
+            pendingRecreate = false
+            recreate()
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -551,8 +574,7 @@ class MainActivity : AppCompatActivity() {
             menu.findItem(id)?.icon?.mutate()?.let { icon ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                     icon.colorFilter = BlendModeColorFilter(Color.WHITE, BlendMode.SRC_ATOP)
-                else
-                    @Suppress("DEPRECATION") icon.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_ATOP)
+                else @Suppress("DEPRECATION") icon.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_ATOP)
             }
         }
         return true

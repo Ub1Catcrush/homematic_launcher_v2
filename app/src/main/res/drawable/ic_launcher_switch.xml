@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!--  Home icon with a right-arrow overlay (switch home) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,20v-6h4v6h5v-8h3L12,3 2,12h3v8z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18,16l-1.41,-1.41L18.17,13H14v-2h4.17l-1.58,-1.59L18,8l4,4z"
+        android:alpha="0.7"/>
+</vector>

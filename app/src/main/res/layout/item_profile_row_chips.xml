@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="20dp">
+
+    <!-- Section label -->
+    <TextView
+        android:id="@+id/profile_row_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:textSize="13sp"
+        android:paddingBottom="6dp"
+        android:text="Label" />
+
+    <!-- Chip multi-select group — one chip per known value -->
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/profile_chip_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:chipSpacingHorizontal="4dp"
+        app:chipSpacingVertical="2dp"
+        android:paddingBottom="6dp" />
+
+    <!-- Custom/extra values not in the chip list -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/profile_custom_values_label"
+        android:textSize="11sp"
+        android:alpha="0.6"
+        android:paddingBottom="2dp" />
+
+    <EditText
+        android:id="@+id/profile_custom_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="text"
+        android:singleLine="true"
+        android:textSize="12sp"
+        android:background="?android:attr/editTextBackground" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:alpha="0.15"
+        android:background="?android:attr/colorControlNormal" />
+
+</LinearLayout>

@@ -105,6 +105,19 @@ data class DeviceProfile(
         fun get(context: Context): DeviceProfile {
             val p = PreferenceManager.getDefaultSharedPreferences(context)
 
+            /**
+             * Reads a profile preference and returns the effective Set<String>.
+             *
+             * The chip UI stores the COMPLETE selected set (defaults + extras – deselected).
+             * The legacy text field stored only ADDITIONS to the defaults.
+             *
+             * Distinguishing rule:
+             *   • Pref empty          → return [default]  (first run, nothing stored)
+             *   • Pref non-empty      → use exactly as stored (chip UI owns the full set)
+             *
+             * Both device_type groups and field name groups now use the same rule:
+             * the stored value is always the complete intended set.
+             */
             fun pref(key: String, default: Set<String>): Set<String> =
                 p.getString(key, "")
                     ?.trim()
@@ -113,18 +126,11 @@ data class DeviceProfile(
                     ?.map { it.trim() }
                     ?.filter { it.isNotEmpty() }
                     ?.toSet()
-                    ?.let { default + it }   // user additions are merged, not replacing, so defaults always work
                     ?: default
 
+            // prefOverride is now identical to pref — kept as alias for readability
             fun prefOverride(key: String, default: Set<String>): Set<String> =
-                p.getString(key, "")
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.split(",")
-                    ?.map { it.trim() }
-                    ?.filter { it.isNotEmpty() }
-                    ?.toSet()
-                    ?: default
+                pref(key, default)
 
             return DeviceProfile(
                 windowDeviceTypes    = pref(PreferenceKeys.PROFILE_WINDOW_DEVICE_TYPES,    DEFAULT_WINDOW_DEVICE_TYPES),

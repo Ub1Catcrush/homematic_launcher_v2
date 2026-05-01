@@ -88,13 +88,24 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
             }
 
             for (dp in chan.datapoints) {
-                val isKnown = dp.type in prof.setTempFields    ||
-                              dp.type in prof.actualTempFields ||
-                              dp.type in prof.humidityFields   ||
-                              dp.type in prof.stateFields      ||
-                              dp.type in prof.lowbatFields     ||
-                              dp.type in prof.sabotageFields   ||
-                              dp.type in prof.faultFields
+                // Mirror the device-type guards used in RoomAdapter / HmRoomWidget:
+                // a datapoint is only "known" (rendered) if BOTH its type AND its
+                // device's type match the corresponding profile bucket.
+                val isKnown = when {
+                    dp.type in prof.setTempFields ->
+                        dev != null && dev.device_type in prof.thermostatDeviceTypes
+                    dp.type in prof.actualTempFields ->
+                        dev != null && (dev.device_type in prof.tempDeviceTypes ||
+                                        dev.device_type in prof.thermostatDeviceTypes)
+                    dp.type in prof.humidityFields ->
+                        dev != null && dev.device_type in prof.humidityDeviceTypes
+                    dp.type in prof.stateFields ->
+                        dev != null && dev.device_type in prof.windowDeviceTypes
+                    dp.type in prof.lowbatFields ||
+                    dp.type in prof.sabotageFields ||
+                    dp.type in prof.faultFields -> true   // notifications: no device-type filter
+                    else -> false
+                }
 
                 val label = dp.type + if (!isKnown) "  ★" else ""   // ★ = unknown, not in profile
                 val value = buildString {
@@ -115,14 +126,28 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
             }
         }
 
-        // Legend for ★
+        // Legend for ★ — mirrors the isKnown logic above
         if (room.channels.any { rc ->
-            val chan = state.channels[rc.ise_id] ?: return@any false
+            val chan  = state.channels[rc.ise_id] ?: return@any false
+            val devId = state.channel2Device[chan.ise_id]
+            val dev   = devId?.let { state.devices[it] }
             chan.datapoints.any { dp ->
-                dp.type !in prof.setTempFields && dp.type !in prof.actualTempFields &&
-                dp.type !in prof.humidityFields && dp.type !in prof.stateFields &&
-                dp.type !in prof.lowbatFields && dp.type !in prof.sabotageFields &&
-                dp.type !in prof.faultFields
+                val known = when {
+                    dp.type in prof.setTempFields ->
+                        dev != null && dev.device_type in prof.thermostatDeviceTypes
+                    dp.type in prof.actualTempFields ->
+                        dev != null && (dev.device_type in prof.tempDeviceTypes ||
+                                        dev.device_type in prof.thermostatDeviceTypes)
+                    dp.type in prof.humidityFields ->
+                        dev != null && dev.device_type in prof.humidityDeviceTypes
+                    dp.type in prof.stateFields ->
+                        dev != null && dev.device_type in prof.windowDeviceTypes
+                    dp.type in prof.lowbatFields ||
+                    dp.type in prof.sabotageFields ||
+                    dp.type in prof.faultFields -> true
+                    else -> false
+                }
+                !known
             }
         }) {
             container.addView(TextView(requireContext()).apply {

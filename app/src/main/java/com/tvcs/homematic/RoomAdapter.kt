@@ -58,6 +58,17 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
 
     // ── DiffUtil update ───────────────────────────────────────────────────────
 
+    /**
+     * Full rebind — replaces all rooms AND forces every visible tile to re-draw,
+     * even if the room data itself hasn't changed (e.g. after a profile preference change).
+     * Use when the rendering logic changes, not the underlying data.
+     */
+    fun rebindAll(newRooms: List<Room>) {
+        rooms.clear()
+        rooms.addAll(newRooms)
+        notifyDataSetChanged()   // intentional full redraw — profile mapping changed
+    }
+
     fun updateRooms(newRooms: List<Room>) {
         val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
             override fun getOldListSize() = rooms.size
@@ -81,20 +92,24 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
         val isOutdoor     = room.name == outdoorName
 
         // ── Indicator row ────────────────────────────────────────────────────
-        val availIndicators = ArrayDeque<ImageView>(maxIndicators)
-        val indicatorRow    = TableRow(context)
-        val hasWindows = !isOutdoor && room.channels.any { rc ->
-            val chan  = HomeMatic.myChannels[rc.ise_id] ?: return@any false
-            val devId = HomeMatic.myChannel2Device[chan.ise_id] ?: return@any false
-            val dev   = HomeMatic.myDevices[devId] ?: return@any false
+        // Count actual window-state channels first, then create exactly that many
+        // indicator squares (capped at maxIndicators). Never show empty placeholder squares.
+        val windowChannelCount = if (isOutdoor) 0 else room.channels.count { rc ->
+            val chan  = HomeMatic.myChannels[rc.ise_id] ?: return@count false
+            val devId = HomeMatic.myChannel2Device[chan.ise_id] ?: return@count false
+            val dev   = HomeMatic.myDevices[devId] ?: return@count false
             dev.device_type in prof.windowDeviceTypes &&
                 chan.datapoints.any { it.type in prof.stateFields }
         }
+        val indicatorCount  = windowChannelCount.coerceAtMost(maxIndicators)
+        val hasWindows      = indicatorCount > 0
+        val availIndicators = ArrayDeque<ImageView>(indicatorCount)
+        val indicatorRow    = TableRow(context)
         indicatorRow.addView(
             if (hasWindows) makeTextView(context.getString(R.string.label_windows))
             else            makeSpacer(100)
         )
-        repeat(maxIndicators) {
+        repeat(indicatorCount) {
             indicatorRow.addView(makeSpacer(4))
             val ind = makeIndicator()
             availIndicators.addLast(ind)
@@ -129,14 +144,15 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
                 val n = HomeMatic.myNotifications[dev.name]
                 if (n != null) {
                     val sev = HomeMatic.notificationSeverity(n.type, prof)
-                    if (notifType == null || sev > HomeMatic.notificationSeverity(notifType!!, prof))
+                    if (notifType == null || sev > HomeMatic.notificationSeverity(notifType, prof))
                         notifType = n.type
                 }
             }
 
             for (dp in chan.datapoints) {
                 when {
-                    dp.type in prof.setTempFields && !hasSetTemp -> {
+                    dp.type in prof.setTempFields && !hasSetTemp &&
+                            dev != null && dev.device_type in prof.thermostatDeviceTypes -> {
                         setTempIseId = dp.ise_id
                         setTempValue = dp.value.toDoubleOrNull() ?: 0.0
                         val row = table.addDataRow(
@@ -151,7 +167,9 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
                         }
                         hasSetTemp = true
                     }
-                    dp.type in prof.actualTempFields && !hasActualTemp -> {
+                    dp.type in prof.actualTempFields && !hasActualTemp &&
+                            dev != null && (dev.device_type in prof.tempDeviceTypes ||
+                                           dev.device_type in prof.thermostatDeviceTypes) -> {
                         actualTemp = dp.value.toDoubleOrNull() ?: 0.0
                         table.addDataRow(
                             if (isOutdoor) context.getString(R.string.label_outdoor_temp)
@@ -160,7 +178,8 @@ class RoomAdapter(private val context: Context, private val rooms: MutableList<R
                         )
                         hasActualTemp = true
                     }
-                    dp.type in prof.humidityFields && !hasHumidity -> {
+                    dp.type in prof.humidityFields && !hasHumidity &&
+                            dev != null && dev.device_type in prof.humidityDeviceTypes -> {
                         relHum = dp.value.toDoubleOrNull() ?: 0.0
                         table.addDataRow(
                             if (isOutdoor) context.getString(R.string.label_outdoor_humidity)
