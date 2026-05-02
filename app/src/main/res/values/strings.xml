@@ -457,4 +457,15 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="transit_search_results_title">Station wählen</string>
     <string name="transit_delay_min">+%1$d\'</string>
     <string name="transit_cancelled">Ausfall</string>
+    <string name="transit_hin">Hin</string>
+    <string name="transit_rueck">Rück</string>
+    <string name="pref_title_transit_watched_stations">Zwischenstationen hinzufügen</string>
+    <string name="pref_summary_transit_watched_stations_action">Station suchen und zur Umstiegsanzeige (Spalte 4) hinzufügen</string>
+    <string name="pref_title_transit_watched_clear">Zwischenstationen leeren</string>
+    <string name="transit_watched_stations_current">Aktuelle Stationen: %1$s</string>
+    <string name="transit_watched_stations_empty">Keine Zwischenstationen konfiguriert</string>
+    <string name="transit_watched_station_added">+ %1$s hinzugefügt</string>
+    <string name="pref_category_transit_conn2">Verbindung 2 (optional)</string>
+    <string name="pref_category_transit_conn3">Verbindung 3 (optional)</string>
+    <string name="pref_category_transit_conn4">Verbindung 4 (optional)</string>
 </resources>

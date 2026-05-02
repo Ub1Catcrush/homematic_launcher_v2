@@ -233,6 +233,77 @@ class SettingsActivity : AppCompatActivity() {
                 true
             }
 
+            // ── Zwischenstationen (Spalte 4) ──────────────────────────────────
+            fun refreshWatchedSummary() {
+                val current = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: ""
+                val addPref   = findPreference<Preference>("action_transit_watched_add")
+                val clearPref = findPreference<Preference>("action_transit_watched_clear")
+                if (current.isBlank()) {
+                    addPref?.summary   = getString(R.string.transit_watched_stations_empty)
+                    clearPref?.isVisible = false
+                } else {
+                    addPref?.summary   = getString(R.string.transit_watched_stations_current, current)
+                    clearPref?.isVisible = true
+                    clearPref?.summary = getString(R.string.transit_watched_stations_current, current)
+                }
+            }
+            refreshWatchedSummary()
+
+            findPreference<Preference>("action_transit_watched_add")?.setOnPreferenceClickListener { pref ->
+                showStopSearchDialog(getString(R.string.pref_title_transit_watched_stations), "") { stop ->
+                    val ctx   = requireContext()
+                    val prefs = PreferenceManager.getDefaultSharedPreferences(ctx)
+                    val current = prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: ""
+                    val names = current.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableList()
+                    if (!names.contains(stop.name)) names.add(stop.name)
+                    prefs.edit().putString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, names.joinToString(", ")).apply()
+                    refreshWatchedSummary()
+                    pref.summary = getString(R.string.transit_watched_station_added, stop.name)
+                }
+                true
+            }
+
+            findPreference<Preference>("action_transit_watched_clear")?.setOnPreferenceClickListener { _ ->
+                PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .edit().remove(PreferenceKeys.TRANSIT_WATCHED_STATIONS).apply()
+                refreshWatchedSummary()
+                true
+            }
+
+            // Extra connections 2–4 (stored in TRANSIT_EXTRA_CONNECTIONS as JSON array)
+            listOf(
+                Triple("action_transit_conn2_search_from", "conn2_from", true),
+                Triple("action_transit_conn2_search_to",   "conn2_to",   false),
+                Triple("action_transit_conn3_search_from", "conn3_from", true),
+                Triple("action_transit_conn3_search_to",   "conn3_to",   false),
+                Triple("action_transit_conn4_search_from", "conn4_from", true),
+                Triple("action_transit_conn4_search_to",   "conn4_to",   false)
+            ).forEach { (actionKey, connKey, isFrom) ->
+                findPreference<Preference>(actionKey)?.setOnPreferenceClickListener { pref ->
+                    val connIdx = connKey[4].digitToInt() - 2  // "conn2" → 0, "conn3" → 1, "conn4" → 2
+                    runExtraConnectionStopSearch(connIdx, isFrom, pref)
+                    true
+                }
+            }
+
+            // Sync summary for extra connection name fields
+            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            listOf(
+                "transit_conn2_from_name", "transit_conn2_to_name",
+                "transit_conn3_from_name", "transit_conn3_to_name",
+                "transit_conn4_from_name", "transit_conn4_to_name"
+            ).forEach { key ->
+                findPreference<EditTextPreference>(key)?.apply {
+                    val cur = prefs.getString(key, "") ?: ""
+                    if (cur.isNotEmpty()) summary = cur
+                    onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+                        p.summary = v as? String ?: ""
+                        true
+                    }
+                }
+            }
+
             findPreference<Preference>("action_test_rtsp")?.setOnPreferenceClickListener { pref ->
                 val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
                 val url   = prefs.getString(PreferenceKeys.CAMERA_RTSP_URL, "") ?: ""
@@ -322,66 +393,164 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        private fun runTransitStopSearch(
-            idKey: String, nameKey: String, titleRes: Int, pref: Preference
+        /**
+         * Unified station search dialog — one dialog, live search, results inline.
+         * Replaces the old two-step (input dialog → results dialog) approach.
+         *
+         * On selection, calls [onStopSelected] with the chosen stop.
+         */
+        private fun showStopSearchDialog(
+            title: String,
+            prefill: String,
+            onStopSelected: (DbTransitRepository.TransitStop) -> Unit
         ) {
             val ctx = requireContext()
-            // Show an input dialog so the user doesn't need to save the EditText first
+            val dp  = resources.displayMetrics.density
+
+            // ── Views ──────────────────────────────────────────────────────────
             val input = EditText(ctx).apply {
-                hint = getString(R.string.transit_search_hint)
+                hint      = getString(R.string.transit_search_hint)
                 inputType = android.text.InputType.TYPE_CLASS_TEXT
-                val prefs = PreferenceManager.getDefaultSharedPreferences(ctx)
-                setText(prefs.getString(nameKey, "") ?: "")
+                setText(prefill)
                 selectAll()
             }
-            val container = LinearLayout(ctx).apply {
-                orientation = LinearLayout.VERTICAL
-                val pad = (16 * resources.displayMetrics.density).toInt()
-                setPadding(pad, 0, pad, 0)
-                addView(input)
+
+            val statusText = android.widget.TextView(ctx).apply {
+                textSize = 12f
+                setPadding(0, (4 * dp).toInt(), 0, 0)
+                visibility = android.view.View.GONE
             }
 
-            androidx.appcompat.app.AlertDialog.Builder(ctx)
-                .setTitle(getString(titleRes))
+            val listView = android.widget.ListView(ctx)
+
+            val container = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                val pad = (16 * dp).toInt()
+                setPadding(pad, (8 * dp).toInt(), pad, 0)
+                addView(input)
+                addView(statusText)
+                addView(listView)
+            }
+
+            val dialog = androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle(title)
                 .setView(container)
-                .setPositiveButton(R.string.transit_search_btn) { _, _ ->
-                    val query = input.text.toString().trim()
-                    if (query.isBlank()) {
-                        pref.summary = getString(R.string.pref_summary_transit_search_enter_name)
-                        return@setPositiveButton
+                .setNegativeButton(android.R.string.cancel, null)
+                .create()
+
+            // ── Live search logic ──────────────────────────────────────────────
+            var searchJob: kotlinx.coroutines.Job? = null
+            var currentStops: List<DbTransitRepository.TransitStop> = emptyList()
+
+            fun updateList(stops: List<DbTransitRepository.TransitStop>) {
+                currentStops = stops
+                val adapter = android.widget.ArrayAdapter(
+                    ctx,
+                    android.R.layout.simple_list_item_1,
+                    stops.map { it.name }
+                )
+                listView.adapter = adapter
+                listView.setOnItemClickListener { _, _, idx, _ ->
+                    onStopSelected(currentStops[idx])
+                    dialog.dismiss()
+                }
+            }
+
+            input.addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+                override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val query = s?.toString()?.trim() ?: ""
+                    searchJob?.cancel()
+                    if (query.length < 2) {
+                        statusText.visibility = android.view.View.GONE
+                        updateList(emptyList())
+                        return
                     }
-                    pref.summary = getString(R.string.pref_summary_transit_searching, query)
-                    viewLifecycleOwner.lifecycleScope.launch {
+                    statusText.text = getString(R.string.pref_summary_transit_searching, query)
+                    statusText.visibility = android.view.View.VISIBLE
+                    searchJob = viewLifecycleOwner.lifecycleScope.launch {
+                        kotlinx.coroutines.delay(350) // debounce
                         when (val result = DbTransitRepository.searchStops(query)) {
-                            is DbTransitRepository.Result.Error ->
-                                pref.summary = getString(R.string.pref_summary_transit_search_error, result.message)
+                            is DbTransitRepository.Result.Error -> {
+                                statusText.text = getString(R.string.pref_summary_transit_search_error, result.message)
+                            }
                             is DbTransitRepository.Result.Success -> {
-                                val stops = result.data
-                                if (stops.isEmpty()) {
-                                    pref.summary = getString(R.string.pref_summary_transit_no_results, query)
-                                    return@launch
+                                statusText.visibility = android.view.View.GONE
+                                if (result.data.isEmpty()) {
+                                    statusText.text = getString(R.string.pref_summary_transit_no_results, query)
+                                    statusText.visibility = android.view.View.VISIBLE
                                 }
-                                val labels = stops.map { it.name }.toTypedArray()
-                                androidx.appcompat.app.AlertDialog.Builder(ctx)
-                                    .setTitle(getString(R.string.transit_search_results_title))
-                                    .setItems(labels) { _, idx ->
-                                        val stop = stops[idx]
-                                        PreferenceManager.getDefaultSharedPreferences(ctx).edit()
-                                            .putString(idKey,   stop.id)
-                                            .putString(nameKey, stop.name)
-                                            .apply()
-                                        findPreference<androidx.preference.EditTextPreference>(nameKey)
-                                            ?.apply { text = stop.name; summary = stop.name }
-                                        pref.summary = getString(R.string.pref_summary_transit_station_set, stop.name, stop.id)
-                                    }
-                                    .setNegativeButton(android.R.string.cancel, null)
-                                    .show()
+                                updateList(result.data)
                             }
                         }
                     }
                 }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            })
+
+            dialog.show()
+            // Trigger search immediately if prefill text is long enough
+            if (prefill.length >= 2) input.text = input.text
+        }
+
+        // ── Helpers that call showStopSearchDialog ────────────────────────────
+
+        private fun runTransitStopSearch(
+            idKey: String, nameKey: String, titleRes: Int, pref: Preference
+        ) {
+            val ctx    = requireContext()
+            val prefs  = PreferenceManager.getDefaultSharedPreferences(ctx)
+            val prefill = prefs.getString(nameKey, "") ?: ""
+            showStopSearchDialog(getString(titleRes), prefill) { stop ->
+                prefs.edit()
+                    .putString(idKey,   stop.id)
+                    .putString(nameKey, stop.name)
+                    .apply()
+                findPreference<androidx.preference.EditTextPreference>(nameKey)
+                    ?.apply { text = stop.name; summary = stop.name }
+                pref.summary = getString(R.string.pref_summary_transit_station_set, stop.name, stop.id)
+            }
+        }
+
+        /**
+         * Like runTransitStopSearch but stores into TRANSIT_EXTRA_CONNECTIONS JSON array.
+         */
+        private fun runExtraConnectionStopSearch(connIdx: Int, isFrom: Boolean, pref: Preference) {
+            val ctx    = requireContext()
+            val prefs  = PreferenceManager.getDefaultSharedPreferences(ctx)
+            val nameKey = if (isFrom) "transit_conn${connIdx + 2}_from_name"
+                          else        "transit_conn${connIdx + 2}_to_name"
+            val prefill = prefs.getString(nameKey, "") ?: ""
+            val titleRes = if (isFrom) R.string.pref_title_transit_search_from
+                           else        R.string.pref_title_transit_search_to
+            showStopSearchDialog(getString(titleRes), prefill) { stop ->
+                prefs.edit().putString(nameKey, stop.name).apply()
+                findPreference<EditTextPreference>(nameKey)
+                    ?.apply { text = stop.name; summary = stop.name }
+                updateExtraConnection(prefs, connIdx, isFrom, stop)
+                pref.summary = getString(R.string.pref_summary_transit_station_set, stop.name, stop.id)
+            }
+        }
+
+        private fun updateExtraConnection(
+            prefs: android.content.SharedPreferences,
+            connIdx: Int,
+            isFrom: Boolean,
+            stop: DbTransitRepository.TransitStop
+        ) {
+            val json = prefs.getString(PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS, "") ?: ""
+            val arr  = if (json.isBlank()) org.json.JSONArray() else org.json.JSONArray(json)
+            // Ensure the array is large enough
+            while (arr.length() <= connIdx) arr.put(org.json.JSONObject())
+            val obj = arr.getJSONObject(connIdx)
+            if (isFrom) {
+                obj.put("fromId",   stop.id)
+                obj.put("fromName", stop.name)
+            } else {
+                obj.put("toId",   stop.id)
+                obj.put("toName", stop.name)
+            }
+            prefs.edit().putString(PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS, arr.toString()).apply()
         }
 
         private fun showLanguageRestartDialog() {

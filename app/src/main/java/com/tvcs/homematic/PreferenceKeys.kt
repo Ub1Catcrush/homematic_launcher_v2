@@ -87,6 +87,20 @@ object PreferenceKeys {
     const val TRANSIT_TO_ID     = "transit_to_id"
     const val TRANSIT_TO_NAME   = "transit_to_name"
 
+    /**
+     * Comma-separated list of station name substrings (case-insensitive) that
+     * should be shown as transfer info in Spalte 4.
+     * Example: "Hamburg Hbf, Bremen Hbf"
+     */
+    const val TRANSIT_WATCHED_STATIONS   = "transit_watched_stations"
+
+    /**
+     * Additional connections beyond the primary one, stored as a JSON array string.
+     * Each element: {"fromId":"…","fromName":"…","toId":"…","toName":"…"}
+     * Up to 4 extra connections are supported.
+     */
+    const val TRANSIT_EXTRA_CONNECTIONS  = "transit_extra_connections"
+
     // ── Launcher switch ───────────────────────────────────────────────────────
     /** Package name of the alternative launcher to launch when tapping the FAB. */
     const val ALT_LAUNCHER_PACKAGE      = "alt_launcher_package"

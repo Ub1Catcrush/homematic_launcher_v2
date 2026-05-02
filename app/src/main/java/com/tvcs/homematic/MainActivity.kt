@@ -40,6 +40,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.ui.PlayerView
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.RecyclerView
+import android.content.res.Configuration
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.tvcs.homematic.TransitRowView
@@ -176,7 +177,9 @@ class MainActivity : AppCompatActivity() {
         mAdapter = RoomAdapter(this, mRooms)
         mAdapter.onSetTemperatureRequest = { iseId, v, room -> showThermostatDialog(iseId, v, room) }
         mAdapter.onRoomTapped = { room -> RoomDetailBottomSheet.show(supportFragmentManager, room) }
-        gridView.layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
+        gridView.layoutManager = StaggeredGridLayoutManager(
+            gridSpanCount(), StaggeredGridLayoutManager.VERTICAL
+        )
         gridView.adapter = mAdapter
 
         // ── Camera controller ─────────────────────────────────────────────────
@@ -615,6 +618,30 @@ class MainActivity : AppCompatActivity() {
         R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
         R.id.action_refresh  -> { loadCcuData(); showToast(getString(R.string.toast_loading)); true }
         else -> super.onOptionsItemSelected(item)
+    }
+
+    // ── Orientation ───────────────────────────────────────────────────────────
+
+    /**
+     * Portrait  → 2 columns
+     * Landscape → 3 columns normally, 4 on wide screens (≥720dp, e.g. tablets)
+     *
+     * In landscape the grid now fills the full screen width (rooms top,
+     * DB+camera bottom strip), so we use the full screen width to decide.
+     */
+    private fun gridSpanCount(): Int {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (!isLandscape) return 2
+        val widthDp = resources.displayMetrics.run { widthPixels / density }
+        return if (widthDp >= 720) 4 else 3
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Update grid span count when orientation changes.
+        // The layout itself is swapped automatically by Android (layout vs layout-land),
+        // but the LayoutManager span is set programmatically, so we update it here.
+        (gridView.layoutManager as? StaggeredGridLayoutManager)?.spanCount = gridSpanCount()
     }
 
     private fun showToast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()

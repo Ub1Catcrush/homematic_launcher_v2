@@ -413,4 +413,15 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="transit_search_results_title">Select station</string>
     <string name="transit_delay_min">+%1$d\'</string>
     <string name="transit_cancelled">Cancelled</string>
+    <string name="transit_hin">Outward</string>
+    <string name="transit_rueck">Return</string>
+    <string name="pref_title_transit_watched_stations">Add intermediate stop</string>
+    <string name="pref_summary_transit_watched_stations_action">Search for a stop and add it to the transfer display (column 4)</string>
+    <string name="pref_title_transit_watched_clear">Clear intermediate stops</string>
+    <string name="transit_watched_stations_current">Current stops: %1$s</string>
+    <string name="transit_watched_stations_empty">No intermediate stops configured</string>
+    <string name="transit_watched_station_added">+ %1$s added</string>
+    <string name="pref_category_transit_conn2">Connection 2 (optional)</string>
+    <string name="pref_category_transit_conn3">Connection 3 (optional)</string>
+    <string name="pref_category_transit_conn4">Connection 4 (optional)</string>
 </resources>
