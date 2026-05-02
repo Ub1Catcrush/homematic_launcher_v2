@@ -358,6 +358,24 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="camera_snapshot_desc">Camera live view</string>
 
     <string name="pref_category_launcher_switch">Launcher Switch</string>
+
+    <!-- Navigation: Settings main page -->
+    <string name="pref_nav_ccu">CCU Connection &amp; Sync</string>
+    <string name="pref_nav_ccu_summary">Hostname, HTTPS, API path, sync interval</string>
+    <string name="pref_nav_display">Display &amp; Thermostat</string>
+    <string name="pref_nav_display_summary">Color scheme, status bar, screen, mold warning</string>
+    <string name="pref_nav_notifications_summary">Background notifications, battery, windows</string>
+    <string name="pref_nav_camera_summary">RTSP / snapshot URL, credentials, display</string>
+    <string name="pref_nav_transit_summary">Departure display, connections 1–4</string>
+    <string name="pref_nav_advanced">Advanced</string>
+    <string name="pref_nav_advanced_summary">Device profile, diagnostics, launcher switch, developer</string>
+
+    <!-- Camera sub-categories -->
+    <string name="pref_category_camera_settings">Display</string>
+    <string name="pref_category_camera_test">Connection Test</string>
+
+    <!-- Notification sub-category -->
+    <string name="pref_category_device_alerts">Device Alerts</string>
     <string name="pref_title_alt_launcher_enabled">Show launcher switch button</string>
     <string name="pref_summary_alt_launcher_enabled">FAB bottom-left to switch to the alternative launcher</string>
     <string name="pref_title_alt_launcher_package">Alternative launcher (package name)</string>
@@ -392,6 +410,8 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_category_transit">Departure board (DB)</string>
     <string name="pref_title_transit_enabled">Enable departure board</string>
     <string name="pref_summary_transit_enabled">Show next connections above the camera</string>
+    <string name="pref_title_transit_base_url">API server</string>
+    <string name="pref_summary_transit_base_url">URL of the db-rest server. Default: https://v6.db.transport.rest — or enter your own self-hosted instance</string>
     <string name="pref_title_transit_from">From (station name)</string>
     <string name="pref_summary_transit_from">Enter departure station name, then tap \'Search\'</string>
     <string name="pref_title_transit_to">To (station name)</string>
@@ -415,6 +435,14 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="transit_cancelled">Cancelled</string>
     <string name="transit_hin">Outward</string>
     <string name="transit_rueck">Return</string>
+    <string name="transit_detail_departure">Departure</string>
+    <string name="transit_detail_planned">Planned</string>
+    <string name="transit_detail_realtime">Real-time</string>
+    <string name="transit_detail_delay">Delay</string>
+    <string name="transit_detail_transfer">Transfer</string>
+    <string name="transit_detail_via_station">Station</string>
+    <string name="transit_detail_arrival">Arrival</string>
+    <string name="transit_detail_hint">Tap another connection for details</string>
     <string name="pref_title_transit_watched_stations">Add intermediate stop</string>
     <string name="pref_summary_transit_watched_stations_action">Search for a stop and add it to the transfer display (column 4)</string>
     <string name="pref_title_transit_watched_clear">Clear intermediate stops</string>

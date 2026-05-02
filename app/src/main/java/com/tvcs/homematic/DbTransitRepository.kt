@@ -6,35 +6,20 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
-import java.net.URI
 import java.net.URL
 import java.net.URLEncoder
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/**
- * Thin wrapper around the db-rest / db-vendo-client REST API.
- *
- * Default base URL: https://v6.db.transport.rest
- * Can be overridden via [baseUrl] to point at a self-hosted instance.
- *
- * The public instance has a low rate limit and occasionally returns 503.
- * We retry up to [MAX_RETRIES] times with exponential back-off before giving up.
- *
- * Endpoints used:
- *   GET /locations?query=…&results=10&stops=true&addresses=false&poi=false
- *   GET /journeys?from={id}&to={id}&results=3&stopovers=true&language=de
- */
 object DbTransitRepository {
 
     private const val TAG         = "DbTransitRepo"
     const  val DEFAULT_BASE       = "https://v6.db.transport.rest"
-    private const val TIMEOUT     = 15_000     // ms
+    private const val TIMEOUT     = 15_000
     private const val MAX_RETRIES = 3
-    private const val RETRY_DELAY = 1_500L     // ms between retries
+    private const val RETRY_DELAY = 1_500L
 
-    /** Override to point at a self-hosted instance. */
     var baseUrl: String = DEFAULT_BASE
 
     // ── Data classes ──────────────────────────────────────────────────────────
@@ -47,15 +32,53 @@ object DbTransitRepository {
         val delayMinutes: Int?
     )
 
+    /**
+     * One stopover within a leg (origin, intermediate stop, or destination).
+     * Both [plannedTime] and [realtimeTime] are "HH:mm" strings.
+     * [isArrival] true = arrival time shown, false = departure time shown.
+     */
+    data class Stopover(
+        val stationName:  String,
+        val plannedTime:  String,   // planned arr or dep
+        val realtimeTime: String?,  // null if same as planned or unavailable
+        val delayMinutes: Int?,
+        val cancelled:    Boolean
+    )
+
+    /**
+     * One leg of a journey (e.g. S1 from A to B, then walk, then RE from B to C).
+     */
+    data class Leg(
+        val lineName:    String,        // e.g. "S 1", "walk", "RE 10"
+        val mode:        String,        // "train", "bus", "walking", …
+        val origin:      String,
+        val destination: String,
+        val depPlanned:  String,
+        val depRealtime: String?,
+        val arrPlanned:  String,
+        val arrRealtime: String?,
+        val depDelay:    Int?,
+        val arrDelay:    Int?,
+        val cancelled:   Boolean,
+        val stopovers:   List<Stopover> // includes origin + destination
+    )
+
     data class Departure(
-        val line:         String,
-        val direction:    String,
-        val plannedTime:  String,
-        val realtimeTime: String?,
+        // ── Summary row fields ─────────────────────────────────────────────
+        val line:         String,   // first leg line name (+ "+N" if transfers)
+        val plannedTime:  String,   // departure of first leg, planned
+        val realtimeTime: String?,  // departure of first leg, realtime
         val delayMinutes: Int?,
         val cancelled:    Boolean,
-        val transferInfo: TransferInfo?
-    )
+        val transferInfo: TransferInfo?,  // first watched-station match for col4
+        // ── Full journey for detail sheet ──────────────────────────────────
+        val legs:         List<Leg>
+    ) {
+        /** Final destination name (last leg destination). */
+        val direction: String get() = legs.lastOrNull()?.destination ?: "?"
+        /** Origin name (first leg origin). */
+        val origin: String get() = legs.firstOrNull()?.origin ?: "?"
+    }
 
     sealed class Result<out T> {
         data class Success<T>(val data: T) : Result<T>()
@@ -68,12 +91,13 @@ object DbTransitRepository {
         withContext(Dispatchers.IO) {
             val enc = encodeParam(query)
             val url = "$baseUrl/locations?query=$enc&results=10&stops=true&addresses=false&poi=false"
-            when (val  raw = getWithRetry(url)) {
+            when (val raw = getWithRetry(url)) {
                 is RawResult.Ok -> try {
                     val arr  = JSONArray(raw.body)
-                    val allowedTypes = setOf("stop", "station")
-                    val list = (0 until arr.length()).map { arr.getJSONObject(it) }
-                        .filter { it.optString("type") in allowedTypes }
+                    val allowed = setOf("stop", "station")
+                    val list = (0 until arr.length())
+                        .map { arr.getJSONObject(it) }
+                        .filter { it.optString("type") in allowed }
                         .map { TransitStop(it.getString("id"), it.getString("name")) }
                     Result.Success(list)
                 } catch (e: Exception) {
@@ -101,93 +125,109 @@ object DbTransitRepository {
                     val deps     = mutableListOf<Departure>()
 
                     for (i in 0 until journeys.length()) {
-                        val legs     = journeys.getJSONObject(i).optJSONArray("legs") ?: continue
-                        val firstLeg = legs.getJSONObject(0)
-                        val lastLeg  = legs.getJSONObject(legs.length() - 1)
+                        val legsJson = journeys.getJSONObject(i).optJSONArray("legs") ?: continue
+                        val legs     = parselegs(legsJson, fmt)
+                        if (legs.isEmpty()) continue
 
-                        val lineName  = firstLeg.optJSONObject("line")?.optString("name")
-                                        ?: firstLeg.optString("mode", "?")
-                        val direction = lastLeg.optJSONObject("destination")?.optString("name") ?: "?"
-                        val cancelled = firstLeg.optBoolean("cancelled", false)
-                        val transfers = legs.length() - 1
-
-                        val plannedStr  = firstLeg.optString("plannedDeparture", "")
-                        val realtimeStr = firstLeg.optString("departure", "")
-                        val delay       = if (firstLeg.isNull("departureDelay")) null
-                                          else firstLeg.optInt("departureDelay") / 60
+                        val first     = legs.first()
+                        val transfers = legs.count { it.mode != "walking" } - 1
+                        val lineName  = first.lineName
+                        val transfers2= maxOf(0, transfers)
 
                         deps += Departure(
-                            line         = if (transfers > 0) "$lineName +$transfers" else lineName,
-                            direction    = direction,
-                            plannedTime  = parseTime(plannedStr, fmt),
-                            realtimeTime = if (realtimeStr.isNotBlank() && realtimeStr != plannedStr)
-                                               parseTime(realtimeStr, fmt) else null,
-                            delayMinutes = delay,
-                            cancelled    = cancelled,
-                            transferInfo = findFirstWatchedTransfer(legs, watchedStationNames, fmt)
+                            line         = if (transfers2 > 0) "$lineName +$transfers2" else lineName,
+                            plannedTime  = first.depPlanned,
+                            realtimeTime = first.depRealtime,
+                            delayMinutes = first.depDelay,
+                            cancelled    = first.cancelled,
+                            transferInfo = findFirstWatchedTransfer(legs, watchedStationNames),
+                            legs         = legs
                         )
                     }
                     Result.Success(deps)
                 } catch (e: Exception) {
+                    Log.w(TAG, "Parse error", e)
                     Result.Error("Parse error: ${e.message}")
                 }
                 is RawResult.Err -> Result.Error(raw.message)
             }
         }
 
-    // ── Internals ─────────────────────────────────────────────────────────────
+    // ── Parsing ───────────────────────────────────────────────────────────────
 
-    /**
-     * URL-encodes a query parameter value using RFC 3986 (%20 for spaces).
-     * Java's URLEncoder.encode() produces + for spaces, which the DB REST API
-     * does NOT accept — it must be %20.
-     */
-    private fun encodeParam(value: String): String =
-        URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-    private sealed class RawResult {
-        data class Ok(val body: String) : RawResult()
-        data class Err(val message: String) : RawResult()
-    }
-
-    private fun getWithRetry(url: String): RawResult {
-        var lastError = ""
-        repeat(MAX_RETRIES) { attempt ->
-            if (attempt > 0) {
-                Thread.sleep(RETRY_DELAY * attempt)
-                Log.d(TAG, "Retry $attempt for $url")
+    private fun parselegs(legsJson: JSONArray, fmt: DateTimeFormatter): List<Leg> {
+        val result = mutableListOf<Leg>()
+        for (li in 0 until legsJson.length()) {
+            val leg       = legsJson.getJSONObject(li)
+            val lineObj   = leg.optJSONObject("line")
+            val mode      = leg.optString("mode", "walking")
+            val lineName  = lineObj?.optString("name") ?: when (mode) {
+                "walking"  -> "🚶"
+                "transfer" -> "⇄"
+                else       -> mode
             }
-            try {
-                return RawResult.Ok(get(url))
-            } catch (e: Exception) {
-                lastError = e.message ?: "Unknown error"
-                Log.w(TAG, "Attempt ${attempt + 1} failed: $lastError")
+
+            val origin      = leg.optJSONObject("origin")?.optString("name") ?: "?"
+            val destination = leg.optJSONObject("destination")?.optString("name") ?: "?"
+
+            val depPlanned  = parseTime(leg.optString("plannedDeparture", ""), fmt)
+            val depReal     = leg.optString("departure", "").let {
+                val t = parseTime(it, fmt); if (t != depPlanned) t else null
             }
+            val arrPlanned  = parseTime(leg.optString("plannedArrival", ""), fmt)
+            val arrReal     = leg.optString("arrival", "").let {
+                val t = parseTime(it, fmt); if (t != arrPlanned) t else null
+            }
+            val depDelay    = if (leg.isNull("departureDelay")) null else leg.optInt("departureDelay") / 60
+            val arrDelay    = if (leg.isNull("arrivalDelay"))   null else leg.optInt("arrivalDelay")   / 60
+            val cancelled   = leg.optBoolean("cancelled", false)
+
+            // Stopovers: parse if present, else synthesise origin + destination
+            val stopovers = mutableListOf<Stopover>()
+            val svsJson   = leg.optJSONArray("stopovers")
+            if (svsJson != null && svsJson.length() > 0) {
+                for (si in 0 until svsJson.length()) {
+                    val sv      = svsJson.getJSONObject(si)
+                    val name    = sv.optJSONObject("stop")?.optString("name") ?: continue
+                    // Use arrival for intermediate/destination, departure for origin
+                    val isFirst = si == 0
+                    val pTime   = if (isFirst) parseTime(sv.optString("plannedDeparture", ""), fmt)
+                                  else         parseTime(sv.optString("plannedArrival",   ""), fmt)
+                    val rTimeRaw = if (isFirst) sv.optString("departure", "")
+                                   else         sv.optString("arrival", "")
+                    val rTime   = parseTime(rTimeRaw, fmt).let { if (it != pTime) it else null }
+                    val delay   = if (isFirst) {
+                        if (sv.isNull("departureDelay")) null else sv.optInt("departureDelay") / 60
+                    } else {
+                        if (sv.isNull("arrivalDelay")) null else sv.optInt("arrivalDelay") / 60
+                    }
+                    stopovers += Stopover(name, pTime, rTime, delay, sv.optBoolean("cancelled", false))
+                }
+            } else {
+                // Fallback: just origin + destination
+                stopovers += Stopover(origin, depPlanned, depReal, depDelay, cancelled)
+                stopovers += Stopover(destination, arrPlanned, arrReal, arrDelay, cancelled)
+            }
+
+            result += Leg(lineName, mode, origin, destination,
+                depPlanned, depReal, arrPlanned, arrReal,
+                depDelay, arrDelay, cancelled, stopovers)
         }
-        return RawResult.Err(lastError)
+        return result
     }
 
     private fun findFirstWatchedTransfer(
-        legs: JSONArray,
-        watchedNames: List<String>,
-        fmt: DateTimeFormatter
+        legs: List<Leg>,
+        watchedNames: List<String>
     ): TransferInfo? {
         if (watchedNames.isEmpty()) return null
-        for (li in 0 until legs.length()) {
-            val stopovers = legs.getJSONObject(li).optJSONArray("stopovers") ?: continue
-            for (si in 0 until stopovers.length()) {
-                val sv       = stopovers.getJSONObject(si)
-                val stopName = sv.optJSONObject("stop")?.optString("name") ?: continue
-                if (watchedNames.any { stopName.contains(it.trim(), ignoreCase = true) }) {
-                    val planned  = sv.optString("plannedArrival", "")
-                    val realtime = sv.optString("arrival", "")
-                    val arrDelay = if (sv.isNull("arrivalDelay")) null
-                                   else sv.optInt("arrivalDelay") / 60
+        for (leg in legs) {
+            for (sv in leg.stopovers) {
+                if (watchedNames.any { sv.stationName.contains(it.trim(), ignoreCase = true) }) {
                     return TransferInfo(
-                        stationName  = stopName,
-                        arrivalTime  = if (realtime.isNotBlank()) parseTime(realtime, fmt)
-                                       else parseTime(planned, fmt),
-                        delayMinutes = arrDelay
+                        stationName  = sv.stationName,
+                        arrivalTime  = sv.realtimeTime ?: sv.plannedTime,
+                        delayMinutes = sv.delayMinutes
                     )
                 }
             }
@@ -195,24 +235,41 @@ object DbTransitRepository {
         return null
     }
 
+    // ── Internals ─────────────────────────────────────────────────────────────
+
+    private fun encodeParam(value: String): String =
+        URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+    private sealed class RawResult {
+        data class Ok(val body: String)  : RawResult()
+        data class Err(val message: String) : RawResult()
+    }
+
+    private fun getWithRetry(url: String): RawResult {
+        var lastError = ""
+        repeat(MAX_RETRIES) { attempt ->
+            if (attempt > 0) Thread.sleep(RETRY_DELAY * attempt)
+            try { return RawResult.Ok(get(url)) }
+            catch (e: Exception) { lastError = e.message ?: "Unknown"; Log.w(TAG, "Attempt ${attempt+1}: $lastError") }
+        }
+        return RawResult.Err(lastError)
+    }
+
     private fun parseTime(iso: String, fmt: DateTimeFormatter): String =
-        try { fmt.format(Instant.parse(iso)) } catch (_: Exception) { iso.take(5) }
+        if (iso.isBlank()) "" else try { fmt.format(Instant.parse(iso)) } catch (_: Exception) { iso.take(5) }
 
     private fun get(url: String): String {
         Log.d(TAG, "GET $url")
         val con = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = TIMEOUT
-            readTimeout    = TIMEOUT
+            connectTimeout = TIMEOUT; readTimeout = TIMEOUT
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "HomematicLauncher/1.0")
         }
         return try {
             val code = con.responseCode
-            if (code >= 500) error("HTTP $code (Server error – API temporarily unavailable)")
+            if (code >= 500) error("HTTP $code (Server error)")
             if (code >= 400) error("HTTP $code")
             con.inputStream.bufferedReader().readText()
-        } finally {
-            con.disconnect()
-        }
+        } finally { con.disconnect() }
     }
 }

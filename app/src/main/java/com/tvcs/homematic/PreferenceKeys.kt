@@ -92,6 +92,7 @@ object PreferenceKeys {
      * should be shown as transfer info in Spalte 4.
      * Example: "Hamburg Hbf, Bremen Hbf"
      */
+    const val TRANSIT_BASE_URL           = "transit_base_url"
     const val TRANSIT_WATCHED_STATIONS   = "transit_watched_stations"
 
     /**

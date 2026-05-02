@@ -402,6 +402,24 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
 
     <!-- Launcher switch strings -->
     <string name="pref_category_launcher_switch">Launcher-Wechsel</string>
+
+    <!-- Navigation: Einstellungs-Hauptseite -->
+    <string name="pref_nav_ccu">CCU-Verbindung &amp; Sync</string>
+    <string name="pref_nav_ccu_summary">Hostname, HTTPS, API-Pfad, Sync-Intervall</string>
+    <string name="pref_nav_display">Anzeige &amp; Thermostat</string>
+    <string name="pref_nav_display_summary">Farbschema, Statusleiste, Bildschirm, Schimmelwarnung</string>
+    <string name="pref_nav_notifications_summary">Hintergrund-Benachrichtigungen, Batterie, Fenster</string>
+    <string name="pref_nav_camera_summary">RTSP / Snapshot-URL, Zugangsdaten, Anzeige</string>
+    <string name="pref_nav_transit_summary">Abfahrtsanzeige, Verbindungen 1–4</string>
+    <string name="pref_nav_advanced">Erweitert</string>
+    <string name="pref_nav_advanced_summary">Geräte-Profil, Diagnose, Launcher-Wechsel, Entwickler</string>
+
+    <!-- Kamera-Unterkategorien -->
+    <string name="pref_category_camera_settings">Darstellung</string>
+    <string name="pref_category_camera_test">Verbindungstest</string>
+
+    <!-- Benachrichtigungs-Unterkategorie -->
+    <string name="pref_category_device_alerts">Geräte-Meldungen</string>
     <string name="pref_title_alt_launcher_enabled">Launcher-Wechsel-Button anzeigen</string>
     <string name="pref_summary_alt_launcher_enabled">FAB links unten zum Wechseln zum alternativen Launcher</string>
     <string name="pref_title_alt_launcher_package">Alternativer Launcher (Paketname)</string>
@@ -436,6 +454,8 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_category_transit">Abfahrtsanzeige (DB)</string>
     <string name="pref_title_transit_enabled">Abfahrtsanzeige aktivieren</string>
     <string name="pref_summary_transit_enabled">Nächste Verbindungen über der Kamera anzeigen</string>
+    <string name="pref_title_transit_base_url">API-Server</string>
+    <string name="pref_summary_transit_base_url">URL des db-rest-Servers. Standard: https://v6.db.transport.rest — oder eigene Self-Hosting-Instanz eintragen</string>
     <string name="pref_title_transit_from">Von (Stationsname)</string>
     <string name="pref_summary_transit_from">Name der Abfahrtshaltestelle eingeben, dann \'Suchen\' tippen</string>
     <string name="pref_title_transit_to">Nach (Stationsname)</string>
@@ -459,6 +479,14 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="transit_cancelled">Ausfall</string>
     <string name="transit_hin">Hin</string>
     <string name="transit_rueck">Rück</string>
+    <string name="transit_detail_departure">Abfahrt</string>
+    <string name="transit_detail_planned">Planmäßig</string>
+    <string name="transit_detail_realtime">Echtzeit</string>
+    <string name="transit_detail_delay">Verspätung</string>
+    <string name="transit_detail_transfer">Umstieg</string>
+    <string name="transit_detail_via_station">Station</string>
+    <string name="transit_detail_arrival">Ankunft</string>
+    <string name="transit_detail_hint">Tippe auf eine andere Verbindung für Details</string>
     <string name="pref_title_transit_watched_stations">Zwischenstationen hinzufügen</string>
     <string name="pref_summary_transit_watched_stations_action">Station suchen und zur Umstiegsanzeige (Spalte 4) hinzufügen</string>
     <string name="pref_title_transit_watched_clear">Zwischenstationen leeren</string>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== BENACHRICHTIGUNGEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_notifications">
+
+        <SwitchPreferenceCompat
+            android:key="notifications_show_reload_popups"
+            android:title="@string/pref_title_reload_notifications"
+            android:summary="@string/pref_summary_reload_notifications"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="notify_background_enabled"
+            android:title="@string/pref_title_notify_background"
+            android:summary="@string/pref_summary_notify_background"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <!-- ========== GERÄTEMELDUNGEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_device_alerts">
+
+        <SwitchPreferenceCompat
+            android:key="notify_lowbat"
+            android:title="@string/pref_title_notify_lowbat"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="notify_sabotage"
+            android:title="@string/pref_title_notify_sabotage"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="notify_fault"
+            android:title="@string/pref_title_notify_fault"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="notify_window_open"
+            android:title="@string/pref_title_notify_window_open"
+            android:summary="@string/pref_summary_notify_window_open"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

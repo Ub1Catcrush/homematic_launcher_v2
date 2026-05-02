@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== DB TRANSIT ========== -->
+    <PreferenceCategory android:title="@string/pref_category_transit">
+
+        <SwitchPreferenceCompat
+            android:key="transit_enabled"
+            android:title="@string/pref_title_transit_enabled"
+            android:summary="@string/pref_summary_transit_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_base_url"
+            android:title="@string/pref_title_transit_base_url"
+            android:summary="@string/pref_summary_transit_base_url"
+            android:defaultValue="https://v6.db.transport.rest"
+            android:inputType="textUri"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_from_name"
+            android:title="@string/pref_title_transit_from"
+            android:summary="@string/pref_summary_transit_from"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_to_name"
+            android:title="@string/pref_title_transit_to"
+            android:summary="@string/pref_summary_transit_to"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_transit_search_from"
+            android:title="@string/pref_title_transit_search_from"
+            android:summary="@string/pref_summary_transit_search" />
+
+        <Preference
+            android:key="action_transit_search_to"
+            android:title="@string/pref_title_transit_search_to"
+            android:summary="@string/pref_summary_transit_search" />
+
+        <Preference
+            android:key="action_transit_watched_add"
+            android:title="@string/pref_title_transit_watched_stations"
+            android:summary="@string/pref_summary_transit_watched_stations_action" />
+
+        <Preference
+            android:key="action_transit_watched_clear"
+            android:title="@string/pref_title_transit_watched_clear"
+            android:summary="" />
+
+    </PreferenceCategory>
+
+    <!-- Verbindung 2 -->
+    <PreferenceCategory android:title="@string/pref_category_transit_conn2">
+
+        <EditTextPreference
+            android:key="transit_conn2_from_name"
+            android:title="@string/pref_title_transit_from"
+            android:summary="@string/pref_summary_transit_from"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_conn2_to_name"
+            android:title="@string/pref_title_transit_to"
+            android:summary="@string/pref_summary_transit_to"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_transit_conn2_search_from"
+            android:title="@string/pref_title_transit_search_from"
+            android:summary="@string/pref_summary_transit_search" />
+
+        <Preference
+            android:key="action_transit_conn2_search_to"
+            android:title="@string/pref_title_transit_search_to"
+            android:summary="@string/pref_summary_transit_search" />
+
+    </PreferenceCategory>
+
+    <!-- Verbindung 3 -->
+    <PreferenceCategory android:title="@string/pref_category_transit_conn3">
+
+        <EditTextPreference
+            android:key="transit_conn3_from_name"
+            android:title="@string/pref_title_transit_from"
+            android:summary="@string/pref_summary_transit_from"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_conn3_to_name"
+            android:title="@string/pref_title_transit_to"
+            android:summary="@string/pref_summary_transit_to"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_transit_conn3_search_from"
+            android:title="@string/pref_title_transit_search_from"
+            android:summary="@string/pref_summary_transit_search" />
+
+        <Preference
+            android:key="action_transit_conn3_search_to"
+            android:title="@string/pref_title_transit_search_to"
+            android:summary="@string/pref_summary_transit_search" />
+
+    </PreferenceCategory>
+
+    <!-- Verbindung 4 -->
+    <PreferenceCategory android:title="@string/pref_category_transit_conn4">
+
+        <EditTextPreference
+            android:key="transit_conn4_from_name"
+            android:title="@string/pref_title_transit_from"
+            android:summary="@string/pref_summary_transit_from"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_conn4_to_name"
+            android:title="@string/pref_title_transit_to"
+            android:summary="@string/pref_summary_transit_to"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_transit_conn4_search_from"
+            android:title="@string/pref_title_transit_search_from"
+            android:summary="@string/pref_summary_transit_search" />
+
+        <Preference
+            android:key="action_transit_conn4_search_to"
+            android:title="@string/pref_title_transit_search_to"
+            android:summary="@string/pref_summary_transit_search" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

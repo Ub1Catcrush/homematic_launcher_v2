@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== GERÄTE-PROFIL ========== -->
+    <PreferenceCategory android:title="@string/pref_category_device_profile">
+
+        <Preference
+            android:key="action_open_device_profile"
+            android:title="@string/pref_title_open_device_profile"
+            android:summary="@string/pref_summary_open_device_profile" />
+
+    </PreferenceCategory>
+
+    <!-- ========== DIAGNOSE ========== -->
+    <PreferenceCategory android:title="@string/title_diagnostics">
+
+        <Preference
+            android:key="action_open_diagnostics"
+            android:title="@string/pref_title_open_diagnostics"
+            android:summary="@string/pref_summary_open_diagnostics" />
+
+    </PreferenceCategory>
+
+    <!-- ========== LAUNCHER-WECHSEL ========== -->
+    <PreferenceCategory android:title="@string/pref_category_launcher_switch">
+
+        <SwitchPreferenceCompat
+            android:key="alt_launcher_enabled"
+            android:title="@string/pref_title_alt_launcher_enabled"
+            android:summary="@string/pref_summary_alt_launcher_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="alt_launcher_package"
+            android:title="@string/pref_title_alt_launcher_package"
+            android:summary="@string/pref_summary_alt_launcher_package"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="text" />
+
+        <Preference
+            android:key="action_detect_launchers"
+            android:title="@string/pref_title_detect_launchers"
+            android:summary="@string/pref_summary_detect_launchers" />
+
+    </PreferenceCategory>
+
+    <!-- ========== ENTWICKLER / TEST ========== -->
+    <PreferenceCategory android:title="@string/pref_category_developer">
+
+        <SwitchPreferenceCompat
+            android:key="test_switch"
+            android:title="@string/pref_title_test_mode"
+            android:summary="@string/pref_description_test_mode"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="outdoor_room_name"
+            android:title="@string/pref_title_outdoor_room_name"
+            android:summary="@string/pref_summary_outdoor_room_name"
+            android:defaultValue="Aussen"
+            android:persistent="true"
+            android:inputType="text" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

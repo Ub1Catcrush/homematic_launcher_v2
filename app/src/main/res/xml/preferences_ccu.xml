@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== CCU VERBINDUNG ========== -->
+    <PreferenceCategory android:title="@string/pref_category_ccu">
+
+        <EditTextPreference
+            android:key="sync_ccu_name"
+            android:title="@string/pref_title_ccu_host"
+            android:defaultValue="homematic-ccu2"
+            android:summary="homematic-ccu2"
+            android:persistent="true"
+            android:inputType="text" />
+
+        <EditTextPreference
+            android:key="ccu_port"
+            android:title="@string/pref_title_ccu_port"
+            android:defaultValue=""
+            android:summary="@string/pref_summary_ccu_port"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <SwitchPreferenceCompat
+            android:key="ccu_https"
+            android:title="@string/pref_title_ccu_https"
+            android:summary="@string/pref_summary_ccu_https"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="ccu_trust_self_signed"
+            android:title="@string/pref_title_ccu_trust_self_signed"
+            android:summary="@string/pref_summary_ccu_trust_self_signed"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="ccu_api_path"
+            android:title="@string/pref_title_ccu_api_path"
+            android:defaultValue="/addons/xmlapi/"
+            android:summary="/addons/xmlapi/"
+            android:persistent="true"
+            android:inputType="text" />
+
+        <ListPreference
+            android:key="connection_timeout"
+            android:title="@string/pref_title_connection_timeout"
+            android:entries="@array/pref_timeout_titles"
+            android:entryValues="@array/pref_timeout_values"
+            android:defaultValue="5"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="ccu_sid"
+            android:title="@string/pref_title_ccu_sid"
+            android:summary="@string/pref_summary_ccu_sid"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="textPassword" />
+
+        <Preference
+            android:key="action_check_ccu"
+            android:title="@string/pref_title_check_ccu"
+            android:summary="@string/pref_summary_tap_to_test" />
+
+    </PreferenceCategory>
+
+    <!-- ========== SYNCHRONISATION ========== -->
+    <PreferenceCategory android:title="@string/pref_category_sync">
+
+        <ListPreference
+            android:key="sync_frequency"
+            android:title="@string/pref_title_sync_frequency"
+            android:entries="@array/pref_sync_frequency_titles"
+            android:entryValues="@array/pref_sync_frequency_values"
+            android:defaultValue="30"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="auto_reload_on_reconnect"
+            android:title="@string/pref_title_auto_reload"
+            android:summary="@string/pref_summary_auto_reload"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_reload_now"
+            android:title="@string/pref_title_reload_now"
+            android:summary="@string/pref_summary_reload_now" />
+
+    </PreferenceCategory>
+
+    <!-- ========== NETZWERK ========== -->
+    <PreferenceCategory android:title="@string/pref_category_network">
+
+        <Preference
+            android:key="action_check_network"
+            android:title="@string/pref_title_check_network"
+            android:summary="@string/pref_summary_tap_to_check" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

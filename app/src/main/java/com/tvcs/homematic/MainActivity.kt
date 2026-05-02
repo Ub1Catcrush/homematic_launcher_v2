@@ -203,14 +203,21 @@ class MainActivity : AppCompatActivity() {
             findViewById<android.widget.LinearLayout>(R.id.transit_row_3).addView(it)
         }
         transitViewController = DbTransitViewController(
-            context     = this,
-            panel       = findViewById(R.id.transit_panel),
-            headerLabel = findViewById(R.id.transit_header),
-            row1        = transitRow1,
-            row2        = transitRow2,
-            row3        = transitRow3,
-            errorLabel  = findViewById(R.id.transit_error)
+            context         = this,
+            panel           = findViewById(R.id.transit_panel),
+            headerLabel     = findViewById(R.id.transit_header),
+            row1            = transitRow1,
+            row2            = transitRow2,
+            row3            = transitRow3,
+            errorLabel      = findViewById(R.id.transit_error),
+            fragmentManager = supportFragmentManager
         )
+        // Apply the user-configured API base URL before the first refresh
+        DbTransitRepository.baseUrl = PreferenceManager.getDefaultSharedPreferences(this)
+            .getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
+            ?.trimEnd('/')
+            ?.takeIf { it.isNotBlank() }
+            ?: DbTransitRepository.DEFAULT_BASE
         transitViewController.attachToLifecycle(this)
 
         // ── FAB: Settings (right) ─────────────────────────────────────────────
@@ -383,8 +390,15 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.TRANSIT_FROM_ID,
                 PreferenceKeys.TRANSIT_FROM_NAME,
                 PreferenceKeys.TRANSIT_TO_ID,
-                PreferenceKeys.TRANSIT_TO_NAME ->
+                PreferenceKeys.TRANSIT_TO_NAME,
+                PreferenceKeys.TRANSIT_BASE_URL -> {
+                    DbTransitRepository.baseUrl = PreferenceManager.getDefaultSharedPreferences(this)
+                        .getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
+                        ?.trimEnd('/')
+                        ?.takeIf { it.isNotBlank() }
+                        ?: DbTransitRepository.DEFAULT_BASE
                     transitViewController.applyPrefsChange()
+                }
 
                 // Launcher switch FAB
                 PreferenceKeys.ALT_LAUNCHER_ENABLED,
