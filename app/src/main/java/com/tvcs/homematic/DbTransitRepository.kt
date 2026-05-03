@@ -21,8 +21,6 @@ object DbTransitRepository {
     private const val MAX_RETRIES = 3
     private const val RETRY_DELAY = 1_500L
 
-    var baseUrl: String = DEFAULT_BASE
-
     // ── Data classes ──────────────────────────────────────────────────────────
 
     data class TransitStop(val id: String, val name: String)
@@ -93,7 +91,7 @@ object DbTransitRepository {
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    suspend fun searchStops(query: String): Result<List<TransitStop>> =
+    suspend fun searchStops(baseUrl: String, query: String): Result<List<TransitStop>> =
         withContext(Dispatchers.IO) {
             val enc = encodeParam(query)
             val url = "$baseUrl/locations?query=$enc&results=10&stops=true&addresses=false&poi=false"
@@ -111,6 +109,7 @@ object DbTransitRepository {
         }
 
     suspend fun getDepartures(
+        baseUrl: String,
         fromId: String,
         toId: String,
         watchedStationNames: List<String> = emptyList(),

@@ -318,6 +318,42 @@ class CameraViewController(
         playerView.visibility   = View.VISIBLE
         snapshotView.visibility = View.GONE
         statusLabel.visibility  = View.VISIBLE
+        applyOverlayAlpha()
+        applyScaleType()
+    }
+
+    /** Applies the configured scale type to both the snapshot ImageView and the ExoPlayer resize mode. */
+    fun applyScaleType() {
+        val scaleKey = prefs.getString(PreferenceKeys.CAMERA_SCALE_TYPE, "center_crop") ?: "center_crop"
+        // ImageView scale type for MJPEG snapshot
+        snapshotView.scaleType = when (scaleKey) {
+            "fit_center"    -> ImageView.ScaleType.FIT_CENTER
+            "center_inside" -> ImageView.ScaleType.CENTER_INSIDE
+            "fit_xy"        -> ImageView.ScaleType.FIT_XY
+            else            -> ImageView.ScaleType.CENTER_CROP   // "center_crop" default
+        }
+        // ExoPlayer resize mode for RTSP
+        val exoMode = when (scaleKey) {
+            "fit_center"    -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            "center_inside" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            "fit_xy"        -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+            else            -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM  // center_crop
+        }
+        playerView.resizeMode = exoMode
+    }
+
+    /** Reads the configured alpha (0–100) and applies it to the status overlay strip. */
+    fun applyOverlayAlpha() {
+        val alphaPct = prefs.getString(PreferenceKeys.CAMERA_OVERLAY_ALPHA, "60")
+                           ?.toIntOrNull()?.coerceIn(0, 100) ?: 60
+        // alpha 0–100 % → background alpha 0–255
+        val bgAlpha  = (alphaPct / 100f * 255).toInt()
+
+        // Find the status row by ID — it has the semi-transparent background
+        val statusRow = (statusLabel.parent as? android.view.View)
+        statusRow?.background?.mutate()?.alpha = bgAlpha
+        // Also dim the mute button to match
+        muteButton?.alpha = alphaPct / 100f
     }
 
     private fun hide() {

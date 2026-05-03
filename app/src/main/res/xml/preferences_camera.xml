@@ -1,20 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ========== KAMERA ========== -->
+    <!-- ========== KAMERA-QUELLE ========== -->
     <PreferenceCategory android:title="@string/pref_category_camera">
 
         <SwitchPreferenceCompat
             android:key="camera_enabled"
             android:title="@string/pref_title_camera_enabled"
-            android:summary="@string/pref_summary_camera_enabled"
             android:defaultValue="false"
             android:persistent="true" />
 
         <EditTextPreference
             android:key="camera_rtsp_url"
             android:title="@string/pref_title_camera_rtsp_url"
-            android:summary="@string/pref_summary_camera_rtsp_url"
             android:defaultValue=""
             android:persistent="true"
             android:inputType="textUri" />
@@ -22,7 +20,6 @@
         <EditTextPreference
             android:key="camera_snapshot_url"
             android:title="@string/pref_title_camera_snapshot_url"
-            android:summary="@string/pref_summary_camera_snapshot_url"
             android:defaultValue=""
             android:persistent="true"
             android:inputType="textUri" />
@@ -43,16 +40,62 @@
 
     </PreferenceCategory>
 
-    <!-- ========== KAMERA-EINSTELLUNGEN ========== -->
+    <!-- ========== DARSTELLUNG ========== -->
     <PreferenceCategory android:title="@string/pref_category_camera_settings">
 
         <EditTextPreference
-            android:key="camera_view_height_dp"
-            android:title="@string/pref_title_camera_height"
-            android:summary="@string/pref_summary_camera_height"
-            android:defaultValue="180"
+            android:key="camera_overlay_alpha"
+            android:title="@string/pref_title_camera_overlay_alpha"
+            android:summary="@string/pref_summary_camera_overlay_alpha"
+            android:defaultValue="60"
             android:persistent="true"
             android:inputType="number" />
+
+        <ListPreference
+            android:key="camera_scale_type"
+            android:title="@string/pref_title_camera_scale_type"
+            android:summary="@string/pref_summary_camera_scale_type"
+            android:entries="@array/pref_camera_scale_type_titles"
+            android:entryValues="@array/pref_camera_scale_type_values"
+            android:defaultValue="center_crop"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="camera_panel_pct_portrait"
+            android:title="@string/pref_title_camera_pct_portrait"
+            android:summary="@string/pref_summary_panel_pct"
+            android:defaultValue="20"
+            android:inputType="number"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="camera_panel_pct_land"
+            android:title="@string/pref_title_camera_pct_land"
+            android:summary="@string/pref_summary_panel_pct"
+            android:defaultValue="20"
+            android:inputType="number"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_panel_pct_portrait"
+            android:title="@string/pref_title_transit_pct_portrait"
+            android:summary="@string/pref_summary_panel_pct"
+            android:defaultValue="20"
+            android:inputType="number"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="transit_panel_pct_land"
+            android:title="@string/pref_title_transit_pct_land"
+            android:summary="@string/pref_summary_panel_pct"
+            android:defaultValue="20"
+            android:inputType="number"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <!-- ========== VERBINDUNGSVERHALTEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_camera_connection">
 
         <EditTextPreference
             android:key="camera_rtsp_timeout_ms"

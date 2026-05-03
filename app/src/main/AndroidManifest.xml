@@ -97,8 +97,7 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
-        <!-- WorkManager initialization provider (auto-registered by WorkManager lib) -->
-
     </application>
 
+    <attribution android:tag="audioPlayback" android:label="@string/audio_playback_attribution" />
 </manifest>

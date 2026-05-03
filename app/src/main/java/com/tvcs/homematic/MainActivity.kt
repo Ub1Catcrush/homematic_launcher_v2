@@ -77,7 +77,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gridView:            RecyclerView
     private lateinit var statusTextView:      TextView
     private lateinit var loadingIndicator:    ProgressBar
-    private lateinit var cameraPanel:         LinearLayout
+    private lateinit var cameraPanel:         android.widget.FrameLayout
 
     private val mRooms   = ArrayList<Room>()
     private lateinit var mAdapter: RoomAdapter
@@ -190,22 +190,14 @@ class MainActivity : AppCompatActivity() {
         applyCameraPanel()
 
         // ── Transit controller ────────────────────────────────────────────────
-        val transitRow1 = TransitRowView(this).also {
-            findViewById<android.widget.LinearLayout>(R.id.transit_row_1).addView(it)
-        }
-        val transitRow2 = TransitRowView(this).also {
-            findViewById<android.widget.LinearLayout>(R.id.transit_row_2).addView(it)
-        }
-        val transitRow3 = TransitRowView(this).also {
-            findViewById<android.widget.LinearLayout>(R.id.transit_row_3).addView(it)
-        }
+        // Rows are now created dynamically inside DbTransitViewController (scrollable, configurable count)
         transitViewController = DbTransitViewController(
             context         = this,
             panel           = findViewById(R.id.transit_panel),
             headerLabel     = findViewById(R.id.transit_header),
-            row1            = transitRow1,
-            row2            = transitRow2,
-            row3            = transitRow3,
+            row1            = TransitRowView(this), // unused stubs — kept for signature compat
+            row2            = TransitRowView(this),
+            row3            = TransitRowView(this),
             errorLabel      = findViewById(R.id.transit_error),
             fragmentManager = supportFragmentManager
         )
@@ -451,6 +443,14 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.CAMERA_PANEL_PCT_LAND,
                 PreferenceKeys.TRANSIT_PANEL_PCT_PORTRAIT,
                 PreferenceKeys.TRANSIT_PANEL_PCT_LAND,
+                PreferenceKeys.CAMERA_OVERLAY_ALPHA -> {
+                    applyCameraPanel()
+                    cameraViewController.applyOverlayAlpha()
+                    cameraViewController.applyPrefsChange()
+                }
+                PreferenceKeys.CAMERA_SCALE_TYPE -> {
+                    cameraViewController.applyScaleType()
+                }
                 PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS,
                 PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL -> {
                     applyCameraPanel()
@@ -465,11 +465,8 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.TRANSIT_TO_NAME,
                 PreferenceKeys.TRANSIT_BASE_URL,
                 PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS,
-                PreferenceKeys.TRANSIT_REFRESH_INTERVAL -> {
-                    DbTransitRepository.baseUrl = sharedPreferences
-                        .getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
-                        ?.trimEnd('/')?.takeIf { it.isNotBlank() }
-                        ?: DbTransitRepository.DEFAULT_BASE
+                PreferenceKeys.TRANSIT_REFRESH_INTERVAL,
+                PreferenceKeys.TRANSIT_ROW_COUNT -> {
                     transitViewController.applyPrefsChange()
                 }
 

@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -23,6 +24,9 @@ import kotlinx.coroutines.*
  *   Col 3  wrap+minWidth  "✓" / "+5'" / "Ausfall"
  *   Col 4  weight=1       All transit stops: origin → transfers → destination
  *                         with arrival times  (no walking legs)
+ *
+ * The number of visible rows is configurable (TRANSIT_ROW_COUNT, default 3).
+ * The panel height stays fixed; if more rows than visible, the list scrolls.
  */
 class DbTransitViewController(
     private val context:         Context,
@@ -38,6 +42,7 @@ class DbTransitViewController(
     companion object {
         private const val TAG               = "DbTransitVC"
         private const val DEFAULT_REFRESH_S = 120L
+        private const val DEFAULT_ROW_COUNT = 3
     }
 
     private val prefs   = PreferenceManager.getDefaultSharedPreferences(context)
@@ -50,8 +55,17 @@ class DbTransitViewController(
         prefs.getString(PreferenceKeys.TRANSIT_REFRESH_INTERVAL, DEFAULT_REFRESH_S.toString())
             ?.toLongOrNull()?.coerceAtLeast(30L) ?: DEFAULT_REFRESH_S
 
+    private fun rowCount(): Int =
+        prefs.getString(PreferenceKeys.TRANSIT_ROW_COUNT, DEFAULT_ROW_COUNT.toString())
+            ?.toIntOrNull()?.coerceIn(1, 20) ?: DEFAULT_ROW_COUNT
+
     /** Cache for detail sheet. */
     private var lastDepartures: List<DbTransitRepository.Departure> = emptyList()
+
+    // Dynamic rows — rebuilt when row count changes
+    private var dynamicRows: MutableList<TransitRowView> = mutableListOf()
+    private var rowScrollView: ScrollView? = null
+    private var rowContainer: LinearLayout? = null
 
     private val controlRow: LinearLayout by lazy { buildControlRow() }
 
@@ -64,12 +78,67 @@ class DbTransitViewController(
 
     fun applyPrefsChange() {
         stopRefreshing()
+        // Rebuild row list in case row count changed
+        rebuildRowViews()
         if (isEnabled()) { connectionIndex = 0; startRefreshing() } else hide()
     }
 
     fun isEnabled(): Boolean {
         if (!prefs.getBoolean(PreferenceKeys.TRANSIT_ENABLED, false)) return false
         return getConnections().isNotEmpty()
+    }
+
+    // ── Row infrastructure ─────────────────────────────────────────────────────
+
+    /**
+     * Rebuilds the scrollable row container inside the panel.
+     * Called once on init and whenever TRANSIT_ROW_COUNT changes.
+     */
+    private fun rebuildRowViews() {
+        val dp = context.resources.displayMetrics.density
+        val count = rowCount()
+        val isLand = context.resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        // Height of a single row in dp (match the vPad used in TransitRowView)
+        val rowHeightDp = if (isLand) 26 else 32
+        val rowHeightPx = (rowHeightDp * dp).toInt()
+        // Fixed panel content height = rowCount rows
+        val scrollHeightPx = rowHeightPx * count
+
+        // Remove old scroll container if present
+        rowScrollView?.let { panel.removeView(it) }
+
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        rowContainer = container
+
+        val scroll = ScrollView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                scrollHeightPx
+            )
+            isVerticalScrollBarEnabled = true
+            addView(container)
+        }
+        rowScrollView = scroll
+
+        // Insert scroll after header, before errorLabel
+        val errorIdx = panel.indexOfChild(errorLabel)
+        panel.addView(scroll, if (errorIdx >= 0) errorIdx else panel.childCount - 1)
+
+        // Create fresh TransitRowViews
+        dynamicRows.clear()
+        repeat(count) {
+            val row = TransitRowView(context)
+            row.visibility = View.GONE
+            container.addView(row)
+            dynamicRows.add(row)
+        }
+    }
+
+    private fun ensureRowViews() {
+        if (rowContainer == null) rebuildRowViews()
     }
 
     // ── Control row ───────────────────────────────────────────────────────────
@@ -129,7 +198,7 @@ class DbTransitViewController(
     // ── Refresh ───────────────────────────────────────────────────────────────
 
     private fun startRefreshing() {
-        show(); ensureControlRow(); refreshJob?.cancel()
+        show(); ensureControlRow(); ensureRowViews(); refreshJob?.cancel()
         refreshJob = ioScope.launch { while (isActive) { refresh(); delay(refreshIntervalS() * 1_000L) } }
     }
     private fun stopRefreshing() { refreshJob?.cancel(); refreshJob = null }
@@ -159,7 +228,11 @@ class DbTransitViewController(
         val fromName = if (isHinfahrt) conn.fromName else conn.toName
         val toName   = if (isHinfahrt) conn.toName   else conn.fromName
 
-        when (val r = DbTransitRepository.getDepartures(fromId, toId,
+        val rawUrl = prefs.getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
+        val baseUrl = rawUrl?.trimEnd('/')?.ifBlank { DbTransitRepository.DEFAULT_BASE }
+            ?: DbTransitRepository.DEFAULT_BASE
+
+        when (val r = DbTransitRepository.getDepartures(baseUrl, fromId, toId,
             watchedStationNames = (prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: "")
                 .split(",").map { it.trim() }.filter { it.isNotEmpty() }
         )) {
@@ -170,7 +243,8 @@ class DbTransitViewController(
                     headerLabel.text = context.getString(R.string.transit_header, fromName, toName)
                     errorLabel.visibility = View.GONE
                     updateControlRow(conns)
-                    listOf(row1, row2, row3).forEachIndexed { idx, row ->
+                    ensureRowViews()
+                    dynamicRows.forEachIndexed { idx, row ->
                         val dep = deps.getOrNull(idx)
                         if (dep != null) {
                             row.bind(dep); row.visibility = View.VISIBLE
@@ -229,6 +303,7 @@ class DbTransitViewController(
     private fun hide() { panel.visibility = View.GONE }
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TransitRowView
 // ─────────────────────────────────────────────────────────────────────────────
@@ -268,6 +343,7 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         val hPad  = if (land) (4 * dp).toInt() else (6 * dp).toInt()
         val gap   = (8 * dp).toInt()
         setPadding(hPad, vPad, hPad, vPad)
+        gravity = Gravity.TOP
 
         // Col 1: line name (bold) + transfer count below
         tvLine.apply {
@@ -283,9 +359,9 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         }
         colLine.apply {
             orientation = VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.TOP
             minimumWidth = (52 * dp).toInt()
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).also {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
                 it.marginEnd = gap
             }
             addView(tvLine); addView(tvXfer)
@@ -295,9 +371,9 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         tvTime.apply {
             textSize = if (land) 12f else 13f
             setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.TOP
             minWidth = (44 * dp).toInt()
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).also {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
                 it.marginEnd = gap
             }
         }
@@ -305,9 +381,9 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         // Col 3: status
         tvStatus.apply {
             textSize = if (land) 10f else 11f
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.TOP
             minWidth = (40 * dp).toInt()
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).also {
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
                 it.marginEnd = gap
             }
         }
@@ -316,10 +392,10 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         tvStops.apply {
             textSize = if (land) 9f else 10f
             setTextColor(0xBBFFFFFF.toInt())
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.TOP
             maxLines = 4
             ellipsize = android.text.TextUtils.TruncateAt.END
-            layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
+            layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         }
 
         addView(colLine); addView(tvTime); addView(tvStatus); addView(tvStops)

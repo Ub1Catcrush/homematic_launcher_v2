@@ -134,11 +134,12 @@ class WeatherViewController(
                 setTypeface(typeface, Typeface.BOLD)
                 gravity = Gravity.CENTER
                 setPadding(12, 4, 12, 4)
-                setBackgroundColor(0xCC000000.toInt())
+                // Fully transparent background — floats over the status row without additive blending
+                setBackgroundColor(Color.TRANSPARENT)
                 layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.WRAP_CONTENT,
-                    android.view.Gravity.TOP
+                    android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
                 )
             }
             panel.addView(overlayView)
@@ -146,6 +147,8 @@ class WeatherViewController(
         overlayView?.apply {
             text = buildOverlayText(fc)
             visibility = View.VISIBLE
+            // Bring to front so it sits on top of the status row
+            bringToFront()
         }
     }
 

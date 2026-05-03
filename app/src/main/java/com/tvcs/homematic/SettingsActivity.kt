@@ -21,6 +21,51 @@ import kotlinx.coroutines.launch
 private fun switchLabel(ctx: Context, on: Boolean) =
     ctx.getString(if (on) R.string.summary_enabled else R.string.summary_disabled)
 
+// ── Universal summary helpers (call from any PreferenceFragmentCompat) ────────
+
+/** Binds an EditTextPreference: shows current value as summary, updates on change. */
+private fun PreferenceFragmentCompat.bindEditText(
+    key: String,
+    format: (String) -> String = { it }
+) {
+    findPreference<EditTextPreference>(key)?.apply {
+        val cur = preferenceManager.sharedPreferences?.getString(key, "") ?: ""
+        summary = format(cur).ifEmpty { summary ?: "" }
+        onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+            p.summary = format(v.toString()).ifEmpty { p.summary ?: "" }; true
+        }
+    }
+}
+
+/** Binds a SwitchPreferenceCompat: shows Enabled/Disabled as summary. */
+private fun PreferenceFragmentCompat.bindSwitch(key: String) {
+    findPreference<SwitchPreferenceCompat>(key)?.apply {
+        val cur = preferenceManager.sharedPreferences?.getBoolean(key, false) ?: false
+        summary = switchLabel(requireContext(), cur)
+        onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+            p.summary = switchLabel(requireContext(), v as Boolean); true
+        }
+    }
+}
+
+/** Binds a ListPreference: shows selected entry label as summary. */
+private fun PreferenceFragmentCompat.bindList(key: String) {
+    findPreference<ListPreference>(key)?.apply {
+        val idx = findIndexOfValue(value)
+        if (idx >= 0) summary = entries[idx]
+        onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+            val lp = p as ListPreference
+            val i  = lp.findIndexOfValue(v.toString())
+            p.summary = if (i >= 0) lp.entries[i] else v.toString(); true
+        }
+    }
+}
+
+/** Binds an EditTextPreference that holds a numeric value with a unit suffix. */
+private fun PreferenceFragmentCompat.bindNumber(key: String, unit: String = "") {
+    bindEditText(key) { v -> if (v.isNotBlank()) "$v$unit" else "" }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SettingsActivity : AppCompatActivity(),
@@ -174,13 +219,8 @@ class SettingsActivity : AppCompatActivity(),
     class DisplayFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences_display, rootKey)
-            bindEditText(PreferenceKeys.MOLD_WARNING_RH)
-            bindEditText(PreferenceKeys.MOLD_URGENT_RH)
-            bindEditText(PreferenceKeys.MAX_WINDOW_INDICATORS)
             bindList(PreferenceKeys.DISABLE_DISPLAY_PERIOD)
-            findPreference<ListPreference>(PreferenceKeys.THEME_MODE)?.apply {
-                bindList(PreferenceKeys.THEME_MODE)
-            }
+            bindList(PreferenceKeys.THEME_MODE)
             findPreference<ListPreference>(PreferenceKeys.APP_LANGUAGE)?.apply {
                 val idx = findIndexOfValue(value)
                 if (idx >= 0) summary = entries[idx]
@@ -195,7 +235,12 @@ class SettingsActivity : AppCompatActivity(),
             bindSwitch(PreferenceKeys.KEEP_SCREEN_ON)
             bindSwitch(PreferenceKeys.SHOW_STATUS_BAR)
             bindSwitch(PreferenceKeys.CONTENT_BELOW_STATUS_BAR)
+            bindSwitch(PreferenceKeys.SHOW_NAV_BAR)
+            bindSwitch(PreferenceKeys.CONTENT_BELOW_NAV_BAR)
             bindSwitch(PreferenceKeys.DISABLE_DISPLAY)
+            bindNumber(PreferenceKeys.MAX_WINDOW_INDICATORS)
+            bindNumber(PreferenceKeys.MOLD_WARNING_RH, " %")
+            bindNumber(PreferenceKeys.MOLD_URGENT_RH, " %")
         }
 
         private fun showLanguageRestartDialog() {
@@ -250,9 +295,14 @@ class SettingsActivity : AppCompatActivity(),
             bindEditText(PreferenceKeys.CAMERA_RTSP_URL)
             bindEditText(PreferenceKeys.CAMERA_SNAPSHOT_URL)
             bindEditText(PreferenceKeys.CAMERA_USERNAME)
-            bindEditText(PreferenceKeys.CAMERA_VIEW_HEIGHT_DP)
-            bindEditText(PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS)
-            bindEditText(PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL)
+            bindNumber(PreferenceKeys.CAMERA_OVERLAY_ALPHA, " %")
+            bindNumber(PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, " ms")
+            bindNumber(PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL, " s")
+            bindNumber(PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT, " %")
+            bindNumber(PreferenceKeys.CAMERA_PANEL_PCT_LAND, " %")
+            bindNumber(PreferenceKeys.TRANSIT_PANEL_PCT_PORTRAIT, " %")
+            bindNumber(PreferenceKeys.TRANSIT_PANEL_PCT_LAND, " %")
+            bindList(PreferenceKeys.CAMERA_SCALE_TYPE)
             bindSwitch(PreferenceKeys.CAMERA_ENABLED)
             findPreference<EditTextPreference>(PreferenceKeys.CAMERA_PASSWORD)?.apply {
                 val cur = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: ""
@@ -319,6 +369,7 @@ class SettingsActivity : AppCompatActivity(),
             val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
             bindSwitch(PreferenceKeys.TRANSIT_ENABLED)
             bindList(PreferenceKeys.TRANSIT_REFRESH_INTERVAL)
+            bindNumber(PreferenceKeys.TRANSIT_ROW_COUNT, context?.getString(R.string.unit_rows) ?: " Zeilen")
             bindEditText(PreferenceKeys.TRANSIT_FROM_NAME)
             bindEditText(PreferenceKeys.TRANSIT_TO_NAME)
 
@@ -438,13 +489,18 @@ class SettingsActivity : AppCompatActivity(),
                 override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
                 override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
+                    val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    val rawUrl = prefs.getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
+                    val baseUrl = rawUrl?.trimEnd('/')?.ifBlank { DbTransitRepository.DEFAULT_BASE }
+                        ?: DbTransitRepository.DEFAULT_BASE
+
                     val q = s?.toString()?.trim() ?: ""
                     searchJob?.cancel()
                     if (q.length < 2) { statusText.visibility = android.view.View.GONE; updateList(emptyList()); return }
                     statusText.text = getString(R.string.pref_summary_transit_searching, q); statusText.visibility = android.view.View.VISIBLE
                     searchJob = viewLifecycleOwner.lifecycleScope.launch {
                         kotlinx.coroutines.delay(350)
-                        when (val r = DbTransitRepository.searchStops(q)) {
+                        when (val r = DbTransitRepository.searchStops(baseUrl, q)) {
                             is DbTransitRepository.Result.Error   -> statusText.text = getString(R.string.pref_summary_transit_search_error, r.message)
                             is DbTransitRepository.Result.Success -> {
                                 statusText.visibility = android.view.View.GONE

@@ -87,6 +87,13 @@ object PreferenceKeys {
     const val CAMERA_RTSP_TIMEOUT_MS    = "camera_rtsp_timeout_ms"
     /** Snapshot polling interval in seconds when in MJPEG fallback mode. */
     const val CAMERA_SNAPSHOT_INTERVAL  = "camera_snapshot_interval"
+    const val CAMERA_OVERLAY_ALPHA      = "camera_overlay_alpha"      // 0–100, default 60
+    /**
+     * How the camera image fills its panel area.
+     * Values: "center_crop" (default, fills, may clip), "fit_center" (letterbox, whole image),
+     *         "center_inside" (no upscale), "fit_xy" (stretch to fill, ignores ratio)
+     */
+    const val CAMERA_SCALE_TYPE         = "camera_scale_type"         // default "center_crop"
 
     // ── DB Transit ───────────────────────────────────────────────────────────
     const val TRANSIT_ENABLED   = "transit_enabled"
@@ -118,6 +125,8 @@ object PreferenceKeys {
     // ── DB Transit refresh interval ───────────────────────────────────────────
     /** Refresh interval in seconds (default 120). */
     const val TRANSIT_REFRESH_INTERVAL   = "transit_refresh_interval"
+    /** Number of departure rows to show (default 3, min 1, max 10). Height stays fixed; scrolls if needed. */
+    const val TRANSIT_ROW_COUNT          = "transit_row_count"
 
     // ── LAN / VPN only mode ───────────────────────────────────────────────────
     /** When true, only sync if at least one configured endpoint is reachable. */

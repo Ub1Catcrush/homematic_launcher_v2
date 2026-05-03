@@ -1,61 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- CCU-Verbindung & Sync -->
+    <!-- ── 1. CCU-Verbindung & Sync ───────────────────────────────────────── -->
     <Preference
         android:key="nav_ccu"
         android:title="@string/pref_nav_ccu"
         android:summary="@string/pref_nav_ccu_summary"
         android:icon="@drawable/ic_sync_black_24dp" />
 
-    <!-- Anzeige -->
+    <!-- ── 2. Räume & Anzeige ─────────────────────────────────────────────── -->
     <Preference
         android:key="nav_display"
         android:title="@string/pref_nav_display"
         android:summary="@string/pref_nav_display_summary"
         android:icon="@drawable/ic_info_black_24dp" />
 
-    <!-- Benachrichtigungen -->
-    <Preference
-        android:key="nav_notifications"
-        android:title="@string/pref_category_notifications"
-        android:summary="@string/pref_nav_notifications_summary"
-        android:icon="@drawable/ic_notifications_black_24dp" />
-
-    <!-- Live-Kamera -->
+    <!-- ── 3. Live-Kamera ─────────────────────────────────────────────────── -->
     <Preference
         android:key="nav_camera"
         android:title="@string/pref_category_camera"
         android:summary="@string/pref_nav_camera_summary"
         android:icon="@drawable/ic_video_24" />
 
-    <!-- Abfahrtsanzeige -->
+    <!-- ── 4. ÖV / DB-Abfahrtsanzeige ────────────────────────────────────── -->
     <Preference
         android:key="nav_transit"
         android:title="@string/pref_category_transit"
         android:summary="@string/pref_nav_transit_summary"
         android:icon="@drawable/ic_info_black_24dp" />
 
-    <!-- Erweitert -->
+    <!-- ── 5. Wetter ──────────────────────────────────────────────────────── -->
     <Preference
-        android:key="nav_advanced"
-        android:title="@string/pref_nav_advanced"
-        android:summary="@string/pref_nav_advanced_summary"
-        android:icon="@drawable/settings" />
+        android:key="nav_weather"
+        android:title="@string/pref_nav_weather"
+        android:summary="@string/pref_nav_weather_summary"
+        android:icon="@drawable/ic_info_black_24dp" />
 
+    <!-- ── 6. Benachrichtigungen ──────────────────────────────────────────── -->
+    <Preference
+        android:key="nav_notifications"
+        android:title="@string/pref_category_notifications"
+        android:summary="@string/pref_nav_notifications_summary"
+        android:icon="@drawable/ic_notifications_black_24dp" />
 
-    <!-- Erscheinungsbild: Farben & Schriften -->
+    <!-- ── 7. Erscheinungsbild ────────────────────────────────────────────── -->
     <Preference
         android:key="nav_appearance"
         android:title="@string/pref_nav_appearance"
         android:summary="@string/pref_nav_appearance_summary"
         android:icon="@drawable/ic_info_black_24dp" />
 
-    <!-- Wetter -->
+    <!-- ── 8. Erweitert / Entwickler ─────────────────────────────────────── -->
     <Preference
-        android:key="nav_weather"
-        android:title="@string/pref_nav_weather"
-        android:summary="@string/pref_nav_weather_summary"
-        android:icon="@drawable/ic_info_black_24dp" />
+        android:key="nav_advanced"
+        android:title="@string/pref_nav_advanced"
+        android:summary="@string/pref_nav_advanced_summary"
+        android:icon="@drawable/settings" />
 
 </PreferenceScreen>

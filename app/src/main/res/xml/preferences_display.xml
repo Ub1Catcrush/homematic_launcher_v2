@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ========== ANZEIGE ========== -->
+    <!-- ========== ERSCHEINUNGSBILD ========== -->
     <PreferenceCategory android:title="@string/pref_category_display">
 
         <ListPreference
@@ -23,28 +23,12 @@
         <SwitchPreferenceCompat
             android:key="keep_screen_on"
             android:title="@string/pref_title_keep_screen_on"
-            android:summary="@string/pref_summary_keep_screen_on"
-            android:defaultValue="true"
-            android:persistent="true" />
-
-        <SwitchPreferenceCompat
-            android:key="show_status_bar"
-            android:title="@string/pref_title_show_status_bar"
-            android:summary="@string/pref_summary_show_status_bar"
-            android:defaultValue="false"
-            android:persistent="true" />
-
-        <SwitchPreferenceCompat
-            android:key="content_below_status_bar"
-            android:title="@string/pref_title_content_below_status_bar"
-            android:summary="@string/pref_summary_content_below_status_bar"
             android:defaultValue="true"
             android:persistent="true" />
 
         <SwitchPreferenceCompat
             android:key="disable_display_switch"
             android:title="@string/pref_title_disable_display"
-            android:summary="@string/pref_description_disable_display"
             android:defaultValue="false"
             android:persistent="true" />
 
@@ -56,6 +40,40 @@
             android:defaultValue="120"
             android:persistent="true" />
 
+    </PreferenceCategory>
+
+    <!-- ========== SYSTEM-LEISTEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_system_bars">
+
+        <SwitchPreferenceCompat
+            android:key="show_status_bar"
+            android:title="@string/pref_title_show_status_bar"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="content_below_status_bar"
+            android:title="@string/pref_title_content_below_status_bar"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="show_nav_bar"
+            android:title="@string/pref_title_show_nav_bar"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="content_below_nav_bar"
+            android:title="@string/pref_title_content_below_nav_bar"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <!-- ========== RAUMKACHELN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_thermostat">
+
         <EditTextPreference
             android:key="max_window_indicators"
             android:title="@string/pref_title_max_window_indicators"
@@ -64,15 +82,9 @@
             android:persistent="true"
             android:inputType="number" />
 
-    </PreferenceCategory>
-
-    <!-- ========== THERMOSTAT / SCHIMMELWARNUNG ========== -->
-    <PreferenceCategory android:title="@string/pref_category_thermostat">
-
         <EditTextPreference
             android:key="mold_warning_rh"
             android:title="@string/pref_title_mold_warning_rh"
-            android:summary="@string/pref_summary_mold_warning_rh"
             android:defaultValue="65"
             android:persistent="true"
             android:inputType="numberDecimal" />
@@ -80,7 +92,6 @@
         <EditTextPreference
             android:key="mold_urgent_rh"
             android:title="@string/pref_title_mold_urgent_rh"
-            android:summary="@string/pref_summary_mold_urgent_rh"
             android:defaultValue="75"
             android:persistent="true"
             android:inputType="numberDecimal" />

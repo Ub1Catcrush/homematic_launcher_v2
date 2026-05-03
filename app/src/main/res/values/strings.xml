@@ -512,7 +512,10 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_title_camera_pct_land">Kamera – Querformat (%)</string>
     <string name="pref_title_transit_pct_land">ÖV-Anzeige – Querformat (%)</string>
     <string name="pref_summary_panel_pct">Prozent der nutzbaren Bildschirmhöhe (1–50). Standard: 20</string>
-    <string name="pref_category_nav_bar">Navigationsleiste</string>
+    <string name="pref_title_camera_overlay_alpha">Overlay-Transparenz (%)</string>
+    <string name="pref_summary_camera_overlay_alpha">Deckkraft der Status-Banderole über dem Bild (0 = unsichtbar, 100 = voll deckend). Standard: 60</string>
+    <string name="pref_category_camera_connection">Verbindungsverhalten</string>
+    <string name="pref_category_system_bars">Systemleisten</string>
     <string name="pref_title_show_nav_bar">Android-Navigationsleiste anzeigen</string>
     <string name="pref_summary_show_nav_bar">Navigationsleiste (Zurück/Home/Übersicht) einblenden</string>
     <string name="pref_title_content_below_nav_bar">Inhalte unter Navigationsleiste</string>
@@ -602,4 +605,28 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
 
     <string name="pref_title_transit_base_url">API Basis-URL</string>
     <string name="pref_summary_transit_base_url">Basis-URL für die DB-Transit-API (Standard: https://v6.db.transport.rest)</string>
+
+    <string name="audio_playback_attribution">"Diese App nutzt Audio-Funktionen"</string>
+
+    <!-- Camera scale type -->
+    <string name="pref_title_camera_scale_type">Bildausschnitt / Skalierung</string>
+    <string name="pref_summary_camera_scale_type">Wie das Kamerabild in die Anzeigefläche eingepasst wird</string>
+
+    <!-- Transit row count -->
+    <string name="pref_title_transit_row_count">Anzahl angezeigte Abfahrten</string>
+    <string name="pref_summary_transit_row_count">Wie viele Verbindungen gleichzeitig sichtbar sind (Höhe fix, scrollbar bei mehr). Standard: 3</string>
+    <string name="unit_rows"> Zeilen</string>
+
+    <string-array name="pref_camera_scale_type_titles">
+        <item>Füllen (centerCrop) – Standard</item>
+        <item>Ganzes Bild (fitCenter) – Letterbox</item>
+        <item>Ganzes Bild, kein Upscale (centerInside)</item>
+        <item>Strecken (fitXY) – kein Seitenverhältnis</item>
+    </string-array>
+    <string-array name="pref_camera_scale_type_values">
+        <item>center_crop</item>
+        <item>fit_center</item>
+        <item>center_inside</item>
+        <item>fit_xy</item>
+    </string-array>
 </resources>
