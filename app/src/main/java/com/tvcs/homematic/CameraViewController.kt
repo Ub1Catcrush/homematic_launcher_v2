@@ -323,6 +323,7 @@ class CameraViewController(
     }
 
     /** Applies the configured scale type to both the snapshot ImageView and the ExoPlayer resize mode. */
+    @OptIn(UnstableApi::class)
     fun applyScaleType() {
         val scaleKey = prefs.getString(PreferenceKeys.CAMERA_SCALE_TYPE, "center_crop") ?: "center_crop"
         // ImageView scale type for MJPEG snapshot

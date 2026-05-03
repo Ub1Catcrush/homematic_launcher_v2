@@ -251,12 +251,16 @@ class MainActivity : AppCompatActivity() {
         } else null
 
         // Usable height = window height minus status bar minus nav bar
-        val totalPx = if (metrics != null) {
-            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
-                android.view.WindowInsets.Type.systemBars())
-            metrics.bounds.height() - insets.top - insets.bottom
+        val totalPx = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val windowMetrics = windowManager.currentWindowMetrics
+            val insets = windowMetrics.windowInsets.getInsetsIgnoringVisibility(
+                android.view.WindowInsets.Type.systemBars()
+            )
+            // Bounds ist die volle Displaygröße, minus die System-Bars (Status + Nav)
+            windowMetrics.bounds.height() - insets.top - insets.bottom
         } else {
-            val dm = resources.displayMetrics; dm.heightPixels
+            // Fallback für ältere Geräte
+            resources.displayMetrics.heightPixels
         }
 
         val camPct  = if (isLand)
