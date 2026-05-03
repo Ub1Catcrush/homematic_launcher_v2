@@ -4,6 +4,16 @@
     <!-- ========== DB TRANSIT ========== -->
     <PreferenceCategory android:title="@string/pref_category_transit">
 
+
+        <ListPreference
+            android:key="transit_refresh_interval"
+            android:title="@string/pref_title_transit_refresh"
+            android:summary="@string/pref_summary_transit_refresh"
+            android:entries="@array/pref_transit_refresh_titles"
+            android:entryValues="@array/pref_transit_refresh_values"
+            android:defaultValue="120"
+            android:persistent="true" />
+
         <SwitchPreferenceCompat
             android:key="transit_enabled"
             android:title="@string/pref_title_transit_enabled"

@@ -43,4 +43,19 @@
         android:summary="@string/pref_nav_advanced_summary"
         android:icon="@drawable/settings" />
 
+
+    <!-- Erscheinungsbild: Farben & Schriften -->
+    <Preference
+        android:key="nav_appearance"
+        android:title="@string/pref_nav_appearance"
+        android:summary="@string/pref_nav_appearance_summary"
+        android:icon="@drawable/ic_info_black_24dp" />
+
+    <!-- Wetter -->
+    <Preference
+        android:key="nav_weather"
+        android:title="@string/pref_nav_weather"
+        android:summary="@string/pref_nav_weather_summary"
+        android:icon="@drawable/ic_info_black_24dp" />
+
 </PreferenceScreen>

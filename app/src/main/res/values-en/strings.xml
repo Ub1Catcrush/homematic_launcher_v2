@@ -410,8 +410,6 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_category_transit">Departure board (DB)</string>
     <string name="pref_title_transit_enabled">Enable departure board</string>
     <string name="pref_summary_transit_enabled">Show next connections above the camera</string>
-    <string name="pref_title_transit_base_url">API server</string>
-    <string name="pref_summary_transit_base_url">URL of the db-rest server. Default: https://v6.db.transport.rest — or enter your own self-hosted instance</string>
     <string name="pref_title_transit_from">From (station name)</string>
     <string name="pref_summary_transit_from">Enter departure station name, then tap \'Search\'</string>
     <string name="pref_title_transit_to">To (station name)</string>
@@ -452,4 +450,69 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_category_transit_conn2">Connection 2 (optional)</string>
     <string name="pref_category_transit_conn3">Connection 3 (optional)</string>
     <string name="pref_category_transit_conn4">Connection 4 (optional)</string>
+
+    <!-- Transit refresh -->
+    <string name="pref_title_transit_refresh">Refresh interval</string>
+    <string name="pref_summary_transit_refresh">How often the departure list is updated</string>
+
+    <!-- LAN-only -->
+    <string name="pref_category_network_gate">Network restriction</string>
+    <string name="pref_title_lan_only">LAN / VPN only</string>
+    <string name="pref_summary_lan_only">Skip updates when CCU, camera and DB endpoints are unreachable (useful when VPN is required)</string>
+
+    <!-- Appearance fonts -->
+    <string name="pref_category_font_sizes">Font sizes (sp)</string>
+    <string name="pref_title_font_room_title">Room tile – title</string>
+    <string name="pref_summary_font_room_title">Default: 12 sp</string>
+    <string name="pref_title_font_room_data">Room tile – data values</string>
+    <string name="pref_summary_font_room_data">Default: 11.5 sp</string>
+    <string name="pref_title_font_transit">DB departure row</string>
+    <string name="pref_summary_font_transit">Default: 11 sp</string>
+
+    <!-- Appearance colours -->
+    <string name="pref_category_colors_dark">Colours – Dark mode</string>
+    <string name="pref_category_colors_light">Colours – Light mode</string>
+    <string name="pref_title_color_bg_status">Status bar background</string>
+    <string name="pref_title_color_bg_header">Header/toolbar background</string>
+    <string name="pref_title_color_bg_transit">DB panel background</string>
+    <string name="pref_title_color_bg_camera">Camera panel background</string>
+    <string name="pref_title_color_border_room">Room tile border</string>
+    <string name="pref_title_color_text_room">Room text / values</string>
+    <string name="pref_title_color_text_dim">Dimmed secondary text</string>
+    <string name="pref_category_appearance_reset">Reset</string>
+    <string name="pref_title_reset_appearance">Reset all colours &amp; fonts</string>
+    <string name="pref_summary_reset_appearance">Restores all colour and font settings to their defaults</string>
+
+    <!-- Navigation -->
+    <string name="pref_nav_appearance">Appearance</string>
+    <string name="pref_nav_appearance_summary">Colours (dark/light), font sizes</string>
+    <string name="pref_nav_weather">Weather forecast</string>
+    <string name="pref_nav_weather_summary">Daily forecast via Open-Meteo API</string>
+
+    <!-- Weather -->
+    <string name="pref_category_weather">Weather forecast</string>
+    <string name="pref_title_weather_enabled">Enable weather</string>
+    <string name="pref_summary_weather_enabled">Show daily forecast (temperature, precipitation, conditions)</string>
+    <string name="pref_title_weather_display_mode">Display mode</string>
+    <string name="pref_title_weather_city">City / Location</string>
+    <string name="pref_summary_weather_city">City name for automatic coordinate lookup</string>
+    <string name="pref_title_weather_lat">Latitude (optional)</string>
+    <string name="pref_title_weather_lon">Longitude (optional)</string>
+    <string name="pref_summary_weather_lat_lon">Overrides city search when set (e.g. 48.1351)</string>
+    <string name="pref_title_weather_refresh">Refresh interval (minutes)</string>
+    <string name="pref_summary_weather_refresh">Default: 30 minutes</string>
+    <string name="pref_title_weather_test">Fetch weather now</string>
+    <string name="pref_summary_weather_test">Tap to test</string>
+
+    <string name="weather_tile_title">Weather</string>
+
+    <!-- RoomAdapter references -->
+    <string name="label_temp">Temp.</string>
+    <string name="notif_lowbat">Low Battery</string>
+    <string name="notif_sabotage">Sabotage</string>
+    <string name="notif_fault">Device Error</string>
+    <string name="room_tile_error">Error: %s</string>
+
+    <string name="pref_title_transit_base_url">API base URL</string>
+    <string name="pref_summary_transit_base_url">Base URL for DB transit API (default: https://v6.db.transport.rest)</string>
 </resources>

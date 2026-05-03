@@ -16,17 +16,16 @@ import kotlinx.coroutines.*
 /**
  * DbTransitViewController
  *
- * Row layout — columns at fixed positions, full width:
- *   Col 1  wrap_content  Line name   e.g. "RE 10", "S 1 +2"
- *   Col 2  wrap_content  Time        "HH:MM" only, no direction
- *   Col 3  wrap_content  Status      "✓" / "+5'" / "Ausfall"
- *   Col 4  weight=1      Transfer    rest of width — Umstieg info
+ * Row layout — 4 columns, always at the same horizontal positions:
  *
- * All three data rows share the same parent width so weights give identical
- * column start positions regardless of content.
+ *   Col 1  wrap+minWidth  Line name (line 1) + "+X" transfers (line 2, if >0)
+ *   Col 2  wrap+minWidth  Departure time only  "HH:MM"
+ *   Col 3  wrap+minWidth  "✓" / "+5'" / "Ausfall"
+ *   Col 4  weight=1       All transit stops: origin → transfers → destination
+ *                         with arrival times  (no walking legs)
  */
 class DbTransitViewController(
-    private val context: Context,
+    private val context:         Context,
     private val panel:           LinearLayout,
     private val headerLabel:     TextView,
     private val row1:            TransitRowView,
@@ -37,18 +36,21 @@ class DbTransitViewController(
 ) : DefaultLifecycleObserver {
 
     companion object {
-        private const val TAG                = "DbTransitVC"
-        private const val REFRESH_INTERVAL_S = 60L
+        private const val TAG               = "DbTransitVC"
+        private const val DEFAULT_REFRESH_S = 120L
     }
 
     private val prefs   = PreferenceManager.getDefaultSharedPreferences(context)
     private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var refreshJob: Job? = null
-
-    private var isHinfahrt     = true
+    private var isHinfahrt      = true
     private var connectionIndex = 0
 
-    /** Most recently fetched departures — used by the detail sheet. */
+    private fun refreshIntervalS(): Long =
+        prefs.getString(PreferenceKeys.TRANSIT_REFRESH_INTERVAL, DEFAULT_REFRESH_S.toString())
+            ?.toLongOrNull()?.coerceAtLeast(30L) ?: DEFAULT_REFRESH_S
+
+    /** Cache for detail sheet. */
     private var lastDepartures: List<DbTransitRepository.Departure> = emptyList()
 
     private val controlRow: LinearLayout by lazy { buildControlRow() }
@@ -56,7 +58,6 @@ class DbTransitViewController(
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     fun attachToLifecycle(owner: LifecycleOwner) = owner.lifecycle.addObserver(this)
-
     override fun onStart(owner: LifecycleOwner)   { if (isEnabled()) startRefreshing() }
     override fun onStop(owner: LifecycleOwner)    { stopRefreshing() }
     override fun onDestroy(owner: LifecycleOwner) { ioScope.cancel() }
@@ -74,17 +75,17 @@ class DbTransitViewController(
     // ── Control row ───────────────────────────────────────────────────────────
 
     private fun buildControlRow(): LinearLayout {
-        val dp = context.resources.displayMetrics.density
+        val dp     = context.resources.displayMetrics.density
         val isLand = context.resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val minTouch = ((if (isLand) 40 else 48) * dp).toInt()
-        val iconSp   = if (isLand) 15f else 18f
-        val labelSp  = if (isLand) 10f else 11f
+        val touch  = ((if (isLand) 40 else 48) * dp).toInt()
+        val iconSp = if (isLand) 15f else 18f
+        val labSp  = if (isLand) 10f else 11f
 
-        fun iconBtn(label: String, action: () -> Unit) = TextView(context).apply {
+        fun btn(label: String, action: () -> Unit) = TextView(context).apply {
             text = label; textSize = iconSp
             setTextColor(0xFFFFFFFF.toInt()); gravity = Gravity.CENTER
-            minWidth = minTouch; minHeight = minTouch
+            minWidth = touch; minHeight = touch
             setPadding((10 * dp).toInt(), 0, (10 * dp).toInt(), 0)
             isFocusable = true; isClickable = true
             setOnClickListener { action() }
@@ -92,17 +93,17 @@ class DbTransitViewController(
             background = ta.getDrawable(0); ta.recycle()
         }
 
-        val btnToggle = iconBtn("⇄") { isHinfahrt = !isHinfahrt; refreshNow() }
-        val btnPrev   = iconBtn("‹") {
+        val btnToggle = btn("⇄") { isHinfahrt = !isHinfahrt; refreshNow() }
+        val btnPrev   = btn("‹") {
             val n = getConnections().size
             if (n > 1) { connectionIndex = (connectionIndex - 1 + n) % n; refreshNow() }
         }
-        val tvLabel = TextView(context).apply {
-            id = View.generateViewId(); textSize = labelSp
+        val label = TextView(context).apply {
+            id = View.generateViewId(); textSize = labSp
             setTextColor(0xCCFFFFFF.toInt()); gravity = Gravity.CENTER
-            minHeight = minTouch; setPadding((4 * dp).toInt(), 0, (4 * dp).toInt(), 0)
+            minHeight = touch; setPadding((4 * dp).toInt(), 0, (4 * dp).toInt(), 0)
         }
-        val btnNext = iconBtn("›") {
+        val btnNext = btn("›") {
             val n = getConnections().size
             if (n > 1) { connectionIndex = (connectionIndex + 1) % n; refreshNow() }
         }
@@ -113,75 +114,70 @@ class DbTransitViewController(
             gravity = Gravity.CENTER_VERTICAL
             addView(btnToggle)
             addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) })
-            addView(btnPrev); addView(tvLabel); addView(btnNext)
-            tag = tvLabel
+            addView(btnPrev); addView(label); addView(btnNext)
+            tag = label
         }
     }
 
-    private fun updateControlRow(connections: List<ConnectionConfig>) {
-        val label = controlRow.tag as? TextView ?: return
-        val dir   = if (isHinfahrt) context.getString(R.string.transit_hin)
-                    else             context.getString(R.string.transit_rueck)
-        label.text = if (connections.size > 1) "$dir  ${connectionIndex + 1}/${connections.size}" else dir
+    private fun updateControlRow(conns: List<ConnectionConfig>) {
+        val tv  = controlRow.tag as? TextView ?: return
+        val dir = if (isHinfahrt) context.getString(R.string.transit_hin)
+                  else             context.getString(R.string.transit_rueck)
+        tv.text = if (conns.size > 1) "$dir  ${connectionIndex + 1}/${conns.size}" else dir
     }
 
-    // ── Refresh loop ──────────────────────────────────────────────────────────
+    // ── Refresh ───────────────────────────────────────────────────────────────
 
     private fun startRefreshing() {
-        show(); ensureControlRowAttached(); refreshJob?.cancel()
-        refreshJob = ioScope.launch {
-            while (isActive) { refresh(); delay(REFRESH_INTERVAL_S * 1_000L) }
-        }
+        show(); ensureControlRow(); refreshJob?.cancel()
+        refreshJob = ioScope.launch { while (isActive) { refresh(); delay(refreshIntervalS() * 1_000L) } }
     }
-
     private fun stopRefreshing() { refreshJob?.cancel(); refreshJob = null }
-
     private fun refreshNow() {
         refreshJob?.cancel()
-        refreshJob = ioScope.launch {
-            refresh(); delay(REFRESH_INTERVAL_S * 1_000L)
-            while (isActive) { refresh(); delay(REFRESH_INTERVAL_S * 1_000L) }
-        }
+        refreshJob = ioScope.launch { refresh(); delay(refreshIntervalS() * 1_000L)
+            while (isActive) { refresh(); delay(refreshIntervalS() * 1_000L) } }
     }
-
-    private fun ensureControlRowAttached() {
+    private fun ensureControlRow() {
         if (controlRow.parent == null) panel.addView(controlRow, 0)
+        // Tap the header label to force an immediate refresh
+        headerLabel.isClickable = true
+        headerLabel.isFocusable = true
+        val ta = context.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+        headerLabel.background = ta.getDrawable(0)
+        ta.recycle()
+        headerLabel.setOnClickListener { refreshNow() }
     }
 
     private suspend fun refresh() {
-        val connections = getConnections()
-        if (connections.isEmpty()) { withContext(Dispatchers.Main) { hide() }; return }
-        if (connectionIndex >= connections.size) connectionIndex = 0
-        val conn = connections[connectionIndex]
-
+        val conns = getConnections()
+        if (conns.isEmpty()) { withContext(Dispatchers.Main) { hide() }; return }
+        if (connectionIndex >= conns.size) connectionIndex = 0
+        val conn = conns[connectionIndex]
         val fromId   = if (isHinfahrt) conn.fromId   else conn.toId
         val toId     = if (isHinfahrt) conn.toId     else conn.fromId
         val fromName = if (isHinfahrt) conn.fromName else conn.toName
         val toName   = if (isHinfahrt) conn.toName   else conn.fromName
 
-        val watched = (prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: "")
-            .split(",").map { it.trim() }.filter { it.isNotEmpty() }
-
-        when (val result = DbTransitRepository.getDepartures(fromId, toId, watched)) {
+        when (val r = DbTransitRepository.getDepartures(fromId, toId,
+            watchedStationNames = (prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: "")
+                .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        )) {
             is DbTransitRepository.Result.Success -> {
-                val deps = result.data
+                val deps = r.data
                 withContext(Dispatchers.Main) {
                     lastDepartures = deps
                     headerLabel.text = context.getString(R.string.transit_header, fromName, toName)
                     errorLabel.visibility = View.GONE
-                    updateControlRow(connections)
+                    updateControlRow(conns)
                     listOf(row1, row2, row3).forEachIndexed { idx, row ->
                         val dep = deps.getOrNull(idx)
                         if (dep != null) {
-                            row.bind(dep)
-                            row.visibility = View.VISIBLE
+                            row.bind(dep); row.visibility = View.VISIBLE
                             row.setOnClickListener {
                                 TransitDetailBottomSheet.show(fragmentManager, lastDepartures, idx)
                             }
-                        } else {
-                            row.visibility = View.GONE
-                            row.setOnClickListener(null)
-                        }
+                        } else { row.visibility = View.GONE; row.setOnClickListener(null) }
                     }
                     if (deps.isEmpty()) {
                         errorLabel.text = context.getString(R.string.transit_no_departures)
@@ -190,17 +186,17 @@ class DbTransitViewController(
                 }
             }
             is DbTransitRepository.Result.Error -> {
-                Log.w(TAG, "Refresh error: ${result.message}")
+                Log.w(TAG, "Refresh error: ${r.message}")
                 withContext(Dispatchers.Main) {
-                    errorLabel.text = context.getString(R.string.transit_error, result.message)
+                    errorLabel.text = context.getString(R.string.transit_error, r.message)
                     errorLabel.visibility = View.VISIBLE
-                    updateControlRow(connections)
+                    updateControlRow(conns)
                 }
             }
         }
     }
 
-    // ── Connection config ─────────────────────────────────────────────────────
+    // ── Connections ───────────────────────────────────────────────────────────
 
     data class ConnectionConfig(
         val fromId: String, val fromName: String,
@@ -208,29 +204,25 @@ class DbTransitViewController(
     )
 
     private fun getConnections(): List<ConnectionConfig> {
-        val result = mutableListOf<ConnectionConfig>()
+        val list = mutableListOf<ConnectionConfig>()
         val f0 = prefs.getString(PreferenceKeys.TRANSIT_FROM_ID,   "") ?: ""
         val t0 = prefs.getString(PreferenceKeys.TRANSIT_TO_ID,     "") ?: ""
         if (f0.isNotBlank() && t0.isNotBlank()) {
-            result += ConnectionConfig(
-                f0, prefs.getString(PreferenceKeys.TRANSIT_FROM_NAME, "") ?: "",
-                t0, prefs.getString(PreferenceKeys.TRANSIT_TO_NAME,   "") ?: ""
-            )
+            list += ConnectionConfig(f0,
+                prefs.getString(PreferenceKeys.TRANSIT_FROM_NAME, "") ?: "",
+                t0, prefs.getString(PreferenceKeys.TRANSIT_TO_NAME, "") ?: "")
         }
-        val extrasJson = prefs.getString(PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS, "") ?: ""
-        if (extrasJson.isNotBlank()) {
-            try {
-                val arr = org.json.JSONArray(extrasJson)
-                for (i in 0 until arr.length()) {
-                    val o = arr.getJSONObject(i)
-                    val fId = o.optString("fromId", ""); val tId = o.optString("toId", "")
-                    if (fId.isNotBlank() && tId.isNotBlank()) {
-                        result += ConnectionConfig(fId, o.optString("fromName",""), tId, o.optString("toName",""))
-                    }
-                }
-            } catch (_: Exception) { }
-        }
-        return result
+        val extras = prefs.getString(PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS, "") ?: ""
+        if (extras.isNotBlank()) try {
+            val arr = org.json.JSONArray(extras)
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val fi = o.optString("fromId", ""); val ti = o.optString("toId", "")
+                if (fi.isNotBlank() && ti.isNotBlank())
+                    list += ConnectionConfig(fi, o.optString("fromName",""), ti, o.optString("toName",""))
+            }
+        } catch (_: Exception) {}
+        return list
     }
 
     private fun show() { panel.visibility = View.VISIBLE }
@@ -242,32 +234,28 @@ class DbTransitViewController(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * One departure row. Column layout:
- *
- *   ┌──────────────┬───────┬──────┬─────────────────────┐
- *   │ Col 1        │ Col 2 │ Col 3│ Col 4               │
- *   │ Line         │ Time  │ Stat │ Transfer (fills rest)│
- *   │ wrap_content │ wrap  │ wrap │ weight=1             │
- *   └──────────────┴───────┴──────┴─────────────────────┘
- *
- * Cols 1-3 use wrap_content with explicit minWidth so they never shrink below
- * the widest text they ever need to show. This guarantees all rows align at the
- * same column boundaries regardless of content.
- *
- * Col 1 min = "S 10 +2" ≈ 7 chars → 56 dp
- * Col 2 min = "00:00"   ≈ 5 chars → 44 dp
- * Col 3 min = "+99'"    ≈ 4 chars → 40 dp
+ * Col 1  wrap+minWidth  Line name bold; line 2 "+X Umstiege" (no walks counted)
+ * Col 2  wrap+minWidth  Time "HH:MM" only
+ * Col 3  wrap+minWidth  "✓" / "+5'" / "Ausfall"
+ * Col 4  weight=1       Origin → [transfer stops] → Final destination with times
+ *                       INVISIBLE when not used so columns always align
  */
 class TransitRowView(context: Context) : LinearLayout(context) {
 
-    private val dp = resources.displayMetrics.density
+    private val dp     = resources.displayMetrics.density
     private val isLand get() = resources.configuration.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
+    // Col 1 — two-line: line name + optional "+X"
+    private val colLine    = LinearLayout(context)
     private val tvLine     = TextView(context)
+    private val tvXfer     = TextView(context)
+    // Col 2 — time only
     private val tvTime     = TextView(context)
+    // Col 3 — status
     private val tvStatus   = TextView(context)
-    private val tvTransfer = TextView(context)
+    // Col 4 — stop summary
+    private val tvStops    = TextView(context)
 
     init {
         orientation = HORIZONTAL
@@ -278,68 +266,77 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         val land  = isLand
         val vPad  = if (land) (2 * dp).toInt() else (4 * dp).toInt()
         val hPad  = if (land) (4 * dp).toInt() else (6 * dp).toInt()
-        // Gap between columns
         val gap   = (8 * dp).toInt()
-
         setPadding(hPad, vPad, hPad, vPad)
 
-        // Col 1 — Line name: "RE 10", "S 1 +2", "ICE"
-        // minWidth covers longest expected token; text is never clipped
+        // Col 1: line name (bold) + transfer count below
         tvLine.apply {
-            textSize  = if (land) 11f else 12f
+            textSize = if (land) 11f else 12f
             setTypeface(typeface, Typeface.BOLD)
             setTextColor(Color.WHITE)
-            gravity   = Gravity.CENTER_VERTICAL
-            maxLines  = 1
-            minWidth  = (56 * dp).toInt()
+            maxLines = 1
+        }
+        tvXfer.apply {
+            textSize = if (land) 9f else 10f
+            setTextColor(0xAAFFFFFF.toInt())
+            maxLines = 1
+        }
+        colLine.apply {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumWidth = (52 * dp).toInt()
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).also {
                 it.marginEnd = gap
             }
+            addView(tvLine); addView(tvXfer)
         }
 
-        // Col 2 — Departure time only: "HH:MM"
+        // Col 2: time
         tvTime.apply {
-            textSize  = if (land) 12f else 13f
+            textSize = if (land) 12f else 13f
             setTextColor(Color.WHITE)
-            gravity   = Gravity.CENTER_VERTICAL
-            maxLines  = 1
-            minWidth  = (44 * dp).toInt()
+            gravity = Gravity.CENTER_VERTICAL
+            minWidth = (44 * dp).toInt()
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).also {
                 it.marginEnd = gap
             }
         }
 
-        // Col 3 — Status: "✓", "+5'", "Ausfall"
+        // Col 3: status
         tvStatus.apply {
-            textSize  = if (land) 10f else 11f
-            gravity   = Gravity.CENTER_VERTICAL
-            maxLines  = 1
-            minWidth  = (40 * dp).toInt()
+            textSize = if (land) 10f else 11f
+            gravity = Gravity.CENTER_VERTICAL
+            minWidth = (40 * dp).toInt()
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).also {
                 it.marginEnd = gap
             }
         }
 
-        // Col 4 — Transfer info: fills all remaining width
-        tvTransfer.apply {
-            textSize  = if (land) 9f else 10f
+        // Col 4: stop summary fills rest
+        tvStops.apply {
+            textSize = if (land) 9f else 10f
             setTextColor(0xBBFFFFFF.toInt())
-            gravity   = Gravity.CENTER_VERTICAL
-            maxLines  = 2
+            gravity = Gravity.CENTER_VERTICAL
+            maxLines = 4
             ellipsize = android.text.TextUtils.TruncateAt.END
-            // INVISIBLE (not GONE) so column width is always reserved
             layoutParams = LayoutParams(0, LayoutParams.MATCH_PARENT, 1f)
         }
 
-        addView(tvLine)
-        addView(tvTime)
-        addView(tvStatus)
-        addView(tvTransfer)
+        addView(colLine); addView(tvTime); addView(tvStatus); addView(tvStops)
     }
 
     fun bind(dep: DbTransitRepository.Departure) {
+        // Col 1
         tvLine.text = dep.line
+        if (dep.transfers > 0) {
+            tvXfer.text = "+${dep.transfers}"
+            tvXfer.visibility = View.VISIBLE
+        } else {
+            tvXfer.text = ""
+            tvXfer.visibility = View.GONE
+        }
 
+        // Col 2 + 3
         if (dep.cancelled) {
             tvTime.text = dep.plannedTime
             tvTime.setTextColor(0xFFFF4444.toInt())
@@ -348,24 +345,38 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         } else {
             tvTime.setTextColor(Color.WHITE)
             tvTime.text = dep.realtimeTime ?: dep.plannedTime
-
-            val delay = dep.delayMinutes
+            val d = dep.delayMinutes
             when {
-                delay == null -> { tvStatus.text = ""; }
-                delay <= 0    -> { tvStatus.text = "✓";  tvStatus.setTextColor(0xFF66DD66.toInt()) }
-                delay <= 5    -> { tvStatus.text = "+${delay}'"; tvStatus.setTextColor(0xFFFFAA00.toInt()) }
-                else          -> { tvStatus.text = "+${delay}'"; tvStatus.setTextColor(0xFFFF4444.toInt()) }
+                d == null -> { tvStatus.text = "" }
+                d <= 0    -> { tvStatus.text = "✓";       tvStatus.setTextColor(0xFF66DD66.toInt()) }
+                d <= 5    -> { tvStatus.text = "+${d}'";  tvStatus.setTextColor(0xFFFFAA00.toInt()) }
+                else      -> { tvStatus.text = "+${d}'";  tvStatus.setTextColor(0xFFFF4444.toInt()) }
             }
         }
 
-        val ti = dep.transferInfo
-        if (ti != null) {
-            val dStr = if ((ti.delayMinutes ?: 0) > 0) " +${ti.delayMinutes}'" else ""
-            tvTransfer.text = "→ ${ti.stationName}\n${ti.arrivalTime}$dStr"
-            tvTransfer.visibility = View.VISIBLE
+        // Col 4: build stop summary
+        // Show: origin (dep time) → transfer station (arr time) → … → final dest (arr time)
+        // Each transit leg contributes: its origin + (at transfers) its destination
+        val legs = dep.legs
+        if (legs.isNotEmpty()) {
+            val sb = StringBuilder()
+            legs.forEachIndexed { i, leg ->
+                if (i == 0) {
+                    // First leg: show origin with departure time
+                    sb.append(leg.origin)
+                    val t = leg.depRealtime ?: leg.depPlanned
+                    if (t.isNotBlank()) sb.append(" $t")
+                }
+                // Every leg: show its destination with arrival time
+                sb.append("\n→ ${leg.destination}")
+                val t = leg.arrRealtime ?: leg.arrPlanned
+                if (t.isNotBlank()) sb.append(" $t")
+            }
+            tvStops.text = sb.toString()
+            tvStops.visibility = View.VISIBLE
         } else {
-            tvTransfer.text = ""
-            tvTransfer.visibility = View.INVISIBLE
+            tvStops.text = ""
+            tvStops.visibility = View.INVISIBLE
         }
     }
 }

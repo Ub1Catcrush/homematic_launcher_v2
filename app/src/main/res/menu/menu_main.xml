@@ -3,6 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/action_launcher_switch"
+        android:icon="@drawable/ic_launcher_switch"
+        android:orderInCategory="80"
+        android:title="@string/fab_launcher_switch_desc"
+        android:visible="false"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_refresh"
         android:icon="@drawable/ic_sync_black_24dp"
         android:orderInCategory="90"

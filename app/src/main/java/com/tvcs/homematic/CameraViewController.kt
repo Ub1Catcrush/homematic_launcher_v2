@@ -53,7 +53,8 @@ class CameraViewController(
     private val context: Context,
     private val playerView:    PlayerView,
     private val snapshotView:  ImageView,
-    private val statusLabel:   TextView
+    private val statusLabel:   TextView,
+    private val muteButton:    android.widget.ImageButton? = null
 ) : DefaultLifecycleObserver {
 
     companion object {
@@ -72,6 +73,22 @@ class CameraViewController(
     private var inSnapshotMode  = false
     private var started         = false
     private var rtspFailReason: String? = null
+    private var isMuted         = false
+
+    // ── Mute toggle (public so MainActivity can wire the button if needed) ────
+    fun toggleMute() {
+        isMuted = !isMuted
+        exoPlayer?.volume = if (isMuted) 0f else 1f
+        updateMuteButton()
+    }
+
+    private fun updateMuteButton() {
+        muteButton ?: return
+        muteButton.setImageResource(
+            if (isMuted) android.R.drawable.ic_lock_silent_mode
+            else         android.R.drawable.ic_lock_silent_mode_off
+        )
+    }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
@@ -184,6 +201,9 @@ class CameraViewController(
         player.setMediaSource(source)
         player.prepare()
         player.playWhenReady = true
+        player.volume = if (isMuted) 0f else 1f   // restore mute state across reconnects
+        muteButton?.visibility = View.VISIBLE
+        updateMuteButton()
 
         // Schedule timeout — if no first frame within limit, fall back
         val timeoutMs = prefs.getString(PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, "")
@@ -207,6 +227,7 @@ class CameraViewController(
         releasePlayer()
         playerView.visibility  = View.GONE
         snapshotView.visibility = View.VISIBLE
+        muteButton?.visibility = View.GONE   // no audio in snapshot mode
         // Show RTSP failure reason prominently — snapshot working doesn't hide the error
         setStatus(context.getString(R.string.camera_status_rtsp_failed_snapshot_ok, reason))
 
@@ -303,6 +324,7 @@ class CameraViewController(
         playerView.visibility   = View.GONE
         snapshotView.visibility = View.GONE
         statusLabel.visibility  = View.GONE
+        muteButton?.visibility  = View.GONE
     }
 
     fun isEnabled() = prefs.getBoolean(PreferenceKeys.CAMERA_ENABLED, false)

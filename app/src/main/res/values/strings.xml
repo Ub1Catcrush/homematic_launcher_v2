@@ -399,6 +399,7 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="camera_status_snapshot_error">Snapshot-Fehler: %1$s</string>
     <string name="camera_status_no_snapshot_url">Keine Snapshot-URL konfiguriert</string>
     <string name="camera_snapshot_desc">Kamera-Livebild</string>
+    <string name="camera_mute_desc">Ton an/aus</string>
 
     <!-- Launcher switch strings -->
     <string name="pref_category_launcher_switch">Launcher-Wechsel</string>
@@ -454,8 +455,6 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_category_transit">Abfahrtsanzeige (DB)</string>
     <string name="pref_title_transit_enabled">Abfahrtsanzeige aktivieren</string>
     <string name="pref_summary_transit_enabled">Nächste Verbindungen über der Kamera anzeigen</string>
-    <string name="pref_title_transit_base_url">API-Server</string>
-    <string name="pref_summary_transit_base_url">URL des db-rest-Servers. Standard: https://v6.db.transport.rest — oder eigene Self-Hosting-Instanz eintragen</string>
     <string name="pref_title_transit_from">Von (Stationsname)</string>
     <string name="pref_summary_transit_from">Name der Abfahrtshaltestelle eingeben, dann \'Suchen\' tippen</string>
     <string name="pref_title_transit_to">Nach (Stationsname)</string>
@@ -496,4 +495,100 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_category_transit_conn2">Verbindung 2 (optional)</string>
     <string name="pref_category_transit_conn3">Verbindung 3 (optional)</string>
     <string name="pref_category_transit_conn4">Verbindung 4 (optional)</string>
+
+    <!-- Transit refresh interval -->
+    <string name="pref_title_transit_refresh">Aktualisierungsintervall</string>
+    <string name="pref_summary_transit_refresh">Wie oft die Abfahrtsliste aktualisiert wird</string>
+
+    <!-- LAN-only mode -->
+    <string name="pref_category_network_gate">Netzwerk-Einschränkung</string>
+    <string name="pref_title_lan_only">Nur im LAN / VPN aktualisieren</string>
+    <string name="pref_summary_lan_only">Kein Update wenn CCU, Kamera und DB-Endpunkte nicht erreichbar (nützlich bei VPN-Pflicht)</string>
+
+    <!-- Appearance: fonts -->
+    <string name="pref_category_font_sizes">Schriftgrößen (sp)</string>
+    <string name="pref_title_font_room_title">Raumkachel – Titelzeile</string>
+    <string name="pref_summary_font_room_title">Standard: 12 sp</string>
+    <string name="pref_title_font_room_data">Raumkachel – Datenwerte</string>
+    <string name="pref_summary_font_room_data">Standard: 11.5 sp</string>
+    <string name="pref_title_font_transit">DB-Abfahrtszeile</string>
+    <string name="pref_summary_font_transit">Standard: 11 sp</string>
+
+    <!-- Appearance: colors -->
+    <string name="pref_category_colors_dark">Farben – Dark Mode</string>
+    <string name="pref_category_colors_light">Farben – Light Mode</string>
+    <string name="pref_title_color_bg_status">Statusleiste Hintergrund</string>
+    <string name="pref_title_color_bg_header">Header/Toolbar Hintergrund</string>
+    <string name="pref_title_color_bg_transit">DB-Panel Hintergrund</string>
+    <string name="pref_title_color_bg_camera">Kamera-Panel Hintergrund</string>
+    <string name="pref_title_color_border_room">Raumkachel Umrandung</string>
+    <string name="pref_title_color_text_room">Raumtext / Datenwerte</string>
+    <string name="pref_title_color_text_dim">Gedimmter Sekundärtext</string>
+    <string name="pref_category_appearance_reset">Zurücksetzen</string>
+    <string name="pref_title_reset_appearance">Alle Farben &amp; Schriften zurücksetzen</string>
+    <string name="pref_summary_reset_appearance">Setzt alle Farb- und Schrifteinstellungen auf Standardwerte zurück</string>
+
+    <!-- Navigation -->
+    <string name="pref_nav_appearance">Erscheinungsbild</string>
+    <string name="pref_nav_appearance_summary">Farben (dark/light), Schriftgrößen</string>
+    <string name="pref_nav_weather">Wettervorhersage</string>
+    <string name="pref_nav_weather_summary">Tagesvorhersage per Open-Meteo API</string>
+
+    <!-- Weather -->
+    <string name="pref_category_weather">Wettervorhersage</string>
+    <string name="pref_title_weather_enabled">Wetter aktivieren</string>
+    <string name="pref_summary_weather_enabled">Tagesvorhersage (Temperatur, Niederschlag, Wetterlage) anzeigen</string>
+    <string name="pref_title_weather_display_mode">Anzeigemodus</string>
+    <string name="pref_title_weather_city">Ort / Stadt</string>
+    <string name="pref_summary_weather_city">Stadtname für automatische Koordinatenauflösung</string>
+    <string name="pref_title_weather_lat">Breitengrad (optional)</string>
+    <string name="pref_title_weather_lon">Längengrad (optional)</string>
+    <string name="pref_summary_weather_lat_lon">Überschreibt Stadtsuche wenn gesetzt (z.B. 48.1351)</string>
+    <string name="pref_title_weather_refresh">Aktualisierungsintervall (Minuten)</string>
+    <string name="pref_summary_weather_refresh">Standard: 30 Minuten</string>
+    <string name="pref_title_weather_test">Wetter jetzt abrufen</string>
+    <string name="pref_summary_weather_test">Tippen zum Testen</string>
+
+
+    <!-- Transit refresh interval options -->
+    <string-array name="pref_transit_refresh_titles">
+        <item>30 Sekunden</item>
+        <item>60 Sekunden</item>
+        <item>90 Sekunden</item>
+        <item>2 Minuten</item>
+        <item>3 Minuten</item>
+        <item>5 Minuten</item>
+        <item>10 Minuten</item>
+    </string-array>
+    <string-array name="pref_transit_refresh_values">
+        <item>30</item>
+        <item>60</item>
+        <item>90</item>
+        <item>120</item>
+        <item>180</item>
+        <item>300</item>
+        <item>600</item>
+    </string-array>
+
+    <!-- Weather display mode options -->
+    <string-array name="pref_weather_mode_titles">
+        <item>Raumkachel</item>
+        <item>Kamera-Overlay</item>
+    </string-array>
+    <string-array name="pref_weather_mode_values">
+        <item>room</item>
+        <item>overlay</item>
+    </string-array>
+
+    <string name="weather_tile_title">Wetter</string>
+
+    <!-- RoomAdapter references -->
+    <string name="label_temp">Temp.</string>
+    <string name="notif_lowbat">Batterie schwach</string>
+    <string name="notif_sabotage">Sabotage</string>
+    <string name="notif_fault">Gerätefehler</string>
+    <string name="room_tile_error">Fehler: %s</string>
+
+    <string name="pref_title_transit_base_url">API Basis-URL</string>
+    <string name="pref_summary_transit_base_url">Basis-URL für die DB-Transit-API (Standard: https://v6.db.transport.rest)</string>
 </resources>

@@ -65,7 +65,7 @@ private class HomematicRepositoryAdapter : HmRepository {
 
     override fun getOutdoorRoomName()   = HomeMatic.getOutdoorRoomName()
     override fun getMaxWindowIndicators() = HomeMatic.getMaxWindowIndicators()
-    override fun getWarning(rh: Double, t: Double) = HomeMatic.getWarning(rh, t)
+    override fun getWarning(relativeHumidity: Double, temperature: Double) = HomeMatic.getWarning(relativeHumidity, temperature)
     override fun notificationSeverity(type: String, prof: DeviceProfile) =
         HomeMatic.notificationSeverity(type, prof)
 
@@ -129,7 +129,7 @@ class FakeHmRepository(
 
     override fun getOutdoorRoomName() = outdoorName
     override fun getMaxWindowIndicators() = maxIndicators
-    override fun getWarning(rh: Double, t: Double) = moldWarningResult
+    override fun getWarning(relativeHumidity: Double, temperature: Double) = moldWarningResult
     override fun notificationSeverity(type: String, prof: DeviceProfile): Int = when {
         type in prof.sabotageFields -> 3
         type in prof.faultFields    -> 2

@@ -14,11 +14,9 @@ import com.homematic.Room
 /**
  * RoomDetailBottomSheet — shows ALL datapoints of a room in a scrollable bottom sheet.
  *
- * Opened by tapping a room tile in the grid. Displays every channel and its
- * datapoints with type, value, unit and timestamp so the user can diagnose
- * profile mapping issues and inspect raw CCU data without needing adb.
- *
- * Launch via: RoomDetailBottomSheet.show(supportFragmentManager, room)
+ * No longer calls HomeMatic directly. Reads from [HmRepository] which is stored
+ * in [cachedRepo] before calling [show]. In production that is
+ * [HomeMatic.asRepository()]; in tests inject any [FakeHmRepository].
  */
 class RoomDetailBottomSheet : BottomSheetDialogFragment() {
 
@@ -26,14 +24,15 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
         private const val TAG     = "RoomDetailSheet"
         private const val ARG_ISE = "room_ise_id"
 
-        fun show(fm: FragmentManager, room: Room) {
-            // Avoid duplicate sheets
-            if (fm.findFragmentByTag(TAG) != null) return
-            newInstance(room.ise_id).show(fm, TAG)
-        }
+        /** Set before calling show() — production code uses HomeMatic.asRepository(). */
+        var cachedRepo: HmRepository? = null
 
-        private fun newInstance(iseId: Int) = RoomDetailBottomSheet().apply {
-            arguments = Bundle().apply { putInt(ARG_ISE, iseId) }
+        fun show(fm: FragmentManager, room: Room, repo: HmRepository) {
+            if (fm.findFragmentByTag(TAG) != null) return
+            cachedRepo = repo
+            RoomDetailBottomSheet().apply {
+                arguments = Bundle().apply { putInt(ARG_ISE, room.ise_id) }
+            }.show(fm, TAG)
         }
     }
 
@@ -44,9 +43,10 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        val repo  = cachedRepo ?: run { dismiss(); return }
         val iseId = arguments?.getInt(ARG_ISE) ?: run { dismiss(); return }
-        val state = HomeMatic.state ?: run { dismiss(); return }
-        val prof  = HomeMatic.profile
+        val state = repo.state ?: run { dismiss(); return }
+        val prof  = repo.profile
 
         val room = state.roomList.rooms.firstOrNull { it.ise_id == iseId }
             ?: run { dismiss(); return }
@@ -66,7 +66,6 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
             val devId = chan?.let { state.channel2Device[it.ise_id] }
             val dev   = devId?.let { state.devices[it] }
 
-            // ── Channel header ───────────────────────────────────────────────
             val chanHeader = TextView(requireContext()).apply {
                 text = buildString {
                     append("▸ ")
@@ -82,57 +81,12 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
 
             if (chan == null) continue
 
-            // ── Datapoint rows ───────────────────────────────────────────────
             if (chan.datapoints.isEmpty()) {
                 container.addView(makeValueRow("  –", getString(R.string.detail_no_datapoints)))
             }
 
             for (dp in chan.datapoints) {
-                // Mirror the device-type guards used in RoomAdapter / HmRoomWidget:
-                // a datapoint is only "known" (rendered) if BOTH its type AND its
-                // device's type match the corresponding profile bucket.
                 val isKnown = when {
-                    dp.type in prof.setTempFields ->
-                        dev != null && dev.device_type in prof.thermostatDeviceTypes
-                    dp.type in prof.actualTempFields ->
-                        dev != null && (dev.device_type in prof.tempDeviceTypes ||
-                                        dev.device_type in prof.thermostatDeviceTypes)
-                    dp.type in prof.humidityFields ->
-                        dev != null && dev.device_type in prof.humidityDeviceTypes
-                    dp.type in prof.stateFields ->
-                        dev != null && dev.device_type in prof.windowDeviceTypes
-                    dp.type in prof.lowbatFields ||
-                    dp.type in prof.sabotageFields ||
-                    dp.type in prof.faultFields -> true   // notifications: no device-type filter
-                    else -> false
-                }
-
-                val label = dp.type + if (!isKnown) "  ★" else ""   // ★ = unknown, not in profile
-                val value = buildString {
-                    append(dp.value)
-                    if (dp.valueunit.isNotBlank()) append(" ${dp.valueunit}")
-                    if (dp.timestamp > 0L) {
-                        val ts = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
-                            .format(java.util.Date(dp.timestamp * 1000L))
-                        append("  ($ts)")
-                    }
-                }
-                val row = makeValueRow(label, value)
-                if (!isKnown) {
-                    // Highlight datapoints not covered by profile — helps profile configuration
-                    (row.getChildAt(0) as? TextView)?.setTextColor(0xFFFFAA00.toInt())
-                }
-                container.addView(row)
-            }
-        }
-
-        // Legend for ★ — mirrors the isKnown logic above
-        if (room.channels.any { rc ->
-            val chan  = state.channels[rc.ise_id] ?: return@any false
-            val devId = state.channel2Device[chan.ise_id]
-            val dev   = devId?.let { state.devices[it] }
-            chan.datapoints.any { dp ->
-                val known = when {
                     dp.type in prof.setTempFields ->
                         dev != null && dev.device_type in prof.thermostatDeviceTypes
                     dp.type in prof.actualTempFields ->
@@ -147,13 +101,44 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
                     dp.type in prof.faultFields -> true
                     else -> false
                 }
-                !known
+
+                val label = dp.type + if (!isKnown) "  ★" else ""
+                val value = buildString {
+                    append(dp.value)
+                    if (dp.valueunit.isNotBlank()) append(" ${dp.valueunit}")
+                    if (dp.timestamp > 0L) {
+                        val ts = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
+                            .format(java.util.Date(dp.timestamp * 1000L))
+                        append("  ($ts)")
+                    }
+                }
+                val row = makeValueRow(label, value)
+                if (!isKnown) {
+                    (row.getChildAt(0) as? TextView)?.setTextColor(0xFFFFAA00.toInt())
+                }
+                container.addView(row)
+            }
+        }
+
+        // ★ legend
+        if (room.channels.any { rc ->
+            val chan  = state.channels[rc.ise_id] ?: return@any false
+            val devId = state.channel2Device[chan.ise_id]
+            val dev   = devId?.let { state.devices[it] }
+            chan.datapoints.any { dp ->
+                !(when {
+                    dp.type in prof.setTempFields     -> dev != null && dev.device_type in prof.thermostatDeviceTypes
+                    dp.type in prof.actualTempFields  -> dev != null && (dev.device_type in prof.tempDeviceTypes || dev.device_type in prof.thermostatDeviceTypes)
+                    dp.type in prof.humidityFields    -> dev != null && dev.device_type in prof.humidityDeviceTypes
+                    dp.type in prof.stateFields       -> dev != null && dev.device_type in prof.windowDeviceTypes
+                    dp.type in prof.lowbatFields || dp.type in prof.sabotageFields || dp.type in prof.faultFields -> true
+                    else -> false
+                })
             }
         }) {
             container.addView(TextView(requireContext()).apply {
                 text = getString(R.string.detail_unknown_legend)
-                textSize = 10f
-                alpha = 0.6f
+                textSize = 10f; alpha = 0.6f
                 setPadding(0, dpToPx(8), 0, 0)
             })
         }
@@ -165,19 +150,16 @@ class RoomDetailBottomSheet : BottomSheetDialogFragment() {
             setPadding(dpToPx(4), dpToPx(1), 0, dpToPx(1))
         }
         row.addView(TextView(requireContext()).apply {
-            text = label
-            textSize = 11f
+            text = label; textSize = 11f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         })
         row.addView(TextView(requireContext()).apply {
-            text = value
-            textSize = 11f
+            text = value; textSize = 11f
             textAlignment = View.TEXT_ALIGNMENT_VIEW_END
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         })
         return row
     }
 
-    private fun dpToPx(dp: Int) =
-        (dp * resources.displayMetrics.density + 0.5f).toInt()
+    private fun dpToPx(dp: Int) = (dp * resources.displayMetrics.density + 0.5f).toInt()
 }

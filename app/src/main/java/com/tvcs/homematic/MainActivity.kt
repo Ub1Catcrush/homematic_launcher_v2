@@ -42,8 +42,6 @@ import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.RecyclerView
 import android.content.res.Configuration
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.tvcs.homematic.TransitRowView
 import com.google.android.material.snackbar.Snackbar
 import com.homematic.Room
 import kotlinx.coroutines.*
@@ -65,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_DISPLAY_ON    = "display_on"
         private const val KEY_SYNC_INTERVAL = "old_sync_interval"
         private const val KEY_TIMEOUT_SHOWN = "timeout_shown"
+        private const val KEY_BACKOFF       = "backoff_multiplier"
         private const val TEMP_STEP = 0.5
         private const val TEMP_MIN  = 5.0
         private const val TEMP_MAX  = 30.0
@@ -79,12 +78,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var statusTextView:      TextView
     private lateinit var loadingIndicator:    ProgressBar
     private lateinit var cameraPanel:         LinearLayout
-    private lateinit var fabLauncherSwitch:   FloatingActionButton
 
     private val mRooms   = ArrayList<Room>()
     private lateinit var mAdapter: RoomAdapter
+    private lateinit var repo: HmRepository
 
     private var isPaused  = false
+    private lateinit var weatherViewController: WeatherViewController
     private var isStarted = false
     private var pendingRecreate = false
     private var reloadJob: Job? = null
@@ -119,7 +119,7 @@ class MainActivity : AppCompatActivity() {
             when (intent.action) {
                 ACTION_UPDATED_DATA -> {
                     setLoading(false)
-                    mAdapter.updateRooms(HomeMatic.myRoomList?.rooms ?: emptyList())
+                    mAdapter.updateRooms(repo.myRoomList?.rooms ?: emptyList())
                     updateStatusBar()
                     HmRoomWidget.requestUpdate(this@MainActivity)
                     if (showPopups) showToast(getString(R.string.toast_ui_updated))
@@ -147,6 +147,7 @@ class MainActivity : AppCompatActivity() {
             mDisplayOn               = it.getLong(KEY_DISPLAY_ON, 0L)
             oldSyncInterval          = it.getInt(KEY_SYNC_INTERVAL, -1)
             displayTimeoutToastShown = it.getBoolean(KEY_TIMEOUT_SHOWN, false)
+            backoffMultiplier        = it.getInt(KEY_BACKOFF, 1)
         }
 
         if (sharedPreferences.getBoolean(PreferenceKeys.KEEP_SCREEN_ON, true))
@@ -174,9 +175,10 @@ class MainActivity : AppCompatActivity() {
         gridView         = findViewById(R.id.grid_view)
         cameraPanel      = findViewById(R.id.camera_panel)
 
-        mAdapter = RoomAdapter(this, mRooms)
+        repo    = HomeMatic.asRepository()
+        mAdapter = RoomAdapter(this, mRooms, repo)
         mAdapter.onSetTemperatureRequest = { iseId, v, room -> showThermostatDialog(iseId, v, room) }
-        mAdapter.onRoomTapped = { room -> RoomDetailBottomSheet.show(supportFragmentManager, room) }
+        mAdapter.onRoomTapped = { room -> RoomDetailBottomSheet.show(supportFragmentManager, room, repo) }
         gridView.layoutManager = StaggeredGridLayoutManager(
             gridSpanCount(), StaggeredGridLayoutManager.VERTICAL
         )
@@ -187,7 +189,8 @@ class MainActivity : AppCompatActivity() {
             context       = this,
             playerView    = findViewById(R.id.camera_player_view),
             snapshotView  = findViewById(R.id.camera_snapshot_view),
-            statusLabel   = findViewById(R.id.camera_status_label)
+            statusLabel   = findViewById(R.id.camera_status_label),
+            muteButton    = findViewById(R.id.camera_mute_button)
         )
         cameraViewController.attachToLifecycle(this)
         applyCameraPanel()
@@ -212,35 +215,18 @@ class MainActivity : AppCompatActivity() {
             errorLabel      = findViewById(R.id.transit_error),
             fragmentManager = supportFragmentManager
         )
-        // Apply the user-configured API base URL before the first refresh
-        DbTransitRepository.baseUrl = PreferenceManager.getDefaultSharedPreferences(this)
-            .getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
-            ?.trimEnd('/')
-            ?.takeIf { it.isNotBlank() }
-            ?: DbTransitRepository.DEFAULT_BASE
         transitViewController.attachToLifecycle(this)
+        weatherViewController = WeatherViewController(this, cameraPanel, this)
+        weatherViewController.attachToLifecycle()
+        mAdapter.weatherVC = weatherViewController
 
         // ── FAB: Settings (right) ─────────────────────────────────────────────
-        findViewById<FloatingActionButton>(R.id.fab_settings)
-            .setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
+        // ── Camera mute button ────────────────────────────────────────────────
+        findViewById<android.widget.ImageButton>(R.id.camera_mute_button)
+            ?.setOnClickListener { cameraViewController.toggleMute() }
 
-        // ── FAB: Launcher switch (left) ───────────────────────────────────────
-        fabLauncherSwitch = findViewById(R.id.fab_launcher_switch)
-        applyLauncherSwitchFab()
-
-        if (!contentBelow) {
-            listOf(R.id.fab_settings, R.id.fab_launcher_switch).forEach { fabId ->
-                val fab = findViewById<FloatingActionButton>(fabId) ?: return@forEach
-                ViewCompat.setOnApplyWindowInsetsListener(fab) { v, insets ->
-                    val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
-                    v.updatePadding(bottom = nav.bottom)
-                    insets
-                }
-            }
-        }
-
-        if (HomeMatic.isLoaded)
-            mAdapter.updateRooms(HomeMatic.myRoomList?.rooms ?: emptyList())
+        if (repo.isLoaded)
+            mAdapter.updateRooms(repo.myRoomList?.rooms ?: emptyList())
 
         setupNetworkCallback()
         setupPreferenceListener()
@@ -254,6 +240,7 @@ class MainActivity : AppCompatActivity() {
         out.putLong(KEY_DISPLAY_ON, mDisplayOn)
         out.putInt(KEY_SYNC_INTERVAL, oldSyncInterval)
         out.putBoolean(KEY_TIMEOUT_SHOWN, displayTimeoutToastShown)
+        out.putInt(KEY_BACKOFF, backoffMultiplier)
     }
 
     // ── Camera panel ─────────────────────────────────────────────────────────
@@ -276,15 +263,8 @@ class MainActivity : AppCompatActivity() {
     // ── Launcher switch FAB ───────────────────────────────────────────────────
 
     private fun applyLauncherSwitchFab() {
-        val enabled = LauncherSwitchHelper.isEnabled(this)
-        fabLauncherSwitch.visibility = if (enabled) View.VISIBLE else View.GONE
-        if (enabled) {
-            fabLauncherSwitch.setOnClickListener {
-                if (!LauncherSwitchHelper.switchToAltLauncher(this)) {
-                    showSnackbar(getString(R.string.launcher_switch_failed), Snackbar.LENGTH_LONG)
-                }
-            }
-        }
+        // Launcher switch is now in the toolbar menu — invalidate to update visibility
+        invalidateOptionsMenu()
     }
 
     // ── Edge-to-edge ──────────────────────────────────────────────────────────
@@ -319,7 +299,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateStatusBar() {
         val status    = NetworkUtils.getNetworkStatus(this)
         val isLoading = loadJob?.isActive == true
-        val progress  = HomeMatic.loadProgress
+        val progress  = repo.loadProgress
 
         if (isLoading &&
             progress != HomeMatic.LoadProgress.DONE &&
@@ -328,15 +308,15 @@ class MainActivity : AppCompatActivity() {
             statusTextView.text = getString(progress.labelRes)
             return
         }
-        val syncInfo = if (HomeMatic.isLoaded && HomeMatic.lastLoadTime > 0L)
+        val syncInfo = if (repo.isLoaded && repo.lastLoadTime > 0L)
             " · ${getString(R.string.status_sync_at, syncTimeFormatter.format(
-                java.time.Instant.ofEpochMilli(HomeMatic.lastLoadTime).atZone(ZoneId.systemDefault())
+                java.time.Instant.ofEpochMilli(repo.lastLoadTime).atZone(ZoneId.systemDefault())
             ))}" else ""
 
         val (color, text) = when {
             !status.isConnected             -> Color.RED    to getString(R.string.status_offline)
-            HomeMatic.lastLoadError != null -> Color.YELLOW to getString(R.string.status_error, HomeMatic.lastLoadError)
-            HomeMatic.isLoaded              -> Color.GREEN  to getString(R.string.status_ok, status.description, syncInfo)
+            repo.lastLoadError != null -> Color.YELLOW to getString(R.string.status_error, repo.lastLoadError)
+            repo.isLoaded              -> Color.GREEN  to getString(R.string.status_ok, status.description, syncInfo)
             else                            -> Color.YELLOW to getString(R.string.status_connecting, status.description)
         }
         statusTextView.setTextColor(color)
@@ -391,11 +371,12 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.TRANSIT_FROM_NAME,
                 PreferenceKeys.TRANSIT_TO_ID,
                 PreferenceKeys.TRANSIT_TO_NAME,
-                PreferenceKeys.TRANSIT_BASE_URL -> {
-                    DbTransitRepository.baseUrl = PreferenceManager.getDefaultSharedPreferences(this)
+                PreferenceKeys.TRANSIT_BASE_URL,
+                PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS,
+                PreferenceKeys.TRANSIT_REFRESH_INTERVAL -> {
+                    DbTransitRepository.baseUrl = sharedPreferences
                         .getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
-                        ?.trimEnd('/')
-                        ?.takeIf { it.isNotBlank() }
+                        ?.trimEnd('/')?.takeIf { it.isNotBlank() }
                         ?: DbTransitRepository.DEFAULT_BASE
                     transitViewController.applyPrefsChange()
                 }
@@ -426,7 +407,7 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.PROFILE_STATE_OPEN -> {
                     lifecycleScope.launch(Dispatchers.Default) {
                         HomeMatic.reloadProfile(this@MainActivity)
-                        val rooms = HomeMatic.myRoomList?.rooms?.toList() ?: return@launch
+                        val rooms = repo.myRoomList?.rooms?.toList() ?: return@launch
                         withContext(Dispatchers.Main) { mAdapter.rebindAll(rooms) }
                     }
                 }
@@ -477,6 +458,12 @@ class MainActivity : AppCompatActivity() {
         if (loadJob?.isActive == true) return
         setLoading(true)
         loadJob = lifecycleScope.launch {
+            // LAN/VPN gate: skip load if no configured endpoint is reachable
+            if (!NetworkUtils.isNetworkAllowed(this@MainActivity)) {
+                setLoading(false)
+                updateStatusBar()
+                return@launch
+            }
             val progressJob = launch { while (isActive) { updateStatusBar(); delay(200L) } }
             val timeoutMs = ((sharedPreferences.getString(PreferenceKeys.CONNECTION_TIMEOUT, "5")
                 ?.toIntOrNull() ?: 5) * 1000L + 2000L) * 4
@@ -504,7 +491,7 @@ class MainActivity : AppCompatActivity() {
             while (isActive) {
                 if (!isPaused) {
                     sendBroadcast(Intent(ACTION_RELOAD_DATA).setPackage(PACKAGE_NAME))
-                    val eff = if (HomeMatic.lastLoadError != null) {
+                    val eff = if (repo.lastLoadError != null) {
                         backoffMultiplier = (backoffMultiplier * 2).coerceAtMost(16)
                         interval * backoffMultiplier.toLong()
                     } else { backoffMultiplier = 1; interval.toLong() }
@@ -525,6 +512,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ── Thermostat dialog ─────────────────────────────────────────────────────
+
+
+    // ── Theme colors ──────────────────────────────────────────────────────────
+
+    private fun applyThemeColors() {
+        // Status bar background
+        val sbBg = AppThemeHelper.bgStatus(this)
+        statusTextView.setBackgroundColor(sbBg)
+
+        // Toolbar
+        val headerBg = AppThemeHelper.bgHeader(this)
+        toolbar.setBackgroundColor(headerBg)
+
+        // Transit panel
+        val transitBg = AppThemeHelper.bgTransit(this)
+        findViewById<android.widget.LinearLayout?>(R.id.transit_panel)
+            ?.setBackgroundColor(transitBg)
+
+        // Camera panel
+        val cameraBg = AppThemeHelper.bgCamera(this)
+        cameraPanel.setBackgroundColor(cameraBg)
+    }
 
     private fun showThermostatDialog(iseId: Int, currentValue: Double, roomName: String) {
         val steps = ((TEMP_MAX - TEMP_MIN) / TEMP_STEP).toInt()
@@ -547,7 +556,15 @@ class MainActivity : AppCompatActivity() {
                 val t = TEMP_MIN + sb.progress * TEMP_STEP
                 lifecycleScope.launch {
                     HomeMatic.setDatapointValue(iseId, "%.1f".format(t))
-                        .onSuccess { showToast(getString(R.string.thermostat_set_ok, t)); delay(500); loadCcuData() }
+                        .onSuccess {
+                            showToast(getString(R.string.thermostat_set_ok, t))
+                            // Optimistic update: patch the in-memory state so the tile
+                            // reflects the new setpoint immediately without waiting for sync
+                            HomeMatic.optimisticSetTemp(iseId, t)
+                            mAdapter.rebindAll(repo.myRoomList?.rooms?.toList() ?: emptyList())
+                            delay(500)
+                            loadCcuData()
+                        }
                         .onFailure { e -> showSnackbar(getString(R.string.thermostat_set_error, e.message), Snackbar.LENGTH_LONG) }
                 }
             }
@@ -581,6 +598,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(broadcastReceiver, filter)
+        applyThemeColors()
         val interval = sharedPreferences.getString(PreferenceKeys.SYNC_FREQUENCY, "30")?.toIntOrNull() ?: 30
         if (interval != oldSyncInterval) scheduleReloadData(interval)
         loadCcuData()
@@ -618,19 +636,26 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
-        listOf(R.id.action_settings, R.id.action_refresh).forEach { id ->
+        listOf(R.id.action_settings, R.id.action_refresh, R.id.action_launcher_switch).forEach { id ->
             menu.findItem(id)?.icon?.mutate()?.let { icon ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                     icon.colorFilter = BlendModeColorFilter(Color.WHITE, BlendMode.SRC_ATOP)
                 else @Suppress("DEPRECATION") icon.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_ATOP)
             }
         }
+        // Show launcher switch only when enabled
+        menu.findItem(R.id.action_launcher_switch)?.isVisible = LauncherSwitchHelper.isEnabled(this)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
-        R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
-        R.id.action_refresh  -> { loadCcuData(); showToast(getString(R.string.toast_loading)); true }
+        R.id.action_settings       -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
+        R.id.action_refresh        -> { loadCcuData(); showToast(getString(R.string.toast_loading)); true }
+        R.id.action_launcher_switch -> {
+            if (!LauncherSwitchHelper.switchToAltLauncher(this))
+                showSnackbar(getString(R.string.launcher_switch_failed), Snackbar.LENGTH_LONG)
+            true
+        }
         else -> super.onOptionsItemSelected(item)
     }
 
@@ -652,10 +677,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        // Update grid span count when orientation changes.
-        // The layout itself is swapped automatically by Android (layout vs layout-land),
-        // but the LayoutManager span is set programmatically, so we update it here.
-        (gridView.layoutManager as? StaggeredGridLayoutManager)?.spanCount = gridSpanCount()
+        // Note: orientation is NOT in configChanges, so Android recreates the Activity on rotation.
+        // This handler only fires for keyboard/screenSize/navigation changes.
+        // Grid span is set in onCreate via gridSpanCount().
     }
 
     private fun showToast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()

@@ -66,4 +66,17 @@
 
     </PreferenceCategory>
 
+
+    <!-- ========== NETZWERK / VPN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_network_gate">
+
+        <SwitchPreferenceCompat
+            android:key="lan_only_mode"
+            android:title="@string/pref_title_lan_only"
+            android:summary="@string/pref_summary_lan_only"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

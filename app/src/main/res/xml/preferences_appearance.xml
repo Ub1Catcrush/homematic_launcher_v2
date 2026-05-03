@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== SCHRIFTGRÖSSEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_font_sizes">
+
+        <EditTextPreference
+            android:key="font_room_title"
+            android:title="@string/pref_title_font_room_title"
+            android:summary="@string/pref_summary_font_room_title"
+            android:defaultValue="12"
+            android:inputType="numberDecimal"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="font_room_data"
+            android:title="@string/pref_title_font_room_data"
+            android:summary="@string/pref_summary_font_room_data"
+            android:defaultValue="11.5"
+            android:inputType="numberDecimal"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="font_transit"
+            android:title="@string/pref_title_font_transit"
+            android:summary="@string/pref_summary_font_transit"
+            android:defaultValue="11"
+            android:inputType="numberDecimal"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <!-- ========== FARBEN – DARK MODE ========== -->
+    <PreferenceCategory android:title="@string/pref_category_colors_dark">
+
+        <EditTextPreference android:key="color_bg_status_dark"
+            android:title="@string/pref_title_color_bg_status"
+            android:defaultValue="#AA000000" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_bg_header_dark"
+            android:title="@string/pref_title_color_bg_header"
+            android:defaultValue="#FF1A237E" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_bg_transit_dark"
+            android:title="@string/pref_title_color_bg_transit"
+            android:defaultValue="#CC001122" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_bg_camera_dark"
+            android:title="@string/pref_title_color_bg_camera"
+            android:defaultValue="#CC000000" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_border_room_dark"
+            android:title="@string/pref_title_color_border_room"
+            android:defaultValue="#FF444444" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_text_room_dark"
+            android:title="@string/pref_title_color_text_room"
+            android:defaultValue="#FFFFFFFF" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_text_dim_dark"
+            android:title="@string/pref_title_color_text_dim"
+            android:defaultValue="#BBFFFFFF" android:persistent="true" android:inputType="text" />
+
+    </PreferenceCategory>
+
+    <!-- ========== FARBEN – LIGHT MODE ========== -->
+    <PreferenceCategory android:title="@string/pref_category_colors_light">
+
+        <EditTextPreference android:key="color_bg_status"
+            android:title="@string/pref_title_color_bg_status"
+            android:defaultValue="#DDFFFFFF" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_bg_header"
+            android:title="@string/pref_title_color_bg_header"
+            android:defaultValue="#FF3F51B5" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_bg_transit"
+            android:title="@string/pref_title_color_bg_transit"
+            android:defaultValue="#EEF5F5FF" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_bg_camera"
+            android:title="@string/pref_title_color_bg_camera"
+            android:defaultValue="#EE222222" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_border_room"
+            android:title="@string/pref_title_color_border_room"
+            android:defaultValue="#FFBBBBBB" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_text_room"
+            android:title="@string/pref_title_color_text_room"
+            android:defaultValue="#FF111111" android:persistent="true" android:inputType="text" />
+        <EditTextPreference android:key="color_text_dim"
+            android:title="@string/pref_title_color_text_dim"
+            android:defaultValue="#AA111111" android:persistent="true" android:inputType="text" />
+
+    </PreferenceCategory>
+
+    <!-- ========== RESET ========== -->
+    <PreferenceCategory android:title="@string/pref_category_appearance_reset">
+        <Preference
+            android:key="action_reset_appearance"
+            android:title="@string/pref_title_reset_appearance"
+            android:summary="@string/pref_summary_reset_appearance" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

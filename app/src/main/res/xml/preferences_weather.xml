@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory android:title="@string/pref_category_weather">
+
+        <SwitchPreferenceCompat
+            android:key="weather_enabled"
+            android:title="@string/pref_title_weather_enabled"
+            android:summary="@string/pref_summary_weather_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <ListPreference
+            android:key="weather_display_mode"
+            android:title="@string/pref_title_weather_display_mode"
+            android:entries="@array/pref_weather_mode_titles"
+            android:entryValues="@array/pref_weather_mode_values"
+            android:defaultValue="room"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="weather_city"
+            android:title="@string/pref_title_weather_city"
+            android:summary="@string/pref_summary_weather_city"
+            android:defaultValue=""
+            android:inputType="text"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="weather_lat"
+            android:title="@string/pref_title_weather_lat"
+            android:summary="@string/pref_summary_weather_lat_lon"
+            android:defaultValue=""
+            android:inputType="numberDecimal|numberSigned"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="weather_lon"
+            android:title="@string/pref_title_weather_lon"
+            android:summary="@string/pref_summary_weather_lat_lon"
+            android:defaultValue=""
+            android:inputType="numberDecimal|numberSigned"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="weather_refresh_min"
+            android:title="@string/pref_title_weather_refresh"
+            android:summary="@string/pref_summary_weather_refresh"
+            android:defaultValue="30"
+            android:inputType="number"
+            android:persistent="true" />
+
+        <Preference
+            android:key="action_weather_test"
+            android:title="@string/pref_title_weather_test"
+            android:summary="@string/pref_summary_weather_test" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

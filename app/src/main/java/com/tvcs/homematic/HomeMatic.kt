@@ -384,6 +384,21 @@ object HomeMatic {
 
     // ── setValue.cgi ─────────────────────────────────────────────────────────
 
+    /**
+     * Immediately patches the in-memory datapoint value so the UI reflects the
+     * new setpoint without waiting for the next CCU sync. Call after a successful
+     * setDatapointValue() for SET_TEMPERATURE fields.
+     */
+    fun optimisticSetTemp(iseId: Int, newTemp: Double) {
+        val s = state ?: return
+        // Find the channel that owns this datapoint and update it in-place
+        for (channel in s.channels.values) {
+            val dp = channel.datapoints.firstOrNull { it.ise_id == iseId } ?: continue
+            dp.value = "%.1f".format(newTemp)
+            return
+        }
+    }
+
     suspend fun setDatapointValue(iseId: Int, value: String): Result<Unit> =
         withContext(Dispatchers.IO) {
             val p         = requirePrefs()

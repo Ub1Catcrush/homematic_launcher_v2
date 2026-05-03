@@ -106,4 +106,39 @@ object PreferenceKeys {
     /** Package name of the alternative launcher to launch when tapping the FAB. */
     const val ALT_LAUNCHER_PACKAGE      = "alt_launcher_package"
     const val ALT_LAUNCHER_ENABLED      = "alt_launcher_enabled"
+
+    // ── DB Transit refresh interval ───────────────────────────────────────────
+    /** Refresh interval in seconds (default 120). */
+    const val TRANSIT_REFRESH_INTERVAL   = "transit_refresh_interval"
+
+    // ── LAN / VPN only mode ───────────────────────────────────────────────────
+    /** When true, only sync if at least one configured endpoint is reachable. */
+    const val LAN_ONLY_MODE              = "lan_only_mode"
+
+    // ── Colours – base keys (append "_dark" for dark-theme variant) ───────────
+    const val COLOR_BG_STATUS            = "color_bg_status"
+    const val COLOR_BG_HEADER            = "color_bg_header"
+    const val COLOR_BG_TRANSIT           = "color_bg_transit"
+    const val COLOR_BG_CAMERA            = "color_bg_camera"
+    const val COLOR_BORDER_ROOM          = "color_border_room"
+    const val COLOR_TEXT_ROOM            = "color_text_room"
+    const val COLOR_TEXT_DIM             = "color_text_dim"
+
+    // ── Font sizes ────────────────────────────────────────────────────────────
+    /** Room tile title font size in sp */
+    const val FONT_ROOM_TITLE            = "font_room_title"
+    /** Room tile data row font size in sp */
+    const val FONT_ROOM_DATA             = "font_room_data"
+    /** Transit row font size in sp */
+    const val FONT_TRANSIT               = "font_transit"
+
+    // ── Weather ───────────────────────────────────────────────────────────────
+    const val WEATHER_ENABLED            = "weather_enabled"
+    /** "room" or "overlay" */
+    const val WEATHER_DISPLAY_MODE       = "weather_display_mode"
+    const val WEATHER_CITY               = "weather_city"
+    const val WEATHER_LAT                = "weather_lat"
+    const val WEATHER_LON                = "weather_lon"
+    /** Refresh interval in minutes (default 30) */
+    const val WEATHER_REFRESH_MIN        = "weather_refresh_min"
 }
