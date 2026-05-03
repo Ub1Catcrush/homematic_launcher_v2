@@ -405,6 +405,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <!-- Camera status — RTSP failed but snapshot active -->
     <string name="camera_status_rtsp_failed_snapshot_ok">⚠ RTSP: %1$s | Snapshot active</string>
     <string name="camera_status_rtsp_and_snapshot_error">✗ RTSP: %1$s | Snapshot: %2$s</string>
+    <string name="camera_mute_desc">Sound on/off</string>
 
     <!-- DB Transit panel -->
     <string name="pref_category_transit">Departure board (DB)</string>
