@@ -151,8 +151,8 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/camera_mute_desc"
                     android:visibility="gone"
-                    android:tint="#AAFFFFFF"
-                    android:padding="6dp" />
+                    android:padding="6dp"
+                    app:tint="#AAFFFFFF" />
 
             </LinearLayout>
 
