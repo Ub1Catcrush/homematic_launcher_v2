@@ -540,4 +540,19 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
         <item>center_inside</item>
         <item>fit_xy</item>
     </string-array>
+
+    <string name="pref_category_camera_connection">Connection behaviour</string>
+    <string name="pref_category_panel_heights">Panel heights</string>
+    <string name="pref_category_system_bars">System bars</string>
+    <string name="pref_summary_camera_overlay_alpha">Opacity of the status strip over the camera image (0 = invisible, 100 = fully opaque). Default: 60</string>
+    <string name="pref_summary_content_below_nav_bar">Off: content stays above the navigation bar (recommended)</string>
+    <string name="pref_summary_panel_pct">Percentage of usable screen height (1–50). Default: 20</string>
+    <string name="pref_summary_show_nav_bar">Show the back / home / recents navigation bar</string>
+    <string name="pref_title_camera_overlay_alpha">Overlay opacity (%)</string>
+    <string name="pref_title_camera_pct_land">Camera – landscape (%)</string>
+    <string name="pref_title_camera_pct_portrait">Camera – portrait (%)</string>
+    <string name="pref_title_content_below_nav_bar">Content below navigation bar</string>
+    <string name="pref_title_show_nav_bar">Show Android navigation bar</string>
+    <string name="pref_title_transit_pct_land">Transit – landscape (%)</string>
+    <string name="pref_title_transit_pct_portrait">Transit – portrait (%)</string>
 </resources>
