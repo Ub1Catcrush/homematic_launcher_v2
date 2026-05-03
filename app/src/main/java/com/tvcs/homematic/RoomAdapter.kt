@@ -268,7 +268,7 @@ private fun addRoomView(table: TableLayout, room: Room, titleView: TextView) {
                 notifType in prof.lowbatFields   -> context.getString(R.string.notif_lowbat)
                 notifType in prof.sabotageFields -> context.getString(R.string.notif_sabotage)
                 notifType in prof.faultFields    -> context.getString(R.string.notif_fault)
-                else                             -> notifType ?: ""
+                else                             -> notifType
             }
             addDataRow(table, "⚠", label, dimmed = false, blinking = true,
                 textColor = Color.YELLOW)

@@ -203,7 +203,7 @@ class TransitDetailBottomSheet : BottomSheetDialogFragment() {
     ): LinearLayout {
         fun px(d: Int) = (d * dp + 0.5f).toInt()
         val nameColor   = if (dimmed) 0x99FFFFFF.toInt() else Color.WHITE
-        val timeColor   = if (dimmed) 0x77FFFFFF.toInt() else 0xCCFFFFFF.toInt()
+        val timeColor   = if (dimmed) 0x77FFFFFF else 0xCCFFFFFF.toInt()
 
         // Delay badge text + colour
         val (delayText, delayColor) = when {
@@ -223,7 +223,7 @@ class TransitDetailBottomSheet : BottomSheetDialogFragment() {
             // Bullet
             addView(TextView(ctx).apply {
                 text = bullet; textSize = 13f
-                setTextColor(0x66FFFFFF.toInt()); gravity = Gravity.CENTER_VERTICAL
+                setTextColor(0x66FFFFFF); gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(px(20), LinearLayout.LayoutParams.MATCH_PARENT)
             })
             // Station name
