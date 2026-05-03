@@ -10,7 +10,8 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:theme="@style/AppTheme.AppBarOverlay">
+        android:theme="@style/AppTheme.AppBarOverlay"
+        android:tag="appbar">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
@@ -52,7 +53,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:tag="main_content">
 
         <!-- TOP: Room grid fills all space above bottom strip -->
         <androidx.recyclerview.widget.RecyclerView

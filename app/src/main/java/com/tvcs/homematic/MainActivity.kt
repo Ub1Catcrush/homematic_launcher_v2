@@ -155,16 +155,10 @@ class MainActivity : AppCompatActivity() {
 
         val contentBelow = sharedPreferences.getBoolean(PreferenceKeys.CONTENT_BELOW_STATUS_BAR, true)
         applyEdgeToEdge(contentBelow)
-
-        if (!sharedPreferences.getBoolean(PreferenceKeys.SHOW_STATUS_BAR, false) &&
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            @Suppress("DEPRECATION")
-            window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                WindowManager.LayoutParams.FLAG_FULLSCREEN)
-        }
+        applySystemBarVisibility()
 
         setContentView(R.layout.activity_main)
-        hideStatusBarIfNeeded()
+        applySystemBarVisibility()
 
         toolbar = findViewById(R.id.toolbar)
         toolbar.setContentInsetsAbsolute(6, 6)
@@ -248,15 +242,56 @@ class MainActivity : AppCompatActivity() {
     private fun applyCameraPanel() {
         val enabled = cameraViewController.isEnabled()
         cameraPanel.visibility = if (enabled) View.VISIBLE else View.GONE
+        if (enabled) applyPanelHeights()
+    }
 
-        // Adjust camera view height from preference
-        if (enabled) {
-            val heightDp = sharedPreferences.getString(PreferenceKeys.CAMERA_VIEW_HEIGHT_DP, "180")
-                ?.toIntOrNull() ?: 180
-            val heightPx = (heightDp * resources.displayMetrics.density).toInt()
-            listOf(R.id.camera_player_view, R.id.camera_snapshot_view).forEach { id ->
-                findViewById<View>(id)?.layoutParams?.height = heightPx
+    /**
+     * Applies percentage-based heights to camera and transit panels.
+     * Uses usable screen height (window metrics minus system bar insets).
+     * Portrait and landscape values are stored independently.
+     * Called from applyCameraPanel() and whenever prefs change.
+     */
+    private fun applyPanelHeights() {
+        val isLand  = resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val metrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowManager.currentWindowMetrics
+        } else null
+
+        // Usable height = window height minus status bar minus nav bar
+        val totalPx = if (metrics != null) {
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
+                android.view.WindowInsets.Type.systemBars())
+            metrics.bounds.height() - insets.top - insets.bottom
+        } else {
+            val dm = resources.displayMetrics; dm.heightPixels
+        }
+
+        val camPct  = if (isLand)
+            sharedPreferences.getString(PreferenceKeys.CAMERA_PANEL_PCT_LAND,  "20")?.toIntOrNull() ?: 20
+        else
+            sharedPreferences.getString(PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT, "20")?.toIntOrNull() ?: 20
+
+        val transPct = if (isLand)
+            sharedPreferences.getString(PreferenceKeys.TRANSIT_PANEL_PCT_LAND,  "20")?.toIntOrNull() ?: 20
+        else
+            sharedPreferences.getString(PreferenceKeys.TRANSIT_PANEL_PCT_PORTRAIT, "20")?.toIntOrNull() ?: 20
+
+        val camPx   = ((camPct.coerceIn(1, 50)   / 100f) * totalPx).toInt()
+        val transPx = ((transPct.coerceIn(1, 50) / 100f) * totalPx).toInt()
+
+        // Camera player/snapshot views
+        listOf(R.id.camera_player_view, R.id.camera_snapshot_view).forEach { id ->
+            findViewById<View>(id)?.let { v ->
+                v.layoutParams.height = camPx
+                v.requestLayout()
             }
+        }
+
+        // Transit panel: constrain its height directly like the camera panel
+        findViewById<View>(R.id.transit_panel)?.let { tp ->
+            tp.layoutParams.height = transPx
+            tp.requestLayout()
         }
     }
 
@@ -267,30 +302,79 @@ class MainActivity : AppCompatActivity() {
         invalidateOptionsMenu()
     }
 
-    // ── Edge-to-edge ──────────────────────────────────────────────────────────
+    // ── Edge-to-edge & System bars ────────────────────────────────────────────
 
+    /**
+     * Central system-bar setup. Called once in onCreate and whenever the
+     * relevant preferences change.
+     *
+     * Strategy (works reliably across API 26–35):
+     *   1. Always call setDecorFitsSystemWindows(false) so we control padding.
+     *   2. Apply top padding (status bar) to the AppBarLayout — not the root —
+     *      so the toolbar is never hidden under the status bar.
+     *   3. Apply bottom padding (nav bar) to the ConstraintLayout / LinearLayout
+     *      that contains the room grid and panels, keeping all content above the
+     *      nav bar.
+     *   4. Show/hide status bar and nav bar according to preferences.
+     */
     private fun applyEdgeToEdge(contentBelow: Boolean) {
-        WindowCompat.setDecorFitsSystemWindows(window, contentBelow)
-        if (!contentBelow) {
-            window.decorView.post {
-                val root = findViewById<View>(R.id.activity_main) ?: return@post
-                ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-                    val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                    v.updatePadding(top = bars.top)
-                    insets
-                }
+        // Always opt-in to edge-to-edge so we control every inset ourselves
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        val root        = findViewById<View>(R.id.activity_main) ?: return
+        val rootVg      = root as? android.view.ViewGroup
+        val appBar      = root.findViewWithTag<View>("appbar")
+            ?: rootVg?.getChildAt(0)   // AppBarLayout is always first child of CoordinatorLayout
+        val contentArea = root.findViewWithTag<View>("main_content")
+            ?: rootVg?.let { if (it.childCount > 1) it.getChildAt(1) else it }
+
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val sysBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+
+            // Top: pad the AppBarLayout so it starts below the status bar
+            if (contentBelow) {
+                appBar?.updatePadding(top = sysBars.top)
+            } else {
+                appBar?.updatePadding(top = 0)
             }
+
+            // Bottom: pad the content area so panels don't go under the nav bar
+            val navBelow = sharedPreferences.getBoolean(PreferenceKeys.CONTENT_BELOW_NAV_BAR, false)
+            if (!navBelow) {
+                contentArea?.updatePadding(bottom = sysBars.bottom)
+            } else {
+                contentArea?.updatePadding(bottom = 0)
+            }
+
+            // Left/right for devices with cutouts or gesture nav bars
+            contentArea?.updatePadding(left = sysBars.left, right = sysBars.right)
+
+            insets
         }
+
+        // Re-trigger inset dispatch immediately (avoids one-frame flash)
+        ViewCompat.requestApplyInsets(root)
     }
 
-    private fun hideStatusBarIfNeeded() {
-        if (sharedPreferences.getBoolean(PreferenceKeys.SHOW_STATUS_BAR, false)) return
+    private fun applySystemBarVisibility() {
+        val showStatus = sharedPreferences.getBoolean(PreferenceKeys.SHOW_STATUS_BAR, false)
+        val showNav    = sharedPreferences.getBoolean(PreferenceKeys.SHOW_NAV_BAR, false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.let {
-                it.hide(WindowInsets.Type.statusBars())
-                it.systemBarsBehavior =
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            window.insetsController?.let { ic ->
+                if (showStatus) ic.show(android.view.WindowInsets.Type.statusBars())
+                else { ic.hide(android.view.WindowInsets.Type.statusBars())
+                    ic.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
+                if (showNav) ic.show(android.view.WindowInsets.Type.navigationBars())
+                else { ic.hide(android.view.WindowInsets.Type.navigationBars())
+                    ic.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE }
             }
+        } else @Suppress("DEPRECATION") {
+            var flags = window.decorView.systemUiVisibility
+            flags = if (showStatus) flags and android.view.View.SYSTEM_UI_FLAG_FULLSCREEN.inv()
+                    else flags or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+            flags = if (showNav)   flags and android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION.inv()
+                    else flags or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            window.decorView.systemUiVisibility = flags
         }
     }
 
@@ -347,8 +431,13 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.NOTIFY_BACKGROUND ->
                     CcuNotificationWorker.schedule(this, sharedPreferences.getBoolean(key, false))
                 PreferenceKeys.SHOW_STATUS_BAR,
-                PreferenceKeys.CONTENT_BELOW_STATUS_BAR ->
-                    pendingRecreate = true
+                PreferenceKeys.SHOW_NAV_BAR,
+                PreferenceKeys.CONTENT_BELOW_STATUS_BAR,
+                PreferenceKeys.CONTENT_BELOW_NAV_BAR -> {
+                    val cb = sharedPreferences.getBoolean(PreferenceKeys.CONTENT_BELOW_STATUS_BAR, true)
+                    applyEdgeToEdge(cb)
+                    applySystemBarVisibility()
+                }
                 PreferenceKeys.APP_LANGUAGE ->
                     if (!isPaused) showRestartDialog()
 
@@ -358,7 +447,10 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.CAMERA_SNAPSHOT_URL,
                 PreferenceKeys.CAMERA_USERNAME,
                 PreferenceKeys.CAMERA_PASSWORD,
-                PreferenceKeys.CAMERA_VIEW_HEIGHT_DP,
+                PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT,
+                PreferenceKeys.CAMERA_PANEL_PCT_LAND,
+                PreferenceKeys.TRANSIT_PANEL_PCT_PORTRAIT,
+                PreferenceKeys.TRANSIT_PANEL_PCT_LAND,
                 PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS,
                 PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL -> {
                     applyCameraPanel()

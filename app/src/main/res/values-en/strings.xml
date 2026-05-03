@@ -462,6 +462,18 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_summary_lan_only">Skip updates when CCU, camera and DB endpoints are unreachable (useful when VPN is required)</string>
 
     <!-- Appearance fonts -->
+	<string name="pref_category_panel_heights">Panel Areas – Height</string>
+	<string name="pref_title_camera_pct_portrait">Camera – Portrait (%)</string>
+	<string name="pref_title_transit_pct_portrait">Transit Display – Portrait (%)</string>
+	<string name="pref_title_camera_pct_land">Camera – Landscape (%)</string>
+	<string name="pref_title_transit_pct_land">Transit Display – Landscape (%)</string>
+	<string name="pref_summary_panel_pct">Percentage of usable screen height (1–50). Default: 20</string>
+
+	<string name="pref_category_nav_bar">Navigation Bar</string>
+	<string name="pref_title_show_nav_bar">Show Android Navigation Bar</string>
+	<string name="pref_summary_show_nav_bar">Show the navigation bar (Back/Home/Overview)</string>
+	<string name="pref_title_content_below_nav_bar">Content Below Navigation Bar</string>
+	<string name="pref_summary_content_below_nav_bar">Disabled: Content ends above the navigation bar (recommended)</string>
     <string name="pref_category_font_sizes">Font sizes (sp)</string>
     <string name="pref_title_font_room_title">Room tile – title</string>
     <string name="pref_summary_font_room_title">Default: 12 sp</string>
@@ -471,8 +483,8 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_summary_font_transit">Default: 11 sp</string>
 
     <!-- Appearance colours -->
-    <string name="pref_category_colors_dark">Colours – Dark mode</string>
-    <string name="pref_category_colors_light">Colours – Light mode</string>
+    <string name="pref_category_colors_dark">Colours - Dark mode</string>
+    <string name="pref_category_colors_light">Colours - Light mode</string>
     <string name="pref_title_color_bg_status">Status bar background</string>
     <string name="pref_title_color_bg_header">Header/toolbar background</string>
     <string name="pref_title_color_bg_transit">DB panel background</string>

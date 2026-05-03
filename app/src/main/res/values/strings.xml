@@ -506,6 +506,17 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_summary_lan_only">Kein Update wenn CCU, Kamera und DB-Endpunkte nicht erreichbar (nützlich bei VPN-Pflicht)</string>
 
     <!-- Appearance: fonts -->
+    <string name="pref_category_panel_heights">Panelbereiche – Höhe</string>
+    <string name="pref_title_camera_pct_portrait">Kamera – Hochformat (%)</string>
+    <string name="pref_title_transit_pct_portrait">ÖV-Anzeige – Hochformat (%)</string>
+    <string name="pref_title_camera_pct_land">Kamera – Querformat (%)</string>
+    <string name="pref_title_transit_pct_land">ÖV-Anzeige – Querformat (%)</string>
+    <string name="pref_summary_panel_pct">Prozent der nutzbaren Bildschirmhöhe (1–50). Standard: 20</string>
+    <string name="pref_category_nav_bar">Navigationsleiste</string>
+    <string name="pref_title_show_nav_bar">Android-Navigationsleiste anzeigen</string>
+    <string name="pref_summary_show_nav_bar">Navigationsleiste (Zurück/Home/Übersicht) einblenden</string>
+    <string name="pref_title_content_below_nav_bar">Inhalte unter Navigationsleiste</string>
+    <string name="pref_summary_content_below_nav_bar">Deaktiviert: Inhalte enden oberhalb der Navigationsleiste (empfohlen)</string>
     <string name="pref_category_font_sizes">Schriftgrößen (sp)</string>
     <string name="pref_title_font_room_title">Raumkachel – Titelzeile</string>
     <string name="pref_summary_font_room_title">Standard: 12 sp</string>

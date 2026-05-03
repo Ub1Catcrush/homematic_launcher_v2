@@ -28,6 +28,14 @@ object PreferenceKeys {
     const val APP_LANGUAGE              = "app_language"
     const val MAX_WINDOW_INDICATORS     = "max_window_indicators"
     const val CONTENT_BELOW_STATUS_BAR  = "content_below_status_bar"
+    const val SHOW_NAV_BAR              = "show_nav_bar"
+    const val CONTENT_BELOW_NAV_BAR     = "content_below_nav_bar"
+
+    // Panel heights as % of usable screen height (1–50), portrait and landscape independent
+    const val CAMERA_PANEL_PCT_PORTRAIT  = "camera_panel_pct_portrait"   // default 20
+    const val TRANSIT_PANEL_PCT_PORTRAIT = "transit_panel_pct_portrait"  // default 20
+    const val CAMERA_PANEL_PCT_LAND      = "camera_panel_pct_land"       // default 20
+    const val TRANSIT_PANEL_PCT_LAND     = "transit_panel_pct_land"      // default 20
 
     // ── Notifications ─────────────────────────────────────────────────────────
     const val SHOW_RELOAD_POPUPS        = "notifications_show_reload_popups"
