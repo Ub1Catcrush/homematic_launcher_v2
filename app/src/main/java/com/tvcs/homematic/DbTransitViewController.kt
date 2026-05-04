@@ -78,8 +78,6 @@ class DbTransitViewController(
 
     fun applyPrefsChange() {
         stopRefreshing()
-        // Rebuild row list in case row count changed
-        rebuildRowViews()
         if (isEnabled()) { connectionIndex = 0; startRefreshing() } else hide()
     }
 
@@ -90,23 +88,16 @@ class DbTransitViewController(
 
     // ── Row infrastructure ─────────────────────────────────────────────────────
 
-    /**
-     * Rebuilds the scrollable row container inside the panel.
-     * Called once on init and whenever TRANSIT_ROW_COUNT changes.
-     */
     private fun rebuildRowViews() {
-        val dp = context.resources.displayMetrics.density
         val count = rowCount()
-        val isLand = context.resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        // Height of a single row in dp (match the vPad used in TransitRowView)
-        val rowHeightDp = if (isLand) 26 else 32
-        val rowHeightPx = (rowHeightDp * dp).toInt()
-        // Fixed panel content height = rowCount rows
-        val scrollHeightPx = rowHeightPx * count
 
-        // Remove old scroll container if present
-        rowScrollView?.let { panel.removeView(it) }
+        // Always rebuild: remove old scroll container if present
+        rowScrollView?.let { sv ->
+            (sv.parent as? android.view.ViewGroup)?.removeView(sv)
+        }
+        rowScrollView = null
+        rowContainer  = null
+        dynamicRows.clear()
 
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -116,19 +107,21 @@ class DbTransitViewController(
         val scroll = ScrollView(context).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                scrollHeightPx
+                LinearLayout.LayoutParams.WRAP_CONTENT
             )
             isVerticalScrollBarEnabled = true
+            isFillViewport = false
             addView(container)
         }
         rowScrollView = scroll
 
-        // Insert scroll after header, before errorLabel
+        // Insert scroll after header (index 1 if no controlRow yet, 2 if controlRow present)
+        // Use errorLabel as anchor — insert right before it
         val errorIdx = panel.indexOfChild(errorLabel)
-        panel.addView(scroll, if (errorIdx >= 0) errorIdx else panel.childCount - 1)
+        val insertAt = if (errorIdx >= 0) errorIdx else panel.childCount
+        panel.addView(scroll, insertAt)
 
-        // Create fresh TransitRowViews
-        dynamicRows.clear()
+        // Create TransitRowViews
         repeat(count) {
             val row = TransitRowView(context)
             row.visibility = View.GONE
@@ -137,8 +130,9 @@ class DbTransitViewController(
         }
     }
 
+    /** Ensures rows exist and match current rowCount. Rebuilds if needed. */
     private fun ensureRowViews() {
-        if (rowContainer == null) rebuildRowViews()
+        if (rowContainer == null || dynamicRows.size != rowCount()) rebuildRowViews()
     }
 
     // ── Control row ───────────────────────────────────────────────────────────
@@ -147,15 +141,16 @@ class DbTransitViewController(
         val dp     = context.resources.displayMetrics.density
         val isLand = context.resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val touch  = ((if (isLand) 40 else 48) * dp).toInt()
-        val iconSp = if (isLand) 15f else 18f
-        val labSp  = if (isLand) 10f else 11f
+        // Compact touch targets — 32dp is enough for a secondary toolbar control
+        val touch  = (32 * dp).toInt()
+        val iconSp = if (isLand) 13f else 15f
+        val labSp  = if (isLand)  9f else 10f
 
         fun btn(label: String, action: () -> Unit) = TextView(context).apply {
             text = label; textSize = iconSp
             setTextColor(0xFFFFFFFF.toInt()); gravity = Gravity.CENTER
             minWidth = touch; minHeight = touch
-            setPadding((10 * dp).toInt(), 0, (10 * dp).toInt(), 0)
+            setPadding((6 * dp).toInt(), 0, (6 * dp).toInt(), 0)
             isFocusable = true; isClickable = true
             setOnClickListener { action() }
             val ta = context.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackgroundBorderless))
@@ -179,7 +174,7 @@ class DbTransitViewController(
 
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding((4 * dp).toInt(), (2 * dp).toInt(), (4 * dp).toInt(), (2 * dp).toInt())
+            setPadding((2 * dp).toInt(), 0, (2 * dp).toInt(), 0)
             gravity = Gravity.CENTER_VERTICAL
             addView(btnToggle)
             addView(View(context).apply { layoutParams = LinearLayout.LayoutParams(0, 1, 1f) })
@@ -234,7 +229,8 @@ class DbTransitViewController(
 
         when (val r = DbTransitRepository.getDepartures(baseUrl, fromId, toId,
             watchedStationNames = (prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: "")
-                .split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                .split(",").map { it.trim() }.filter { it.isNotEmpty() },
+            results = rowCount().coerceAtLeast(3) + 2   // fetch a couple extra in case some are stale
         )) {
             is DbTransitRepository.Result.Success -> {
                 val deps = r.data

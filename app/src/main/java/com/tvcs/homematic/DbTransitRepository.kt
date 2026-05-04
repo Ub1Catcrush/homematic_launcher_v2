@@ -154,7 +154,7 @@ object DbTransitRepository {
                             val minutesAgo = java.time.Duration.between(depTime, now).toMinutes()
                             minutesAgo < 0 || minutesAgo <= (dep.delayMinutes ?: 0)
                         } catch (_: Exception) { true }
-                    }.take(3)
+                    }.take(results)
                     Result.Success(filtered)
                 } catch (e: Exception) {
                     Log.w(TAG, "Parse error", e)
