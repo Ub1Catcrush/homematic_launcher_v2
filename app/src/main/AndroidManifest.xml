@@ -9,6 +9,14 @@
     <!-- Required by WorkManager on some devices -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <queries>
+        <!-- Erlaubt die Abfrage von Apps, die als Launcher fungieren -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <supports-screens
         android:anyDensity="true"
         android:largeScreens="true"

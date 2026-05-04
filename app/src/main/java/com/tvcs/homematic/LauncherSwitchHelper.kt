@@ -3,6 +3,7 @@ package com.tvcs.homematic
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.preference.PreferenceManager
 
@@ -34,6 +35,47 @@ object LauncherSwitchHelper {
      * Returns true on success, false if the package is not found or not a launcher.
      */
     fun switchToAltLauncher(context: Context): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val pkg = prefs.getString(PreferenceKeys.ALT_LAUNCHER_PACKAGE, "")?.trim() ?: ""
+
+        if (pkg.isBlank()) return false
+
+        return try {
+            val pm = context.packageManager
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                setPackage(pkg) // Suche nur innerhalb des Ziel-Pakets
+            }
+
+            // Finde die konkrete Launcher-Aktivität des Pakets
+            val resolveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(intent, 0)
+            }.firstOrNull()
+
+            if (resolveInfo == null) {
+                Log.w("Launcher", "Keine HOME-Aktivität für Paket '$pkg' gefunden")
+                return false
+            }
+
+            // Erstelle den expliziten Intent
+            val launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                setClassName(pkg, resolveInfo.activityInfo.name)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            context.startActivity(launchIntent)
+            true
+        } catch (e: Exception) {
+            Log.e("Launcher", "Fehler beim Wechsel: ${e.message}")
+            false
+        }
+    }
+/*
+    fun switchToAltLauncher(context: Context): Boolean {
         val prefs   = PreferenceManager.getDefaultSharedPreferences(context)
         val pkg     = prefs.getString(PreferenceKeys.ALT_LAUNCHER_PACKAGE, "")?.trim() ?: ""
 
@@ -61,7 +103,7 @@ object LauncherSwitchHelper {
             false
         }
     }
-
+*/
     /**
      * Returns all installed launcher packages, excluding this app itself.
      * Used in Settings to populate a chooser for the alternative launcher.
@@ -69,8 +111,46 @@ object LauncherSwitchHelper {
      * Each entry is Pair(packageName, appLabel).
      */
     fun getInstalledLaunchers(context: Context): List<Pair<String, String>> {
+        val pm = context.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+
+        // Modernisierte Flags-Abfrage für API 33+ und Fallback für ältere Versionen
+        val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(intent, 0)
+        }
+
+        return resolveInfos
+            .asSequence()
+            .mapNotNull { ri ->
+                val activityInfo = ri.activityInfo
+                val pkg = activityInfo.packageName
+
+                // Filter-Logik
+                when {
+                    pkg == context.packageName -> null
+                    pkg == "android" -> null
+                    activityInfo.name.contains("ResolverActivity", true) -> null
+                    activityInfo.name.contains("ChooserActivity", true) -> null
+                    else -> {
+                        // Nutze loadLabel() statt getApplicationInfo(), das ist performanter
+                        // und benötigt keinen extra try-catch Block für die App-Suche.
+                        val label = ri.loadLabel(pm).toString()
+                        Pair(pkg, label)
+                    }
+                }
+            }
+            .distinctBy { it.first }
+            .sortedBy { it.second.lowercase() } // Case-insensitive Sortierung
+            .toList()
+    }
+/*
+    fun getInstalledLaunchers(context: Context): List<Pair<String, String>> {
         val pm     = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+
         // MATCH_DEFAULT_ONLY returns only the currently-set default, which is this app itself
         // in kiosk mode — so it would yield nothing useful. Use 0 to get ALL HOME activities.
         @Suppress("DEPRECATION")
@@ -96,6 +176,7 @@ object LauncherSwitchHelper {
             .sortedBy  { it.second }
             .toList()
     }
+*/
 
     fun isEnabled(context: Context): Boolean {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
