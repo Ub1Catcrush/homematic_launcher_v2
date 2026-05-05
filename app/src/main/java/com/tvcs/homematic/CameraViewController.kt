@@ -52,6 +52,7 @@ import android.view.SurfaceView
  *   cameraCtrl.attachToLifecycle(this)   // in onCreate
  *   cameraCtrl.start()                   // after prefs are confirmed enabled
  */
+@OptIn(UnstableApi::class)
 class CameraViewController(
     private val context: Context,
     private val playerView:    PlayerView,
