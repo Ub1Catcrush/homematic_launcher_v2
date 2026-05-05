@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ========== VERBINDUNG ========== -->
+    <PreferenceCategory android:title="@string/pref_category_ha_connection">
+
+        <SwitchPreferenceCompat
+            android:key="ha_tile_enabled"
+            android:title="@string/pref_title_ha_enabled"
+            android:summary="@string/pref_summary_ha_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="ha_ws_url"
+            android:title="@string/pref_title_ha_ws_url"
+            android:summary="@string/pref_summary_ha_ws_url"
+            android:hint="ws://homeassistant.local:8123/api/websocket"
+            android:inputType="textUri"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="ha_token"
+            android:title="@string/pref_title_ha_token"
+            android:summary="@string/pref_summary_ha_token"
+            android:inputType="textPassword"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="ha_tile_title"
+            android:title="@string/pref_title_ha_tile_title"
+            android:summary="@string/pref_summary_ha_tile_title"
+            android:hint="Home Assistant"
+            android:inputType="text"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <!-- ========== ENTITÄTEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_ha_entities">
+
+        <!-- Managed entirely in code via HaEntitiesPreference (custom dialog) -->
+        <Preference
+            android:key="action_ha_entities"
+            android:title="@string/pref_title_ha_entities"
+            android:summary="@string/pref_summary_ha_entities" />
+
+        <Preference
+            android:key="action_ha_test"
+            android:title="@string/pref_title_ha_test"
+            android:summary="@string/pref_summary_ha_test" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

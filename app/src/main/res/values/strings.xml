@@ -629,4 +629,59 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
         <item>center_inside</item>
         <item>fit_xy</item>
     </string-array>
+
+    <!-- Default Launcher Prompt -->
+    <string name="prompt_default_launcher_title">Als Standard-Launcher festlegen?</string>
+    <string name="prompt_default_launcher_message">Soll HomeMaticLauncher als Standard-Startbildschirm (Launcher) festgelegt werden? Diese Frage wird erneut gestellt, wenn ein anderer Launcher als Standard gewählt wird.</string>
+    <string name="prompt_default_launcher_yes">Ja, festlegen</string>
+    <string name="prompt_default_launcher_no">Nein, danke</string>
+
+
+    <!-- Grid columns -->
+    <string name="pref_category_grid_columns">Kachel-Spalten</string>
+    <string name="pref_title_grid_columns_portrait">Spalten Hochformat</string>
+    <string name="pref_summary_grid_columns_portrait">Anzahl Spalten im Hochformat (leer = automatisch: 2)</string>
+    <string name="pref_hint_grid_columns_portrait">Automatisch (2)</string>
+    <string name="pref_title_grid_columns_landscape">Spalten Querformat</string>
+    <string name="pref_summary_grid_columns_landscape">Anzahl Spalten im Querformat (leer = automatisch: 3 bzw. 4 auf breiten Bildschirmen)</string>
+    <string name="pref_hint_grid_columns_landscape">Automatisch (3 / 4)</string>
+
+
+    <!-- Home Assistant tile -->
+    <string name="pref_nav_ha">Home Assistant</string>
+    <string name="pref_nav_ha_summary">Echtzeit-Kachel mit HA-Sensorwerten (WebSocket)</string>
+    <string name="pref_category_ha_connection">Verbindung</string>
+    <string name="pref_category_ha_entities">Angezeigte Entitäten</string>
+    <string name="pref_title_ha_enabled">HA-Kachel aktivieren</string>
+    <string name="pref_summary_ha_enabled">Zeigt eine Kachel im Raumgitter mit Echtzeit-Sensorwerten aus Home Assistant</string>
+    <string name="pref_title_ha_ws_url">WebSocket-URL</string>
+    <string name="pref_summary_ha_ws_url">z. B. ws://homeassistant.local:8123/api/websocket</string>
+    <string name="pref_title_ha_token">Long-Lived Access Token</string>
+    <string name="pref_summary_ha_token">Token aus HA-Profil → Langlebige Zugriffstoken</string>
+    <string name="pref_summary_ha_token_set">Token gesetzt ✓</string>
+    <string name="pref_title_ha_tile_title">Kachel-Titel</string>
+    <string name="pref_summary_ha_tile_title">Überschrift der HA-Kachel (leer = "Home Assistant")</string>
+    <string name="pref_title_ha_entities">Entitäten verwalten</string>
+    <string name="pref_summary_ha_entities">Noch keine Entitäten konfiguriert</string>
+    <string name="pref_title_ha_test">Verbindung testen</string>
+    <string name="pref_summary_ha_test">Aktuellen Verbindungsstatus anzeigen</string>
+    <string name="ha_tile_default_title">Home Assistant</string>
+    <string name="ha_tile_no_entities">Keine Entitäten konfiguriert</string>
+    <string name="ha_entities_empty">Noch keine Entitäten hinzugefügt</string>
+    <string name="ha_add_entity">Hinzufügen</string>
+    <string name="ha_field_entity_id">entity_id (z. B. sensor.pv_power)</string>
+    <string name="ha_field_label">Bezeichnung (z. B. PV-Leistung)</string>
+    <string name="ha_field_unit">Einheit (z. B. W) – optional</string>
+    <string name="ha_field_icon">Icon-Emoji (z. B. ☀️) – optional</string>
+    <string name="ha_error_entity_id_required">entity_id ist erforderlich</string>
+    <string name="ha_test_missing_config">URL und Token konfigurieren</string>
+    <string name="ha_test_connecting">Verbinde…</string>
+    <string name="ha_test_disconnected">Nicht verbunden</string>
+    <string name="ha_test_ok">Verbunden ✓ (%1$d Entitäten geladen)</string>
+    <string name="ha_test_error">Fehler: %1$s</string>
+
+    <plurals name="ha_entities_count">
+        <item quantity="one">%1$d Entität konfiguriert</item>
+        <item quantity="other">%1$d Entitäten konfiguriert</item>
+    </plurals>
 </resources>

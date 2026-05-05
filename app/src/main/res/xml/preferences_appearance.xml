@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ========== KACHEL-SPALTEN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_grid_columns">
+
+        <EditTextPreference
+            android:key="grid_columns_portrait"
+            android:title="@string/pref_title_grid_columns_portrait"
+            android:summary="@string/pref_summary_grid_columns_portrait"
+            android:defaultValue=""
+            android:inputType="number"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="grid_columns_landscape"
+            android:title="@string/pref_title_grid_columns_landscape"
+            android:summary="@string/pref_summary_grid_columns_landscape"
+            android:defaultValue=""
+            android:inputType="number"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
     <!-- ========== SCHRIFTGRÖSSEN ========== -->
     <PreferenceCategory android:title="@string/pref_category_font_sizes">
 

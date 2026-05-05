@@ -133,7 +133,8 @@ class SettingsActivity : AppCompatActivity(),
                 "nav_transit"       to TransitFragment::class.java.name,
                 "nav_advanced"      to AdvancedFragment::class.java.name,
                 "nav_appearance"    to AppearanceFragment::class.java.name,
-                "nav_weather"       to WeatherFragment::class.java.name
+                "nav_weather"       to WeatherFragment::class.java.name,
+                "nav_ha"            to HaFragment::class.java.name
             ).forEach { (key, cls) ->
                 findPreference<Preference>(key)?.fragment = cls
             }
@@ -196,6 +197,7 @@ class SettingsActivity : AppCompatActivity(),
                 val timeout = (p.getString(PreferenceKeys.CONNECTION_TIMEOUT, "5")?.toIntOrNull() ?: 5) * 1000
                 viewLifecycleOwner.lifecycleScope.launch {
                     val r = NetworkUtils.testCcuConnection(host, https, port, apiPath, sid, timeout)
+                    if (!isResumed) return@launch
                     pref.summary = when {
                         !r.reachable     -> getString(R.string.pref_summary_ccu_unreachable, host)
                         r.authOk == null -> getString(R.string.pref_summary_ccu_no_sid)
@@ -244,6 +246,7 @@ class SettingsActivity : AppCompatActivity(),
         }
 
         private fun showLanguageRestartDialog() {
+            if (!isResumed) return
             AlertDialog.Builder(requireContext())
                 .setTitle(R.string.dialog_restart_title)
                 .setMessage(R.string.dialog_language_restart_message)
@@ -463,6 +466,7 @@ class SettingsActivity : AppCompatActivity(),
         }
 
         private fun showStopSearch(title: String, prefill: String, onSelected: (DbTransitRepository.TransitStop) -> Unit) {
+            if (!isResumed) return
             val ctx = requireContext()
             val dp  = resources.displayMetrics.density
             val input      = EditText(ctx).apply { hint = getString(R.string.transit_search_hint); inputType = android.text.InputType.TYPE_CLASS_TEXT; setText(prefill); selectAll() }
@@ -500,6 +504,7 @@ class SettingsActivity : AppCompatActivity(),
                     statusText.text = getString(R.string.pref_summary_transit_searching, q); statusText.visibility = android.view.View.VISIBLE
                     searchJob = viewLifecycleOwner.lifecycleScope.launch {
                         kotlinx.coroutines.delay(350)
+                        if (!isResumed) return@launch
                         when (val r = DbTransitRepository.searchStops(baseUrl, q)) {
                             is DbTransitRepository.Result.Error   -> statusText.text = getString(R.string.pref_summary_transit_search_error, r.message)
                             is DbTransitRepository.Result.Success -> {
@@ -540,6 +545,7 @@ class SettingsActivity : AppCompatActivity(),
                 if (launchers.isEmpty()) { pref.summary = getString(R.string.pref_summary_no_launchers_found); return@setOnPreferenceClickListener true }
                 val labels = launchers.map { it.second }.toTypedArray()
                 val pkgs   = launchers.map { it.first }.toTypedArray()
+                if (!isResumed) return@setOnPreferenceClickListener true
                 androidx.appcompat.app.AlertDialog.Builder(requireContext())
                     .setTitle(getString(R.string.dialog_select_launcher_title))
                     .setItems(labels) { _, i ->
@@ -561,10 +567,28 @@ class SettingsActivity : AppCompatActivity(),
     class AppearanceFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences_appearance, rootKey)
+            bindGridColumns()
             bindFonts()
             bindColors()
             findPreference<Preference>("action_reset_appearance")?.setOnPreferenceClickListener {
                 resetAppearance(); true
+            }
+        }
+
+        private fun bindGridColumns() {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            listOf(
+                PreferenceKeys.GRID_COLUMNS_PORTRAIT  to requireContext().getString(R.string.pref_hint_grid_columns_portrait),
+                PreferenceKeys.GRID_COLUMNS_LANDSCAPE to requireContext().getString(R.string.pref_hint_grid_columns_landscape)
+            ).forEach { (key, hint) ->
+                findPreference<EditTextPreference>(key)?.apply {
+                    val cur = prefs.getString(key, "") ?: ""
+                    summary = if (cur.isNotEmpty()) cur else hint
+                    onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+                        p.summary = if (v.toString().isNotEmpty()) v.toString() else hint
+                        true
+                    }
+                }
             }
         }
 
@@ -598,6 +622,7 @@ class SettingsActivity : AppCompatActivity(),
 
         private fun resetAppearance() {
             val keys = listOf(
+                PreferenceKeys.GRID_COLUMNS_PORTRAIT, PreferenceKeys.GRID_COLUMNS_LANDSCAPE,
                 PreferenceKeys.FONT_ROOM_TITLE, PreferenceKeys.FONT_ROOM_DATA, PreferenceKeys.FONT_TRANSIT,
                 PreferenceKeys.COLOR_BG_STATUS,   "${PreferenceKeys.COLOR_BG_STATUS}_dark",
                 PreferenceKeys.COLOR_BG_HEADER,   "${PreferenceKeys.COLOR_BG_HEADER}_dark",
@@ -610,7 +635,7 @@ class SettingsActivity : AppCompatActivity(),
             PreferenceManager.getDefaultSharedPreferences(requireContext())
                 .edit().also { ed -> keys.forEach { ed.remove(it) } }.apply()
             setPreferencesFromResource(R.xml.preferences_appearance, null)
-            bindFonts(); bindColors()
+            bindGridColumns(); bindFonts(); bindColors()
         }
     }
 
@@ -658,6 +683,185 @@ class SettingsActivity : AppCompatActivity(),
                 }
                 true
             }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Home Assistant
+    // ══════════════════════════════════════════════════════════════════════════
+
+    class HaFragment : PreferenceFragmentCompat() {
+        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+            setPreferencesFromResource(R.xml.preferences_ha, rootKey)
+            bindSwitch(PreferenceKeys.HA_TILE_ENABLED)
+            listOf(PreferenceKeys.HA_WS_URL, PreferenceKeys.HA_TILE_TITLE).forEach { bindEditText(it) }
+
+            // Token: show placeholder instead of the actual value
+            findPreference<EditTextPreference>(PreferenceKeys.HA_TOKEN)?.apply {
+                val cur = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .getString(PreferenceKeys.HA_TOKEN, "") ?: ""
+                summary = if (cur.isNotEmpty()) getString(R.string.pref_summary_ha_token_set)
+                          else getString(R.string.pref_summary_ha_token)
+                onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+                    p.summary = if (v.toString().isNotEmpty()) getString(R.string.pref_summary_ha_token_set)
+                                else getString(R.string.pref_summary_ha_token)
+                    true
+                }
+            }
+
+            // Entities — open custom list editor dialog
+            findPreference<Preference>("action_ha_entities")?.setOnPreferenceClickListener {
+                showEntitiesDialog()
+                true
+            }
+            updateEntitiesSummary()
+
+            // Connection test
+            findPreference<Preference>("action_ha_test")?.setOnPreferenceClickListener { pref ->
+                val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+                val url   = prefs.getString(PreferenceKeys.HA_WS_URL, "") ?: ""
+                val tok   = prefs.getString(PreferenceKeys.HA_TOKEN,  "") ?: ""
+                if (url.isBlank() || tok.isBlank()) {
+                    pref.summary = getString(R.string.ha_test_missing_config)
+                    return@setOnPreferenceClickListener true
+                }
+                pref.summary = getString(R.string.ha_test_connecting)
+                val state = HaRepository.connState.value
+                pref.summary = when (state) {
+                    is HaRepository.ConnState.Connected      -> getString(R.string.ha_test_ok,
+                        HaRepository.entityStates.value.size)
+                    is HaRepository.ConnState.Error          -> getString(R.string.ha_test_error, state.message)
+                    is HaRepository.ConnState.Connecting,
+                    is HaRepository.ConnState.Authenticating -> getString(R.string.ha_test_connecting)
+                    else -> getString(R.string.ha_test_disconnected)
+                }
+                true
+            }
+        }
+
+        private fun updateEntitiesSummary() {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            val json  = prefs.getString(PreferenceKeys.HA_ENTITIES, "") ?: ""
+            val count = HaTileViewController.parseEntities(json).size
+            findPreference<Preference>("action_ha_entities")?.summary =
+                if (count == 0) getString(R.string.pref_summary_ha_entities)
+                else            resources.getQuantityString(R.plurals.ha_entities_count, count, count)
+        }
+
+        // ── Entity list editor ────────────────────────────────────────────────
+
+        private fun showEntitiesDialog() {
+            if (!isResumed) return
+            val prefs     = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            val jsonStr   = prefs.getString(PreferenceKeys.HA_ENTITIES, "") ?: ""
+            val entities  = HaTileViewController.parseEntities(jsonStr).toMutableList()
+
+            // We build the dialog view manually for full control
+            val ctx   = requireContext()
+            val dp    = ctx.resources.displayMetrics.density
+            val root  = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding((16 * dp).toInt(), (8 * dp).toInt(), (16 * dp).toInt(), (8 * dp).toInt())
+            }
+
+            val scrollView = android.widget.ScrollView(ctx)
+            val listContainer = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            scrollView.addView(listContainer)
+            root.addView(scrollView, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (300 * dp).toInt()))
+
+            fun rebuildList() {
+                listContainer.removeAllViews()
+                entities.forEachIndexed { idx, entity ->
+                    val row = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, (4 * dp).toInt(), 0, (4 * dp).toInt())
+                    }
+                    val tv = android.widget.TextView(ctx).apply {
+                        text = "${entity.icon.ifBlank { "·" }}  ${entity.label}  (${entity.entityId})" +
+                               if (entity.unit.isNotEmpty()) "  [${entity.unit}]" else ""
+                        setTextColor(android.graphics.Color.WHITE)
+                        textSize = 13f
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    val btnDel = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.ic_menu_delete)
+                        background = null
+                        setColorFilter(0xFFFF4444.toInt())
+                        setOnClickListener { entities.removeAt(idx); rebuildList() }
+                    }
+                    row.addView(tv); row.addView(btnDel)
+                    listContainer.addView(row)
+                }
+                if (entities.isEmpty()) {
+                    listContainer.addView(android.widget.TextView(ctx).apply {
+                        text = ctx.getString(R.string.ha_entities_empty)
+                        setTextColor(0xFFAAAAAA.toInt())
+                        textSize = 12f
+                        setPadding(0, (8 * dp).toInt(), 0, (8 * dp).toInt())
+                    })
+                }
+            }
+            rebuildList()
+
+            // Add-new row
+            val addSection = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, (8 * dp).toInt(), 0, 0)
+            }
+            fun field(hint: String) = android.widget.EditText(ctx).apply {
+                this.hint = hint
+                setTextColor(android.graphics.Color.WHITE
+                )
+                setHintTextColor(0xFF888888.toInt())
+                textSize = 13f
+                setSingleLine()
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            val etEntityId = field(ctx.getString(R.string.ha_field_entity_id))
+            val etLabel    = field(ctx.getString(R.string.ha_field_label))
+            val etUnit     = field(ctx.getString(R.string.ha_field_unit))
+            val etIcon     = field(ctx.getString(R.string.ha_field_icon))
+            val btnAdd = android.widget.Button(ctx).apply {
+                text = ctx.getString(R.string.ha_add_entity)
+                setOnClickListener {
+                    val eid = etEntityId.text.toString().trim()
+                    if (eid.isEmpty()) { etEntityId.error = ctx.getString(R.string.ha_error_entity_id_required); return@setOnClickListener }
+                    entities.add(HaTileViewController.EntityRow(
+                        entityId = eid,
+                        label    = etLabel.text.toString().trim().ifBlank { eid.substringAfter(".") },
+                        unit     = etUnit.text.toString().trim(),
+                        icon     = etIcon.text.toString().trim()
+                    ))
+                    listOf(etEntityId, etLabel, etUnit, etIcon).forEach { it.setText("") }
+                    rebuildList()
+                }
+            }
+            addSection.addView(etEntityId); addSection.addView(etLabel)
+            addSection.addView(etIcon);     addSection.addView(etUnit)
+            addSection.addView(btnAdd)
+            root.addView(addSection)
+
+            AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.pref_title_ha_entities))
+                .setView(root)
+                .setPositiveButton(getString(android.R.string.ok)) { _, _ ->
+                    // Serialize back to JSON and save
+                    val arr = org.json.JSONArray()
+                    entities.forEach { e ->
+                        arr.put(org.json.JSONObject().apply {
+                            put("entity_id", e.entityId)
+                            put("label",     e.label)
+                            put("unit",      e.unit)
+                            put("icon",      e.icon)
+                        })
+                    }
+                    prefs.edit().putString(PreferenceKeys.HA_ENTITIES, arr.toString()).apply()
+                    updateEntitiesSummary()
+                }
+                .setNegativeButton(getString(android.R.string.cancel), null)
+                .show()
         }
     }
 

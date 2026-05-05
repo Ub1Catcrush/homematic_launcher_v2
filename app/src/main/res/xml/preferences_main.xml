@@ -57,4 +57,12 @@
         android:summary="@string/pref_nav_advanced_summary"
         android:icon="@drawable/settings" />
 
+
+    <!-- ── 6. Home Assistant ────────────────────────────────────────────────────────────────── -->
+    <Preference
+        android:key="nav_ha"
+        android:title="@string/pref_nav_ha"
+        android:summary="@string/pref_nav_ha_summary"
+        android:icon="@drawable/ic_info_black_24dp" />
+
 </PreferenceScreen>

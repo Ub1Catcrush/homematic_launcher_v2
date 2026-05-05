@@ -555,4 +555,59 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_title_show_nav_bar">Show Android navigation bar</string>
     <string name="pref_title_transit_pct_land">Transit – landscape (%)</string>
     <string name="pref_title_transit_pct_portrait">Transit – portrait (%)</string>
+
+    <!-- Default Launcher Prompt -->
+    <string name="prompt_default_launcher_title">Set as default launcher?</string>
+    <string name="prompt_default_launcher_message">Would you like to set HomeMaticLauncher as your default home screen? You will be asked again if a different launcher is set as the default.</string>
+    <string name="prompt_default_launcher_yes">Yes, set it</string>
+    <string name="prompt_default_launcher_no">No, thanks</string>
+
+
+    <!-- Grid columns -->
+    <string name="pref_category_grid_columns">Tile columns</string>
+    <string name="pref_title_grid_columns_portrait">Columns portrait</string>
+    <string name="pref_summary_grid_columns_portrait">Number of columns in portrait mode (empty = auto: 2)</string>
+    <string name="pref_hint_grid_columns_portrait">Auto (2)</string>
+    <string name="pref_title_grid_columns_landscape">Columns landscape</string>
+    <string name="pref_summary_grid_columns_landscape">Number of columns in landscape mode (empty = auto: 3 or 4 on wide screens)</string>
+    <string name="pref_hint_grid_columns_landscape">Auto (3 / 4)</string>
+
+
+    <!-- Home Assistant tile -->
+    <string name="pref_nav_ha">Home Assistant</string>
+    <string name="pref_nav_ha_summary">Real-time tile with HA sensor values (WebSocket)</string>
+    <string name="pref_category_ha_connection">Connection</string>
+    <string name="pref_category_ha_entities">Displayed entities</string>
+    <string name="pref_title_ha_enabled">Enable HA tile</string>
+    <string name="pref_summary_ha_enabled">Shows a tile in the room grid with live sensor values from Home Assistant</string>
+    <string name="pref_title_ha_ws_url">WebSocket URL</string>
+    <string name="pref_summary_ha_ws_url">e.g. ws://homeassistant.local:8123/api/websocket</string>
+    <string name="pref_title_ha_token">Long-Lived Access Token</string>
+    <string name="pref_summary_ha_token">Token from HA profile → Long-Lived Access Tokens</string>
+    <string name="pref_summary_ha_token_set">Token set ✓</string>
+    <string name="pref_title_ha_tile_title">Tile title</string>
+    <string name="pref_summary_ha_tile_title">Header of the HA tile (empty = "Home Assistant")</string>
+    <string name="pref_title_ha_entities">Manage entities</string>
+    <string name="pref_summary_ha_entities">No entities configured yet</string>
+    <string name="pref_title_ha_test">Test connection</string>
+    <string name="pref_summary_ha_test">Show current connection status</string>
+    <string name="ha_tile_default_title">Home Assistant</string>
+    <string name="ha_tile_no_entities">No entities configured</string>
+    <string name="ha_entities_empty">No entities added yet</string>
+    <string name="ha_add_entity">Add</string>
+    <string name="ha_field_entity_id">entity_id (e.g. sensor.pv_power)</string>
+    <string name="ha_field_label">Label (e.g. PV power)</string>
+    <string name="ha_field_unit">Unit (e.g. W) – optional</string>
+    <string name="ha_field_icon">Icon emoji (e.g. ☀️) – optional</string>
+    <string name="ha_error_entity_id_required">entity_id is required</string>
+    <string name="ha_test_missing_config">Please configure URL and token first</string>
+    <string name="ha_test_connecting">Connecting…</string>
+    <string name="ha_test_disconnected">Not connected</string>
+    <string name="ha_test_ok">Connected ✓ (%1$d entities loaded)</string>
+    <string name="ha_test_error">Error: %1$s</string>
+
+    <plurals name="ha_entities_count">
+        <item quantity="one">%1$d entity configured</item>
+        <item quantity="other">%1$d entities configured</item>
+    </plurals>
 </resources>

@@ -141,6 +141,13 @@ object PreferenceKeys {
     const val COLOR_TEXT_ROOM            = "color_text_room"
     const val COLOR_TEXT_DIM             = "color_text_dim"
 
+
+    // ── Grid layout ───────────────────────────────────────────────────────────
+    /** Number of room-tile columns in portrait orientation (default 2, min 1, max 6). */
+    const val GRID_COLUMNS_PORTRAIT  = "grid_columns_portrait"
+    /** Number of room-tile columns in landscape orientation (default auto 3/4, min 1, max 8). */
+    const val GRID_COLUMNS_LANDSCAPE = "grid_columns_landscape"
+
     // ── Font sizes ────────────────────────────────────────────────────────────
     /** Room tile title font size in sp */
     const val FONT_ROOM_TITLE            = "font_room_title"
@@ -150,6 +157,30 @@ object PreferenceKeys {
     const val FONT_TRANSIT               = "font_transit"
 
     // ── Weather ───────────────────────────────────────────────────────────────
+    
+
+    // ── Home Assistant tile ─────────────────────────────────────────────────────────────
+    /** Whether the HA tile is shown in the room grid. */
+    const val HA_TILE_ENABLED     = "ha_tile_enabled"
+    /** WebSocket URL, e.g. ws://homeassistant.local:8123/api/websocket */
+    const val HA_WS_URL           = "ha_ws_url"
+    /** Long-Lived Access Token from HA profile page. */
+    const val HA_TOKEN            = "ha_token"
+    /** Tile display title shown as card header (default "Home Assistant"). */
+    const val HA_TILE_TITLE       = "ha_tile_title"
+    /**
+     * JSON array of entity descriptors, stored as string.
+     * Each element: {"entity_id":"sensor.pv_power","label":"PV","unit":"W","icon":"☀️"}
+     * "label", "unit" and "icon" are optional.
+     */
+    const val HA_ENTITIES         = "ha_entities"
+
+    // ── Default Launcher Prompt ──────────────────────────────────────────────────────────────────
+    /** Set to true once we asked in this default-launcher session. Reset when the default changes. */
+    const val DEFAULT_LAUNCHER_ASKED      = "default_launcher_prompt_asked"
+    /** Package of the launcher that was default last time we checked. Detects switches. */
+    const val DEFAULT_LAUNCHER_LAST_KNOWN = "default_launcher_last_known"
+
     const val WEATHER_ENABLED            = "weather_enabled"
     /** "room" or "overlay" */
     const val WEATHER_DISPLAY_MODE       = "weather_display_mode"

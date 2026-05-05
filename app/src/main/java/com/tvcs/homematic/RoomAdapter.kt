@@ -30,7 +30,8 @@ class RoomAdapter(
     private val context: Context,
     private val rooms: MutableList<Room>,
     private val repo: HmRepository,
-    var weatherVC: WeatherViewController? = null
+    var weatherVC: WeatherViewController? = null,
+    var haTileVC: HaTileViewController? = null
 ) :
     RecyclerView.Adapter<RoomAdapter.ViewHolder>() {
 
@@ -51,6 +52,7 @@ class RoomAdapter(
     companion object {
         private const val TYPE_WEATHER = 0
         private const val TYPE_ROOM    = 1
+        private const val TYPE_HA_TILE = 2
     }
 
     private fun hasWeatherTile(): Boolean {
@@ -58,8 +60,20 @@ class RoomAdapter(
         return wvc != null && wvc.isEnabled() && wvc.displayMode() == "room" && wvc.lastForecast != null
     }
 
-    override fun getItemViewType(position: Int): Int =
-        if (position == 0 && hasWeatherTile()) TYPE_WEATHER else TYPE_ROOM
+    private fun hasHaTile(): Boolean {
+        val hvc = haTileVC
+        return hvc != null && hvc.isEnabled()
+    }
+
+    /** Number of special tiles before room tiles. */
+    private fun specialTileCount() = (if (hasWeatherTile()) 1 else 0) + (if (hasHaTile()) 1 else 0)
+
+    override fun getItemViewType(position: Int): Int {
+        var pos = position
+        if (hasWeatherTile()) { if (pos == 0) return TYPE_WEATHER; pos-- }
+        if (hasHaTile())      { if (pos == 0) return TYPE_HA_TILE;  pos-- }
+        return TYPE_ROOM
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
         ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.room_item, parent, false))
@@ -68,14 +82,24 @@ class RoomAdapter(
         holder.tableLayout.removeAllViews()
         holder.titleTextView.clearAnimation()
 
-        if (getItemViewType(position) == TYPE_WEATHER) {
-            holder.titleTextView.text = context.getString(R.string.weather_tile_title)
-            holder.tableLayout.addView(weatherVC!!.buildRoomTile())
-            holder.itemView.setOnClickListener(null)
-            return
+        when (getItemViewType(position)) {
+            TYPE_WEATHER -> {
+                holder.titleTextView.text = context.getString(R.string.weather_tile_title)
+                holder.tableLayout.addView(weatherVC!!.buildRoomTile())
+                holder.itemView.setOnClickListener(null)
+                return
+            }
+            TYPE_HA_TILE -> {
+                holder.titleTextView.text = haTileVC!!.tileTitle()
+                holder.titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, AppThemeHelper.fontRoomTitle(context))
+                holder.titleTextView.setTextColor(AppThemeHelper.textRoom(context))
+                holder.tableLayout.addView(haTileVC!!.buildRoomTile())
+                holder.itemView.setOnClickListener(null)
+                return
+            }
         }
 
-        val roomIdx = if (hasWeatherTile()) position - 1 else position
+        val roomIdx = position - specialTileCount()
         val room = rooms[roomIdx]
         holder.titleTextView.text = room.name
         holder.titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, AppThemeHelper.fontRoomTitle(context))
@@ -91,7 +115,7 @@ class RoomAdapter(
         holder.itemView.setOnClickListener { onRoomTapped?.invoke(room) }
     }
 
-    override fun getItemCount(): Int = rooms.size + if (hasWeatherTile()) 1 else 0
+    override fun getItemCount(): Int = rooms.size + specialTileCount()
 
     // ── DiffUtil ──────────────────────────────────────────────────────────────
 

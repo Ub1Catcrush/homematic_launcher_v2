@@ -107,5 +107,4 @@
 
     </application>
 
-    <attribution android:tag="audioPlayback" android:label="@string/audio_playback_attribution" />
 </manifest>

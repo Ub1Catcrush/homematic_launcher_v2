@@ -36,6 +36,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import android.util.Log
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.ui.PlayerView
 import androidx.preference.PreferenceManager
@@ -85,6 +86,7 @@ class MainActivity : AppCompatActivity() {
 
     private var isPaused  = false
     private lateinit var weatherViewController: WeatherViewController
+    private lateinit var haTileViewController: HaTileViewController
     private var isStarted = false
     private var pendingRecreate = false
     private var reloadJob: Job? = null
@@ -205,6 +207,13 @@ class MainActivity : AppCompatActivity() {
         weatherViewController = WeatherViewController(this, cameraPanel, this)
         weatherViewController.attachToLifecycle()
         mAdapter.weatherVC = weatherViewController
+
+        haTileViewController = HaTileViewController(this, this) {
+            // Called on any entity state change — refresh the HA tile position
+            runOnUiThread { if (!isFinishing && !isDestroyed) mAdapter.notifyItemChanged(0) }
+        }
+        haTileViewController.attachToLifecycle(this)
+        mAdapter.haTileVC = haTileViewController
 
         // ── FAB: Settings (right) ─────────────────────────────────────────────
         // ── Camera mute button ────────────────────────────────────────────────
@@ -435,7 +444,7 @@ class MainActivity : AppCompatActivity() {
                     applySystemBarVisibility()
                 }
                 PreferenceKeys.APP_LANGUAGE ->
-                    if (!isPaused) showRestartDialog()
+                    if (!isPaused && !isFinishing) showRestartDialog()
 
                 // Camera — re-apply panel visibility + height + restart stream
                 PreferenceKeys.CAMERA_ENABLED,
@@ -479,6 +488,23 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.ALT_LAUNCHER_PACKAGE ->
                     applyLauncherSwitchFab()
 
+                PreferenceKeys.GRID_COLUMNS_PORTRAIT,
+                PreferenceKeys.GRID_COLUMNS_LANDSCAPE -> {
+                    // Apply new span count immediately — no CCU reload needed
+                    (gridView.layoutManager as? StaggeredGridLayoutManager)
+                        ?.spanCount = gridSpanCount()
+                }
+
+                // Home Assistant tile
+                PreferenceKeys.HA_TILE_ENABLED,
+                PreferenceKeys.HA_WS_URL,
+                PreferenceKeys.HA_TOKEN,
+                PreferenceKeys.HA_TILE_TITLE,
+                PreferenceKeys.HA_ENTITIES -> {
+                    haTileViewController.applyPrefsChange()
+                    mAdapter.notifyDataSetChanged()
+                }
+
                 // Grid-only changes — re-render without CCU reload
                 PreferenceKeys.MAX_WINDOW_INDICATORS,
                 PreferenceKeys.OUTDOOR_ROOM_NAME,
@@ -501,7 +527,7 @@ class MainActivity : AppCompatActivity() {
                     lifecycleScope.launch(Dispatchers.Default) {
                         HomeMatic.reloadProfile(this@MainActivity)
                         val rooms = repo.myRoomList?.rooms?.toList() ?: return@launch
-                        withContext(Dispatchers.Main) { mAdapter.rebindAll(rooms) }
+                        withContext(Dispatchers.Main) { if (!isFinishing && !isDestroyed) mAdapter.rebindAll(rooms) }
                     }
                 }
             }
@@ -518,6 +544,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRestartDialog() {
+        if (isFinishing || isDestroyed) return
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.dialog_restart_title))
             .setMessage(getString(R.string.dialog_restart_message))
@@ -538,6 +565,7 @@ class MainActivity : AppCompatActivity() {
                     loadCcuData()
             }
             override fun onLost(network: Network) = runOnUiThread {
+                if (!isStarted) return@runOnUiThread
                 setLoading(false); updateStatusBar()
                 showSnackbar(getString(R.string.snackbar_network_lost), Snackbar.LENGTH_LONG)
             }
@@ -629,6 +657,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showThermostatDialog(iseId: Int, currentValue: Double, roomName: String) {
+        if (isFinishing || isDestroyed) return
         val steps = ((TEMP_MAX - TEMP_MIN) / TEMP_STEP).toInt()
         val init  = ((currentValue - TEMP_MIN) / TEMP_STEP).toInt().coerceIn(0, steps)
         val dv    = layoutInflater.inflate(R.layout.dialog_thermostat, null)
@@ -713,6 +742,21 @@ class MainActivity : AppCompatActivity() {
         if (pendingRecreate) {
             pendingRecreate = false
             recreate()
+            return
+        }
+        // Einmalig fragen ob diese App als Standard-Launcher gesetzt werden soll.
+        // Wird erneut gefragt wenn der Standard-Launcher gewechselt hat.
+        DefaultLauncherPromptHelper.checkAndPromptIfNeeded(this)
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        // Nach dem RoleManager-Flow (Android 10+) prüfen wir beim nächsten onResume erneut —
+        // das passiert automatisch, da onResume nach onActivityResult aufgerufen wird.
+        // Kein weiterer Code nötig.
+        if (requestCode == DefaultLauncherPromptHelper.REQUEST_CODE) {
+            Log.d("MainActivity", "RoleManager-Flow beendet, resultCode=$resultCode")
         }
     }
 
@@ -755,17 +799,27 @@ class MainActivity : AppCompatActivity() {
     // ── Orientation ───────────────────────────────────────────────────────────
 
     /**
-     * Portrait  → 2 columns
-     * Landscape → 3 columns normally, 4 on wide screens (≥720dp, e.g. tablets)
+     * Returns the column count for the room tile grid.
      *
-     * In landscape the grid now fills the full screen width (rooms top,
-     * DB+camera bottom strip), so we use the full screen width to decide.
+     * User can set portrait and landscape column counts independently in Settings.
+     * If not configured, falls back to the original auto-logic:
+     *   Portrait  → 2
+     *   Landscape → 3, or 4 on wide screens (≥ 720 dp)
      */
     private fun gridSpanCount(): Int {
         val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        if (!isLandscape) return 2
-        val widthDp = resources.displayMetrics.run { widthPixels / density }
-        return if (widthDp >= 720) 4 else 3
+        return if (isLandscape) {
+            val saved = sharedPreferences.getString(PreferenceKeys.GRID_COLUMNS_LANDSCAPE, "0")
+                ?.toIntOrNull() ?: 0
+            if (saved >= 1) saved else {
+                val widthDp = resources.displayMetrics.run { widthPixels / density }
+                if (widthDp >= 720) 4 else 3
+            }
+        } else {
+            val saved = sharedPreferences.getString(PreferenceKeys.GRID_COLUMNS_PORTRAIT, "0")
+                ?.toIntOrNull() ?: 0
+            if (saved >= 1) saved else 2
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
