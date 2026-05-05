@@ -370,7 +370,7 @@ class CameraViewController(
         kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
             mainHandler.post {
                 try {
-                    if (sv.width <= 0 || sv.height <= 0) { cont.resume(Unit) {} ; return@post }
+                    if (sv.width <= 0 || sv.height <= 0) { cont.resumeWith(Result.success(Unit)) ; return@post }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && sv is SurfaceView) {
                         val bmp = android.graphics.Bitmap.createBitmap(
@@ -380,7 +380,7 @@ class CameraViewController(
                                 motionEngine.process(bmp)
                             }
                             bmp.recycle()
-                            if (cont.isActive) cont.resume(Unit) {}
+                            if (cont.isActive) cont.resumeWith(Result.success(Unit))
                         }, mainHandler)
                     } else {
                         // TextureView fallback — draw() works correctly here
@@ -390,11 +390,11 @@ class CameraViewController(
                         sv.draw(canvas)
                         motionEngine.process(bmp)
                         bmp.recycle()
-                        if (cont.isActive) cont.resume(Unit) {}
+                        if (cont.isActive) cont.resumeWith(Result.success(Unit))
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "grabRtspFrame failed: ${e.message}")
-                    if (cont.isActive) cont.resume(Unit) {}
+                    if (cont.isActive) cont.resumeWith(Result.success(Unit))
                 }
             }
         }

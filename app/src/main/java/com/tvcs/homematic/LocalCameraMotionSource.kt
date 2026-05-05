@@ -108,7 +108,7 @@ class LocalCameraMotionSource(
             if (now - lastAnalysisMs < ANALYSIS_INTERVAL_MS) { image.close(); return }
             lastAnalysisMs = now
 
-            val bmp = image.toBitmap() ?: run { image.close(); return }
+            val bmp = image.toMotionBitmap() ?: run { image.close(); return }
             motionEngine.process(bmp)
             bmp.recycle()
         } finally {
@@ -117,7 +117,7 @@ class LocalCameraMotionSource(
     }
 
     // YUV_420_888 → JPEG → Bitmap (most reliable cross-device path)
-    private fun ImageProxy.toBitmap(): Bitmap? {
+    private fun ImageProxy.toMotionBitmap(): Bitmap? {
         return try {
             val yBuffer = planes[0].buffer
             val uBuffer = planes[1].buffer
