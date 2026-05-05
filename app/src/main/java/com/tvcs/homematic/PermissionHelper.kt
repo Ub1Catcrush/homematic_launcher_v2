@@ -40,6 +40,19 @@ import androidx.core.content.ContextCompat
 class PermissionHelper(private val activity: AppCompatActivity) {
 
     /** Result launcher — must be registered before the activity starts (i.e. in onCreate). */
+    private var cameraPermCallback: ((Boolean) -> Unit)? = null
+    private val cameraPermLauncher: ActivityResultLauncher<String> =
+        activity.registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            cameraPermCallback?.invoke(isGranted)
+            if (!isGranted) {
+                val permanentlyDenied = !activity.shouldShowRequestPermissionRationale(
+                    Manifest.permission.CAMERA)
+                if (permanentlyDenied) showCameraPermanentlyDeniedDialog()
+            }
+        }
+
     private val notificationPermLauncher: ActivityResultLauncher<String> =
         activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
@@ -93,6 +106,27 @@ class PermissionHelper(private val activity: AppCompatActivity) {
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    /**
+     * Returns true if CAMERA permission is granted.
+     */
+    fun isCameraPermissionGranted(): Boolean =
+        ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Requests CAMERA permission, calling [onResult] with the result.
+     * Shows rationale dialog if needed.
+     */
+    fun requestCameraPermission(onResult: (Boolean) -> Unit) {
+        if (isCameraPermissionGranted()) { onResult(true); return }
+        cameraPermCallback = onResult
+        if (activity.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            showCameraRationaleDialog()
+        } else {
+            cameraPermLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     // ── Private dialogs ──────────────────────────────────────────────────────
 
     /**
@@ -118,6 +152,30 @@ class PermissionHelper(private val activity: AppCompatActivity) {
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.perm_notif_denied_title))
             .setMessage(activity.getString(R.string.perm_notif_denied_message))
+            .setPositiveButton(activity.getString(R.string.perm_btn_open_settings)) { _, _ ->
+                openAppSettings(activity)
+            }
+            .setNegativeButton(activity.getString(R.string.perm_btn_not_now), null)
+            .show()
+    }
+
+    private fun showCameraRationaleDialog() {
+        if (activity.isFinishing || activity.isDestroyed) return
+        AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.perm_camera_rationale_title))
+            .setMessage(activity.getString(R.string.perm_camera_rationale_message))
+            .setPositiveButton(activity.getString(R.string.perm_btn_grant)) { _, _ ->
+                cameraPermLauncher.launch(Manifest.permission.CAMERA)
+            }
+            .setNegativeButton(activity.getString(R.string.perm_btn_not_now), null)
+            .show()
+    }
+
+    private fun showCameraPermanentlyDeniedDialog() {
+        if (activity.isFinishing || activity.isDestroyed) return
+        AlertDialog.Builder(activity)
+            .setTitle(activity.getString(R.string.perm_camera_denied_title))
+            .setMessage(activity.getString(R.string.perm_camera_denied_message))
             .setPositiveButton(activity.getString(R.string.perm_btn_open_settings)) { _, _ ->
                 openAppSettings(activity)
             }

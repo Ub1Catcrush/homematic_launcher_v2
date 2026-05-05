@@ -95,6 +95,25 @@ object PreferenceKeys {
      */
     const val CAMERA_SCALE_TYPE         = "camera_scale_type"         // default "center_crop"
 
+    // ── Motion detection & screen wake ────────────────────────────────────────
+    // Source 1: Webcam (RTSP/Snapshot stream shown in launcher)
+    const val MOTION_WEBCAM_ENABLED     = "motion_webcam_enabled"      // default false
+    const val MOTION_WEBCAM_SENSITIVITY = "motion_webcam_sensitivity"  // 1–30, default 8
+    // Source 2: Local device camera (front/rear)
+    const val MOTION_LOCAL_ENABLED      = "motion_local_enabled"       // default false
+    const val MOTION_LOCAL_SENSITIVITY  = "motion_local_sensitivity"   // 1–30, default 8
+    const val MOTION_LOCAL_FACING       = "motion_local_facing"        // "front" | "back", default "front"
+    // Shared wake settings
+    const val MOTION_WAKE_TIMEOUT_SEC   = "motion_wake_timeout_sec"    // default 60
+    // Legacy key kept for migration
+    const val MOTION_DETECT_ENABLED     = "motion_detect_enabled"
+    const val MOTION_DETECT_SENSITIVITY = "motion_detect_sensitivity"
+    // ── Night dimming ─────────────────────────────────────────────────────────
+    const val NIGHT_DIM_ENABLED         = "night_dim_enabled"          // default false
+    const val NIGHT_DIM_START           = "night_dim_start"            // "HH:MM", default "22:00"
+    const val NIGHT_DIM_END             = "night_dim_end"              // "HH:MM", default "07:00"
+    const val NIGHT_DIM_BRIGHTNESS      = "night_dim_brightness"       // 1–100 (%), default 5
+
     // ── DB Transit ───────────────────────────────────────────────────────────
     const val TRANSIT_ENABLED   = "transit_enabled"
     const val TRANSIT_FROM_ID   = "transit_from_id"

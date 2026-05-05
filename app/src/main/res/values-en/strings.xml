@@ -610,4 +610,35 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
         <item quantity="one">%1$d entity configured</item>
         <item quantity="other">%1$d entities configured</item>
     </plurals>
+    <!-- Motion detection – Webcam source -->
+    <string name="pref_category_motion_webcam">Motion Detection – Webcam</string>
+    <string name="pref_title_motion_webcam_enabled">Enable webcam motion detection</string>
+    <string name="pref_summary_motion_webcam_enabled">Wake screen when motion is detected in the webcam livestream</string>
+    <!-- Motion detection – Local device camera -->
+    <string name="pref_category_motion_local">Motion Detection – Device Camera</string>
+    <string name="pref_title_motion_local_enabled">Enable device camera</string>
+    <string name="pref_summary_motion_local_enabled">Use the device front or rear camera for motion detection (requires Camera permission)</string>
+    <string name="pref_title_motion_local_facing">Select camera</string>
+    <string-array name="motion_facing_entries"><item>Front camera (selfie)</item><item>Rear camera</item></string-array>
+    <string-array name="motion_facing_values"><item>front</item><item>back</item></string-array>
+    <!-- Motion detection – shared settings -->
+    <string name="pref_category_motion_wake">Screen Wake Settings</string>
+    <string name="pref_title_motion_sensitivity">Sensitivity (1–30)</string>
+    <string name="pref_summary_motion_sensitivity">Lower = more sensitive. Default: 8</string>
+    <string name="pref_title_motion_wake_timeout">Inactivity timeout (seconds)</string>
+    <string name="pref_summary_motion_wake_timeout">Turn screen off after this time without motion or touch. Default: 60</string>
+    <!-- Night dimming -->
+    <string name="pref_category_night_dim">Night Dimming</string>
+    <string name="pref_title_night_dim_enabled">Enable night dimming</string>
+    <string name="pref_summary_night_dim_enabled">Automatically dim the display at night</string>
+    <string name="pref_title_night_dim_start">Start time (HH:MM)</string>
+    <string name="pref_title_night_dim_end">End time (HH:MM)</string>
+    <string name="pref_summary_night_dim_time">Format: HH:MM (e.g. 22:00)</string>
+    <string name="pref_title_night_dim_brightness">Night brightness (%)</string>
+    <string name="pref_summary_night_dim_brightness">1–100. Default: 5 (very dark)</string>
+    <string name="perm_camera_rationale_title">Camera Permission</string>
+    <string name="perm_camera_rationale_message">The device camera is needed for local motion detection. Without permission, only the webcam source is available.</string>
+    <string name="perm_camera_denied_title">Camera permanently denied</string>
+    <string name="perm_camera_denied_message">Please enable the Camera permission in App Settings.</string>
+
 </resources>

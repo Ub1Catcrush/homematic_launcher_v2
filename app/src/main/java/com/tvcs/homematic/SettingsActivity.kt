@@ -307,6 +307,16 @@ class SettingsActivity : AppCompatActivity(),
             bindNumber(PreferenceKeys.TRANSIT_PANEL_PCT_LAND, " %")
             bindList(PreferenceKeys.CAMERA_SCALE_TYPE)
             bindSwitch(PreferenceKeys.CAMERA_ENABLED)
+            bindSwitch(PreferenceKeys.MOTION_WEBCAM_ENABLED)
+            bindNumber(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, "")
+            bindSwitch(PreferenceKeys.MOTION_LOCAL_ENABLED)
+            bindList(PreferenceKeys.MOTION_LOCAL_FACING)
+            bindNumber(PreferenceKeys.MOTION_LOCAL_SENSITIVITY, "")
+            bindNumber(PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC, " s")
+            bindSwitch(PreferenceKeys.NIGHT_DIM_ENABLED)
+            bindNumber(PreferenceKeys.NIGHT_DIM_START, "")
+            bindNumber(PreferenceKeys.NIGHT_DIM_END, "")
+            bindNumber(PreferenceKeys.NIGHT_DIM_BRIGHTNESS, " %")
             findPreference<EditTextPreference>(PreferenceKeys.CAMERA_PASSWORD)?.apply {
                 val cur = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: ""
                 summary = if (cur.isNotEmpty()) "••••••" else getString(R.string.pref_summary_camera_password_unset)

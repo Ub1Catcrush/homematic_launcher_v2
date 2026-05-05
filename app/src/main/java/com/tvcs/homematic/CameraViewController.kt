@@ -28,6 +28,9 @@ import java.net.URL
 import java.util.Base64
 import androidx.core.net.toUri
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import android.os.Build
+import android.view.PixelCopy
+import android.view.SurfaceView
 
 /**
  * CameraViewController — manages RTSP (ExoPlayer) + MJPEG-snapshot fallback.
@@ -67,8 +70,22 @@ class CameraViewController(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ioScope   = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    /**
+     * Optional callback fired on the main thread whenever motion is detected.
+     * Wire this in MainActivity to drive [ScreenWakeController].
+     */
+    var onMotionDetected: (() -> Unit)? = null
+
+    private val motionEngine = MotionDetectionEngine(
+        sensitivityPct   = prefs.getString(PreferenceKeys.MOTION_DETECT_SENSITIVITY, "8")?.toIntOrNull() ?: 8,
+        onMotionDetected = {
+            mainHandler.post { onMotionDetected?.invoke() }
+        }
+    )
+
     private var exoPlayer:       ExoPlayer? = null
     private var snapshotJob:     Job?        = null
+    private var rtspSampleJob:   Job?        = null   // periodic frame grab for motion (RTSP mode)
     private var rtspTimeoutJob:  Runnable?   = null
     private var inSnapshotMode  = false
     private var started         = false
@@ -103,6 +120,7 @@ class CameraViewController(
         started = true
         inSnapshotMode = false
         rtspFailReason = null
+        applyMotionPrefs()
         startRtsp()
     }
 
@@ -111,13 +129,29 @@ class CameraViewController(
         started = false
         cancelRtspTimeout()
         stopSnapshotLoop()
+        stopRtspMotionSampler()
         releasePlayer()
+        motionEngine.enabled = false
+        motionEngine.reset()
     }
 
     fun applyPrefsChange() {
         if (!started) return
         stop()
         start()
+    }
+
+    /** Update motion engine from current prefs without restarting the stream. */
+    fun applyMotionPrefs() {
+        // MOTION_WEBCAM_ENABLED takes priority; fall back to legacy key for migration
+        val enabled = prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
+            || prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
+        val sensitivity = (prefs.getString(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, null)
+            ?: prefs.getString(PreferenceKeys.MOTION_DETECT_SENSITIVITY, "8"))
+            ?.toIntOrNull()?.coerceIn(1, 30) ?: 8
+        motionEngine.sensitivityPct = sensitivity
+        motionEngine.enabled = enabled
+        motionEngine.reset()
     }
 
     // ── Lifecycle observer ────────────────────────────────────────────────────
@@ -173,6 +207,7 @@ class CameraViewController(
                         cancelRtspTimeout()
                         setStatus(context.getString(R.string.camera_status_live_rtsp))
                         Log.i(TAG, "RTSP playing")
+                        startRtspMotionSampler()
                     }
                     Player.STATE_BUFFERING ->
                         setStatus(context.getString(R.string.camera_status_buffering))
@@ -202,6 +237,7 @@ class CameraViewController(
         player.prepare()
         player.playWhenReady = true
         player.volume = if (isMuted) 0f else 1f   // restore mute state across reconnects
+
         muteButton?.visibility = View.VISIBLE
         updateMuteButton()
 
@@ -224,6 +260,7 @@ class CameraViewController(
         rtspFailReason = reason
         Log.i(TAG, "Falling back to MJPEG snapshots: $reason")
 
+        stopRtspMotionSampler()
         releasePlayer()
         playerView.visibility  = View.GONE
         snapshotView.visibility = View.VISIBLE
@@ -257,6 +294,7 @@ class CameraViewController(
             while (isActive) {
                 try {
                     val bmp = fetchSnapshot(snapshotUrl)
+                    motionEngine.process(bmp)   // analyse before displaying
                     withContext(Dispatchers.Main) {
                         snapshotView.setImageBitmap(bmp)
                         // Always show RTSP failure reason so user knows live stream is not active
@@ -266,6 +304,8 @@ class CameraViewController(
                         else
                             setStatus(context.getString(R.string.camera_status_snapshot_mode))
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e   // propagate coroutine cancellation
                 } catch (e: Exception) {
                     Log.w(TAG, "Snapshot fetch failed: ${e.message}")
                     withContext(Dispatchers.Main) {
@@ -295,6 +335,67 @@ class CameraViewController(
                 ?: error("Empty image response")
         } finally {
             con.disconnect()
+        }
+    }
+
+    // ── RTSP motion sampling (PixelCopy, every 2 s) ─────────────────────────
+
+    private fun startRtspMotionSampler() {
+        stopRtspMotionSampler()
+        if (!motionEngine.enabled) return
+        rtspSampleJob = ioScope.launch {
+            while (isActive) {
+                delay(2_000L)
+                if (!motionEngine.enabled) continue
+                grabRtspFrame()
+            }
+        }
+    }
+
+    private fun stopRtspMotionSampler() {
+        rtspSampleJob?.cancel()
+        rtspSampleJob = null
+    }
+
+    /**
+     * Grabs a single frame from the RTSP PlayerView using PixelCopy (API 26+).
+     * Falls back to View.drawToBitmap on older APIs (which works for TextureView).
+     * Must post to main thread for PixelCopy, then process on the caller thread.
+     */
+    private suspend fun grabRtspFrame() {
+        if (!started || inSnapshotMode) return
+        val sv = playerView.videoSurfaceView ?: return
+
+        kotlinx.coroutines.suspendCancellableCoroutine<Unit> { cont ->
+            mainHandler.post {
+                try {
+                    if (sv.width <= 0 || sv.height <= 0) { cont.resume(Unit) {} ; return@post }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && sv is SurfaceView) {
+                        val bmp = android.graphics.Bitmap.createBitmap(
+                            sv.width, sv.height, android.graphics.Bitmap.Config.ARGB_8888)
+                        PixelCopy.request(sv, bmp, { result ->
+                            if (result == PixelCopy.SUCCESS) {
+                                motionEngine.process(bmp)
+                            }
+                            bmp.recycle()
+                            if (cont.isActive) cont.resume(Unit) {}
+                        }, mainHandler)
+                    } else {
+                        // TextureView fallback — draw() works correctly here
+                        val bmp = android.graphics.Bitmap.createBitmap(
+                            sv.width, sv.height, android.graphics.Bitmap.Config.ARGB_8888)
+                        val canvas = android.graphics.Canvas(bmp)
+                        sv.draw(canvas)
+                        motionEngine.process(bmp)
+                        bmp.recycle()
+                        if (cont.isActive) cont.resume(Unit) {}
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "grabRtspFrame failed: ${e.message}")
+                    if (cont.isActive) cont.resume(Unit) {}
+                }
+            }
         }
     }
 

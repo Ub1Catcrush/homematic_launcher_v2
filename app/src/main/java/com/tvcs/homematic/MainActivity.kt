@@ -86,6 +86,9 @@ class MainActivity : AppCompatActivity() {
 
     private var isPaused  = false
     private lateinit var weatherViewController: WeatherViewController
+    private lateinit var screenWakeController:   ScreenWakeController
+    private var localCameraSource:  LocalCameraMotionSource? = null
+    private lateinit var nightDimController:     NightDimController
     private lateinit var haTileViewController: HaTileViewController
     private var isStarted = false
     private var pendingRecreate = false
@@ -214,6 +217,18 @@ class MainActivity : AppCompatActivity() {
         }
         haTileViewController.attachToLifecycle(this)
         mAdapter.haTileVC = haTileViewController
+
+        // ── Motion detection & screen wake ────────────────────────────────────
+        screenWakeController = ScreenWakeController(
+            activity   = this,
+            timeoutMs  = (sharedPreferences.getString(
+                PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC, "60")?.toLongOrNull() ?: 60L) * 1000L
+        )
+        cameraViewController.onMotionDetected = {
+            if (!isFinishing && !isDestroyed) screenWakeController.onMotion()
+        }
+        applyLocalCameraMotion()
+        nightDimController = NightDimController(this).also { applyNightDimPrefs(it) }
 
         // ── FAB: Settings (right) ─────────────────────────────────────────────
         // ── Camera mute button ────────────────────────────────────────────────
@@ -460,6 +475,29 @@ class MainActivity : AppCompatActivity() {
                     applyCameraPanel()
                     cameraViewController.applyOverlayAlpha()
                     cameraViewController.applyPrefsChange()
+                }
+                PreferenceKeys.MOTION_DETECT_ENABLED,
+                PreferenceKeys.MOTION_DETECT_SENSITIVITY,
+                PreferenceKeys.MOTION_WEBCAM_ENABLED,
+                PreferenceKeys.MOTION_WEBCAM_SENSITIVITY -> {
+                    cameraViewController.applyMotionPrefs()
+                }
+                PreferenceKeys.MOTION_LOCAL_ENABLED,
+                PreferenceKeys.MOTION_LOCAL_SENSITIVITY,
+                PreferenceKeys.MOTION_LOCAL_FACING -> {
+                    applyLocalCameraMotion()
+                }
+                PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC -> {
+                    if (::screenWakeController.isInitialized) {
+                        screenWakeController.timeoutMs = (sharedPreferences.getString(
+                            PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC, "60")?.toLongOrNull() ?: 60L) * 1000L
+                    }
+                }
+                PreferenceKeys.NIGHT_DIM_ENABLED,
+                PreferenceKeys.NIGHT_DIM_START,
+                PreferenceKeys.NIGHT_DIM_END,
+                PreferenceKeys.NIGHT_DIM_BRIGHTNESS -> {
+                    if (::nightDimController.isInitialized) applyNightDimPrefs(nightDimController)
                 }
                 PreferenceKeys.CAMERA_SCALE_TYPE -> {
                     cameraViewController.applyScaleType()
@@ -716,6 +754,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         isStarted = true
+        if (::nightDimController.isInitialized) nightDimController.start()
         val filter = IntentFilter().apply { addAction(ACTION_UPDATED_DATA); addAction(ACTION_RELOAD_DATA) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -733,6 +772,9 @@ class MainActivity : AppCompatActivity() {
         isStarted = false
         unregisterReceiver(broadcastReceiver)
         reloadJob?.cancel(); timeJob?.cancel()
+        if (::screenWakeController.isInitialized) screenWakeController.suspend()
+        if (::nightDimController.isInitialized) nightDimController.stop()
+        localCameraSource?.stop()
     }
 
     override fun onPause()  { super.onPause();  isPaused = true  }
@@ -760,8 +802,68 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        if (::screenWakeController.isInitialized) screenWakeController.onUserInteraction()
+    }
+
+    // ── Motion / NightDim helpers ─────────────────────────────────────────────
+
+    private fun applyLocalCameraMotion() {
+        val enabled = sharedPreferences.getBoolean(PreferenceKeys.MOTION_LOCAL_ENABLED, false)
+        if (!enabled) {
+            localCameraSource?.stop()
+            localCameraSource = null
+            return
+        }
+        permissionHelper.requestCameraPermission { granted ->
+            if (!granted) return@requestCameraPermission
+            val facingPref = sharedPreferences.getString(PreferenceKeys.MOTION_LOCAL_FACING, "front")
+            val facing = if (facingPref == "back")
+                androidx.camera.core.CameraSelector.LENS_FACING_BACK
+            else
+                androidx.camera.core.CameraSelector.LENS_FACING_FRONT
+            val sensitivity = sharedPreferences.getString(
+                PreferenceKeys.MOTION_LOCAL_SENSITIVITY, "8")?.toIntOrNull()?.coerceIn(1, 30) ?: 8
+            localCameraSource?.stop()
+            localCameraSource = LocalCameraMotionSource(
+                context        = this,
+                lifecycleOwner = this,
+                motionEngine   = MotionDetectionEngine(
+                    sensitivityPct   = sensitivity,
+                    onMotionDetected = {
+                        if (!isFinishing && !isDestroyed) screenWakeController.onMotion()
+                    }
+                ).also { it.enabled = true },
+                facing         = facing
+            )
+            localCameraSource?.start()
+        }
+    }
+
+    private fun applyNightDimPrefs(ctrl: NightDimController) {
+        fun parseTime(key: String, dh: Int, dm: Int): Pair<Int, Int> {
+            val parts = sharedPreferences.getString(key, null)
+                ?.split(":")?.mapNotNull { it.trim().toIntOrNull() }
+            return if (parts?.size == 2) Pair(parts[0].coerceIn(0,23), parts[1].coerceIn(0,59))
+                   else Pair(dh, dm)
+        }
+        val (sh, sm) = parseTime(PreferenceKeys.NIGHT_DIM_START, 22, 0)
+        val (eh, em) = parseTime(PreferenceKeys.NIGHT_DIM_END,   7,  0)
+        val bPct = sharedPreferences.getString(PreferenceKeys.NIGHT_DIM_BRIGHTNESS, "5")
+            ?.toIntOrNull()?.coerceIn(1, 100) ?: 5
+        ctrl.nightStartHour   = sh;  ctrl.nightStartMinute = sm
+        ctrl.nightEndHour     = eh;  ctrl.nightEndMinute   = em
+        ctrl.nightBrightness  = bPct / 100f
+        ctrl.enabled          = sharedPreferences.getBoolean(PreferenceKeys.NIGHT_DIM_ENABLED, false)
+        ctrl.applyNow()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        if (::screenWakeController.isInitialized) screenWakeController.destroy()
+        if (::nightDimController.isInitialized) nightDimController.stop()
+        localCameraSource?.stop()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
         networkCallback?.let {
             (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)

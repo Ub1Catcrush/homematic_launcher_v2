@@ -150,11 +150,15 @@ class HaTileViewController(
                         if (states.keys.none { it in watched }) return@collectLatest
                         tileView = buildTile(rows, states)
                         onTileChanged()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e   // propagate cancellation correctly
                     } catch (e: Exception) {
                         Log.e(TAG, "State update failed: ${e.message}", e)
                         // Keep existing tileView — don't crash, just skip this update
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e   // normal lifecycle cancellation — must not be swallowed
             } catch (e: Exception) {
                 Log.e(TAG, "collectLatest failed: ${e.message}", e)
             }
