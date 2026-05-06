@@ -726,4 +726,13 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="ha_entities_known">%1$d Entitäten von Home Assistant bekannt</string>
     <string name="ha_entities_not_connected">⚠ Nicht mit HA verbunden — manuelle Eingabe möglich</string>
     <string name="ha_edit_entity">Datenpunkt bearbeiten</string>
+
+    <string name="pref_category_ha_tiles">Kacheln</string>
+    <string name="ha_tiles_manager_title">HA-Kacheln verwalten</string>
+    <string name="ha_tiles_summary_empty">Noch keine Kacheln – hier hinzufügen</string>
+    <string name="ha_tiles_summary_count">%1$d Kachel(n) konfiguriert</string>
+    <string name="ha_tiles_empty">Noch keine Kacheln vorhanden</string>
+    <string name="ha_tile_add">+ Neue Kachel hinzufügen</string>
+    <string name="ha_tile_editor_title">Kachel bearbeiten</string>
+    <string name="ha_tile_title_label">Kachel-Titel</string>
 </resources>

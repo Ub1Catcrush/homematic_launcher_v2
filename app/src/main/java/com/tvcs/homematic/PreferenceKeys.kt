@@ -193,6 +193,12 @@ object PreferenceKeys {
      * "label", "unit" and "icon" are optional.
      */
     const val HA_ENTITIES         = "ha_entities"
+    /**
+     * JSON array of HaTileConfig objects — drives multi-tile support.
+     * Each element: {"id":"tile_1","title":"Solar","entities":[...]}
+     * When present, this supersedes the legacy single-tile keys.
+     */
+    const val HA_TILES_CONFIG     = "ha_tiles_config"
 
     // ── Default Launcher Prompt ──────────────────────────────────────────────────────────────────
     /** Set to true once we asked in this default-launcher session. Reset when the default changes. */

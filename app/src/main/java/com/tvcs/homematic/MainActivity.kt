@@ -90,6 +90,7 @@ class MainActivity : AppCompatActivity() {
     private var localCameraSource:  LocalCameraMotionSource? = null
     private lateinit var nightDimController:     NightDimController
     private lateinit var haTileViewController: HaTileViewController
+    private val haTileViewControllers = mutableListOf<HaTileViewController>()
     private var isStarted = false
     private var pendingRecreate = false
     private var reloadJob: Job? = null
@@ -216,12 +217,16 @@ class MainActivity : AppCompatActivity() {
         weatherViewController.attachToLifecycle()
         mAdapter.weatherVC = weatherViewController
 
-        haTileViewController = HaTileViewController(this, this) {
-            // Called on any entity state change — refresh the HA tile position
-            runOnUiThread { if (!isFinishing && !isDestroyed) mAdapter.notifyItemChanged(0) }
-        }
+        haTileViewController = HaTileViewController(
+            context        = this,
+            lifecycleOwner = this,
+            onTileChanged  = {
+                runOnUiThread { if (!isFinishing && !isDestroyed) refreshHaTilesInAdapter() }
+            }
+        )
         haTileViewController.attachToLifecycle(this)
         mAdapter.haTileVC = haTileViewController
+        rebuildHaTileControllers()
 
         // ── Motion detection & screen wake ────────────────────────────────────
         screenWakeController = ScreenWakeController(
@@ -544,9 +549,10 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.HA_WS_URL,
                 PreferenceKeys.HA_TOKEN,
                 PreferenceKeys.HA_TILE_TITLE,
-                PreferenceKeys.HA_ENTITIES -> {
+                PreferenceKeys.HA_ENTITIES,
+                PreferenceKeys.HA_TILES_CONFIG -> {
                     haTileViewController.applyPrefsChange()
-                    mAdapter.notifyDataSetChanged()
+                    rebuildHaTileControllers()
                 }
 
                 // Grid-only changes — re-render without CCU reload
@@ -814,6 +820,38 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == DefaultLauncherPromptHelper.REQUEST_CODE) {
             Log.d("MainActivity", "RoleManager-Flow beendet, resultCode=$resultCode")
         }
+    }
+
+    // ── HA multi-tile management ──────────────────────────────────────────────
+
+    private fun rebuildHaTileControllers() {
+        haTileViewControllers.clear()
+        val tilesJson = sharedPreferences.getString(PreferenceKeys.HA_TILES_CONFIG, null)
+        if (!tilesJson.isNullOrBlank()) {
+            val tiles = HaTileViewController.parseTiles(tilesJson)
+            tiles.forEach { config ->
+                val vc = HaTileViewController(
+                    context       = this,
+                    lifecycleOwner = this,
+                    onTileChanged = {
+                        runOnUiThread { if (!isFinishing && !isDestroyed) refreshHaTilesInAdapter() }
+                    },
+                    tileConfig    = config
+                )
+                vc.attachToLifecycle(this)
+                haTileViewControllers.add(vc)
+            }
+            mAdapter.haTileVCs = haTileViewControllers.toList()
+            mAdapter.haTileVC  = null
+        } else {
+            mAdapter.haTileVCs = emptyList()
+            mAdapter.haTileVC  = haTileViewController
+        }
+        mAdapter.notifyDataSetChanged()
+    }
+
+    private fun refreshHaTilesInAdapter() {
+        mAdapter.notifyDataSetChanged()
     }
 
     override fun onUserInteraction() {

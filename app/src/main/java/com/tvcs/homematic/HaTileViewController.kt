@@ -35,13 +35,61 @@ class HaTileViewController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
     /** Called whenever tile content changes so the adapter can refresh. */
-    private val onTileChanged: () -> Unit
+    private val onTileChanged: () -> Unit,
+    /**
+     * Optional: per-instance tile config. When non-null, this controller
+     * uses the given config instead of reading HA_ENTITIES from prefs.
+     * Used for the multi-tile feature. When null, falls back to legacy prefs.
+     */
+    private var tileConfig: HaTileConfig? = null
 ) : DefaultLifecycleObserver {
 
     companion object {
         private const val TAG = "HaTileVC"
 
         /** Parse the HA_ENTITIES JSON string into a list of EntityRow configs. */
+        /**
+         * Serialise/deserialise a list of HaTileConfig objects.
+         * Format: [{"id":"tile_1","title":"Solar","entities":[...]}, …]
+         */
+        fun parseTiles(json: String): List<HaTileConfig> {
+            if (json.isBlank()) return emptyList()
+            return try {
+                val arr = org.json.JSONArray(json)
+                (0 until arr.length()).mapNotNull { i ->
+                    val o   = arr.getJSONObject(i)
+                    val id  = o.optString("id", "tile_$i").ifBlank { "tile_$i" }
+                    val title = o.optString("title", "").ifBlank { "Home Assistant" }
+                    val entities = parseEntities(o.optString("entities", ""))
+                    HaTileConfig(id = id, title = title, entities = entities)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "parseTiles error: ${e.message}")
+                emptyList()
+            }
+        }
+
+        fun tilesToJson(tiles: List<HaTileConfig>): String {
+            val arr = org.json.JSONArray()
+            tiles.forEach { tile ->
+                val entArr = org.json.JSONArray()
+                tile.entities.forEach { e ->
+                    entArr.put(org.json.JSONObject().apply {
+                        put("entity_id", e.entityId)
+                        put("label",     e.label)
+                        put("unit",      e.unit)
+                        put("icon",      e.icon)
+                    })
+                }
+                arr.put(org.json.JSONObject().apply {
+                    put("id",       tile.id)
+                    put("title",    tile.title)
+                    put("entities", entArr.toString())
+                })
+            }
+            return arr.toString()
+        }
+
         fun parseEntities(json: String): List<EntityRow> {
             if (json.isBlank()) return emptyList()
             return try {
@@ -71,6 +119,13 @@ class HaTileViewController(
         val icon:     String
     )
 
+    /** Represents one complete HA tile card with its own title and entity list. */
+    data class HaTileConfig(
+        val id:       String,
+        val title:    String,
+        val entities: List<EntityRow>
+    )
+
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
 
     // Currently rendered tile view — recycled by RoomAdapter
@@ -80,13 +135,20 @@ class HaTileViewController(
     fun isEnabled(): Boolean = prefs.getBoolean(PreferenceKeys.HA_TILE_ENABLED, false)
             && wsUrl().isNotBlank() && token().isNotBlank()
 
-    fun tileTitle(): String =
-        prefs.getString(PreferenceKeys.HA_TILE_TITLE, "").takeIf { !it.isNullOrBlank() }
+    fun tileTitle(): String {
+        val cfg = tileConfig
+        if (cfg != null) return cfg.title
+        return prefs.getString(PreferenceKeys.HA_TILE_TITLE, "").takeIf { !it.isNullOrBlank() }
             ?: context.getString(R.string.ha_tile_default_title)
+    }
 
     private fun wsUrl()  = prefs.getString(PreferenceKeys.HA_WS_URL,    "") ?: ""
     private fun token()  = prefs.getString(PreferenceKeys.HA_TOKEN,     "") ?: ""
-    private fun entities() = parseEntities(prefs.getString(PreferenceKeys.HA_ENTITIES, "") ?: "")
+    private fun entities(): List<EntityRow> {
+        val cfg = tileConfig
+        return if (cfg != null) cfg.entities
+        else parseEntities(prefs.getString(PreferenceKeys.HA_ENTITIES, "") ?: "")
+    }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -108,6 +170,12 @@ class HaTileViewController(
 
     override fun onDestroy(owner: LifecycleOwner) {
         stateJob?.cancel()
+    }
+
+    /** Update the tile config (for multi-tile edits) without recreating the controller. */
+    fun updateConfig(config: HaTileConfig) {
+        tileConfig = config
+        applyPrefsChange()
     }
 
     /** Call after settings change to reconnect / disconnect as needed. */

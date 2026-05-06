@@ -704,7 +704,7 @@ class SettingsActivity : AppCompatActivity(),
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences_ha, rootKey)
             bindSwitch(PreferenceKeys.HA_TILE_ENABLED)
-            listOf(PreferenceKeys.HA_WS_URL, PreferenceKeys.HA_TILE_TITLE).forEach { bindEditText(it) }
+            listOf(PreferenceKeys.HA_WS_URL).forEach { bindEditText(it) }
 
             // Token: show placeholder instead of the actual value
             findPreference<EditTextPreference>(PreferenceKeys.HA_TOKEN)?.apply {
@@ -719,12 +719,12 @@ class SettingsActivity : AppCompatActivity(),
                 }
             }
 
-            // Entities — open custom list editor dialog
-            findPreference<Preference>("action_ha_entities")?.setOnPreferenceClickListener {
-                showEntitiesDialog()
+            // ── Multi-tile manager ─────────────────────────────────────────────
+            findPreference<Preference>("action_ha_tiles")?.setOnPreferenceClickListener {
+                showTilesManagerDialog()
                 true
             }
-            updateEntitiesSummary()
+            updateTilesSummary()
 
             // Connection test
             findPreference<Preference>("action_ha_test")?.setOnPreferenceClickListener { pref ->
@@ -749,13 +749,326 @@ class SettingsActivity : AppCompatActivity(),
             }
         }
 
-        private fun updateEntitiesSummary() {
+        private fun updateTilesSummary() {
             val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-            val json  = prefs.getString(PreferenceKeys.HA_ENTITIES, "") ?: ""
-            val count = HaTileViewController.parseEntities(json).size
-            findPreference<Preference>("action_ha_entities")?.summary =
-                if (count == 0) getString(R.string.pref_summary_ha_entities)
-                else            resources.getQuantityString(R.plurals.ha_entities_count, count, count)
+            val json  = prefs.getString(PreferenceKeys.HA_TILES_CONFIG, "") ?: ""
+            val count = HaTileViewController.parseTiles(json).size
+            findPreference<Preference>("action_ha_tiles")?.summary =
+                if (count == 0) getString(R.string.ha_tiles_summary_empty)
+                else            getString(R.string.ha_tiles_summary_count, count)
+        }
+
+        private fun updateEntitiesSummary() { updateTilesSummary() }
+
+        // ── Tiles manager dialog ───────────────────────────────────────────────
+
+        private fun showTilesManagerDialog() {
+            if (!isResumed) return
+            val prefs   = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            val json    = prefs.getString(PreferenceKeys.HA_TILES_CONFIG, "") ?: ""
+            val tiles   = HaTileViewController.parseTiles(json).toMutableList()
+            val ctx     = requireContext()
+            val dp      = ctx.resources.displayMetrics.density
+
+            val root = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding((16*dp).toInt(), (8*dp).toInt(), (16*dp).toInt(), (8*dp).toInt())
+            }
+
+            val scrollView    = android.widget.ScrollView(ctx)
+            val listContainer = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            scrollView.addView(listContainer)
+            root.addView(scrollView, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (300*dp).toInt()))
+
+            fun save() {
+                prefs.edit()
+                    .putString(PreferenceKeys.HA_TILES_CONFIG,
+                        HaTileViewController.tilesToJson(tiles))
+                    .apply()
+                updateTilesSummary()
+            }
+
+            fun rebuildList() {
+                listContainer.removeAllViews()
+                if (tiles.isEmpty()) {
+                    listContainer.addView(android.widget.TextView(ctx).apply {
+                        text = getString(R.string.ha_tiles_empty)
+                        setTextColor(0xFFAAAAAA.toInt()); textSize = 12f
+                        setPadding(0, (8*dp).toInt(), 0, (8*dp).toInt())
+                    })
+                }
+                tiles.forEachIndexed { idx, tile ->
+                    val row = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, (4*dp).toInt(), 0, (4*dp).toInt())
+                    }
+                    val tv = android.widget.TextView(ctx).apply {
+                        text = "📊 ${tile.title}  (${tile.entities.size} Datenpunkte)"
+                        setTextColor(android.graphics.Color.WHITE); textSize = 13f
+                        layoutParams = LinearLayout.LayoutParams(
+                            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    val btnEdit = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.ic_menu_edit)
+                        background = null; setColorFilter(0xFF88BBFF.toInt())
+                        setOnClickListener {
+                            showTileEditorDialog(tiles[idx]) { updated ->
+                                tiles[idx] = updated; save(); rebuildList()
+                            }
+                        }
+                    }
+                    val btnUp = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.arrow_up_float)
+                        background = null; setColorFilter(0xFFCCCCCC.toInt())
+                        setOnClickListener {
+                            if (idx > 0) {
+                                val tmp = tiles[idx-1]; tiles[idx-1] = tiles[idx]; tiles[idx] = tmp
+                                save(); rebuildList()
+                            }
+                        }
+                    }
+                    val btnDown = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.arrow_down_float)
+                        background = null; setColorFilter(0xFFCCCCCC.toInt())
+                        setOnClickListener {
+                            if (idx < tiles.size - 1) {
+                                val tmp = tiles[idx+1]; tiles[idx+1] = tiles[idx]; tiles[idx] = tmp
+                                save(); rebuildList()
+                            }
+                        }
+                    }
+                    val btnDel = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.ic_menu_delete)
+                        background = null; setColorFilter(0xFFFF4444.toInt())
+                        setOnClickListener { tiles.removeAt(idx); save(); rebuildList() }
+                    }
+                    row.addView(tv); row.addView(btnUp); row.addView(btnDown)
+                    row.addView(btnEdit); row.addView(btnDel)
+                    listContainer.addView(row)
+                }
+            }
+            rebuildList()
+
+            // Add new tile button
+            val btnAddTile = android.widget.Button(ctx).apply {
+                text = getString(R.string.ha_tile_add)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = (8*dp).toInt()
+                }
+                setOnClickListener {
+                    val newConfig = HaTileViewController.HaTileConfig(
+                        id       = "tile_${System.currentTimeMillis()}",
+                        title    = getString(R.string.ha_tile_default_title),
+                        entities = emptyList()
+                    )
+                    showTileEditorDialog(newConfig) { created ->
+                        tiles.add(created); save(); rebuildList()
+                    }
+                }
+            }
+            root.addView(btnAddTile)
+
+            AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.ha_tiles_manager_title))
+                .setView(root)
+                .setPositiveButton(getString(android.R.string.ok), null)
+                .show()
+        }
+
+        /**
+         * Editor dialog for a single HaTileConfig: set title + manage entity list.
+         * Re-uses the existing showEntitiesDialog logic but for a specific tile.
+         */
+        private fun showTileEditorDialog(
+            config: HaTileViewController.HaTileConfig,
+            onSave: (HaTileViewController.HaTileConfig) -> Unit
+        ) {
+            if (!isResumed) return
+            val ctx     = requireContext()
+            val dp      = ctx.resources.displayMetrics.density
+            val entities = config.entities.toMutableList()
+
+            val root = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding((16*dp).toInt(), (8*dp).toInt(), (16*dp).toInt(), (8*dp).toInt())
+            }
+
+            // Title field
+            root.addView(android.widget.TextView(ctx).apply {
+                text = getString(R.string.ha_tile_title_label)
+                setTextColor(0xFFCCCCCC.toInt()); textSize = 11f
+            })
+            val etTitle = android.widget.EditText(ctx).apply {
+                setText(config.title)
+                setTextColor(android.graphics.Color.WHITE)
+                setHintTextColor(0xFF888888.toInt())
+                hint = getString(R.string.ha_tile_default_title)
+                textSize = 14f; setSingleLine()
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            root.addView(etTitle)
+
+            // Divider
+            root.addView(android.view.View(ctx).apply {
+                setBackgroundColor(0x33FFFFFF)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, 1).apply {
+                    topMargin = (8*dp).toInt(); bottomMargin = (4*dp).toInt()
+                }
+            })
+
+            // Entity list (re-use same pattern as showEntitiesDialog)
+            val scrollView    = android.widget.ScrollView(ctx)
+            val listContainer = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            scrollView.addView(listContainer)
+            root.addView(scrollView, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (200*dp).toInt()))
+
+            val knownEntities = HaRepository.entityStates.value.entries
+                .sortedWith(compareBy({ it.key.substringBefore(".") }, { it.key }))
+                .map { (id, state) ->
+                    val name = state.attributes["friendly_name"]?.takeIf { it.isNotBlank() } ?: id
+                    id to name
+                }
+
+            fun rebuildEntityList() {
+                listContainer.removeAllViews()
+                if (entities.isEmpty()) {
+                    listContainer.addView(android.widget.TextView(ctx).apply {
+                        text = getString(R.string.ha_entities_empty)
+                        setTextColor(0xFFAAAAAA.toInt()); textSize = 12f
+                    })
+                }
+                entities.forEachIndexed { idx, e ->
+                    val row = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, (3*dp).toInt(), 0, (3*dp).toInt())
+                    }
+                    val tv = android.widget.TextView(ctx).apply {
+                        text = buildString {
+                            if (e.icon.isNotBlank()) append("${e.icon} ")
+                            append(e.label)
+                            append(" (${e.entityId})")
+                            if (e.unit.isNotBlank()) append(" [${e.unit}]")
+                        }
+                        setTextColor(android.graphics.Color.WHITE); textSize = 12f
+                        layoutParams = LinearLayout.LayoutParams(
+                            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    val btnEdit = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.ic_menu_edit)
+                        background = null; setColorFilter(0xFF88BBFF.toInt())
+                        setOnClickListener {
+                            showEntityEditor(ctx, dp, entities[idx]) { updated ->
+                                entities[idx] = updated; rebuildEntityList()
+                            }
+                        }
+                    }
+                    val btnDel = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.ic_menu_delete)
+                        background = null; setColorFilter(0xFFFF4444.toInt())
+                        setOnClickListener { entities.removeAt(idx); rebuildEntityList() }
+                    }
+                    row.addView(tv); row.addView(btnEdit); row.addView(btnDel)
+                    listContainer.addView(row)
+                }
+            }
+            rebuildEntityList()
+
+            // Add entity section (autocomplete)
+            val addSection = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, (8*dp).toInt(), 0, 0)
+            }
+            val suggestionItems = knownEntities.map { (id, name) ->
+                if (name == id) id else "$id  —  $name"
+            }.toTypedArray()
+            val etLabel = android.widget.EditText(ctx).apply {
+                hint = getString(R.string.ha_field_label)
+                setTextColor(android.graphics.Color.WHITE); setHintTextColor(0xFF888888.toInt())
+                textSize = 12f; setSingleLine()
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            val etUnit = android.widget.EditText(ctx).apply {
+                hint = getString(R.string.ha_field_unit)
+                setTextColor(android.graphics.Color.WHITE); setHintTextColor(0xFF888888.toInt())
+                textSize = 12f; setSingleLine()
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            val etIcon = android.widget.EditText(ctx).apply {
+                hint = getString(R.string.ha_field_icon)
+                setTextColor(android.graphics.Color.WHITE); setHintTextColor(0xFF888888.toInt())
+                textSize = 12f; setSingleLine()
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            val acEntityId = android.widget.AutoCompleteTextView(ctx).apply {
+                hint = getString(R.string.ha_field_entity_id)
+                setTextColor(android.graphics.Color.WHITE); setHintTextColor(0xFF888888.toInt())
+                setDropDownBackgroundResource(android.R.color.background_dark)
+                textSize = 12f; threshold = 1; setSingleLine()
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                setAdapter(android.widget.ArrayAdapter(ctx, android.R.layout.simple_dropdown_item_1line, suggestionItems))
+                setOnItemClickListener { parent, _, pos, _ ->
+                    // Read the actual displayed string — pos is index in filtered list, not knownEntities
+                    val selected = parent.getItemAtPosition(pos) as? String ?: return@setOnItemClickListener
+                    val id = selected.substringBefore("  —  ").trim()
+                    setText(id)
+                    if (etLabel.text.isBlank()) {
+                        val name = knownEntities.find { it.first == id }?.second
+                        if (name != null && name != id) etLabel.setText(name)
+                    }
+                    if (etUnit.text.isBlank()) {
+                        val unit = HaRepository.entityStates.value[id]
+                            ?.attributes?.get("unit_of_measurement")?.takeIf { it.isNotBlank() }
+                        if (unit != null) etUnit.setText(unit)
+                    }
+                }
+            }
+            val btnAdd = android.widget.Button(ctx).apply {
+                text = getString(R.string.ha_add_entity)
+                setOnClickListener {
+                    val eid = acEntityId.text.toString().substringBefore("  —  ").trim()
+                    if (eid.isEmpty()) { acEntityId.error = getString(R.string.ha_error_entity_id_required); return@setOnClickListener }
+                    entities.add(HaTileViewController.EntityRow(
+                        entityId = eid,
+                        label    = etLabel.text.toString().trim().ifBlank { eid.substringAfter(".") },
+                        unit     = etUnit.text.toString().trim(),
+                        icon     = etIcon.text.toString().trim()
+                    ))
+                    listOf(acEntityId, etLabel, etUnit, etIcon).forEach { (it as android.widget.TextView).text = "" }
+                    rebuildEntityList()
+                }
+            }
+            if (knownEntities.isNotEmpty()) {
+                addSection.addView(android.widget.TextView(ctx).apply {
+                    text = getString(R.string.ha_entities_known, knownEntities.size)
+                    setTextColor(0xFF88DD88.toInt()); textSize = 11f
+                })
+            }
+            addSection.addView(acEntityId); addSection.addView(etLabel)
+            addSection.addView(etIcon);     addSection.addView(etUnit)
+            addSection.addView(btnAdd)
+            root.addView(addSection)
+
+            AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.ha_tile_editor_title))
+                .setView(root)
+                .setPositiveButton(getString(android.R.string.ok)) { _, _ ->
+                    val title = etTitle.text.toString().trim()
+                        .ifBlank { getString(R.string.ha_tile_default_title) }
+                    onSave(HaTileViewController.HaTileConfig(
+                        id       = config.id,
+                        title    = title,
+                        entities = entities.toList()
+                    ))
+                }
+                .setNegativeButton(getString(android.R.string.cancel), null)
+                .show()
         }
 
         // ── Entity list editor ────────────────────────────────────────────────
@@ -903,18 +1216,16 @@ class SettingsActivity : AppCompatActivity(),
                     LinearLayout.LayoutParams.WRAP_CONTENT)
             }
 
-            acEntityId.setOnItemClickListener { _, _, position, _ ->
-                val selectedId = knownEntities.getOrNull(position)?.first
-                    ?: acEntityId.text.toString().substringBefore("  —  ").trim()
-                acEntityId.setText(selectedId, false)
-                // Auto-fill label from friendly_name if label is empty
+            acEntityId.setOnItemClickListener { parent, _, position, _ ->
+                val selected  = parent.getItemAtPosition(position) as? String ?: return@setOnItemClickListener
+                val selectedId = selected.substringBefore("  —  ").trim()
+                acEntityId.setText(selectedId)
                 if (etLabel.text.isBlank()) {
                     val friendlyName = knownEntities.find { it.first == selectedId }?.second
                     if (friendlyName != null && friendlyName != selectedId) {
                         etLabel.setText(friendlyName)
                     }
                 }
-                // Auto-fill unit from entity state attributes
                 if (etUnit.text.isBlank()) {
                     val unit = HaRepository.entityStates.value[selectedId]
                         ?.attributes?.get("unit_of_measurement")?.takeIf { it.isNotBlank() }
@@ -1044,10 +1355,10 @@ class SettingsActivity : AppCompatActivity(),
             val etUnit  = editField(ctx.getString(R.string.ha_field_unit),  entity.unit)
             val etIcon  = editField(ctx.getString(R.string.ha_field_icon),  entity.icon)
 
-            acEntityId.setOnItemClickListener { _, _, position, _ ->
-                val selectedId = knownEntities.getOrNull(position)?.first
-                    ?: acEntityId.text.toString().substringBefore("  —  ").trim()
-                acEntityId.setText(selectedId, false)
+            acEntityId.setOnItemClickListener { parent, _, position, _ ->
+                val selected   = parent.getItemAtPosition(position) as? String ?: return@setOnItemClickListener
+                val selectedId = selected.substringBefore("  —  ").trim()
+                acEntityId.setText(selectedId)
                 if (etLabel.text.isBlank()) {
                     val name = knownEntities.find { it.first == selectedId }?.second
                     if (name != null && name != selectedId) etLabel.setText(name)

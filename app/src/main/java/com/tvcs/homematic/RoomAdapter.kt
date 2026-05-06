@@ -31,7 +31,8 @@ class RoomAdapter(
     private val rooms: MutableList<Room>,
     private val repo: HmRepository,
     var weatherVC: WeatherViewController? = null,
-    var haTileVC: HaTileViewController? = null
+    var haTileVC: HaTileViewController? = null,         // legacy single-tile
+    var haTileVCs: List<HaTileViewController> = emptyList()  // multi-tile
 ) :
     RecyclerView.Adapter<RoomAdapter.ViewHolder>() {
 
@@ -65,13 +66,23 @@ class RoomAdapter(
         return hvc != null && hvc.isEnabled()
     }
 
+    /** All active HA tile controllers — multi-tile list takes priority over legacy single. */
+    private fun activeHaTiles(): List<HaTileViewController> {
+        if (haTileVCs.isNotEmpty()) return haTileVCs.filter { it.isEnabled() }
+        val hvc = haTileVC
+        return if (hvc != null && hvc.isEnabled()) listOf(hvc) else emptyList()
+    }
+
+    private fun haTileCount(): Int = activeHaTiles().size
+
     /** Number of special tiles before room tiles. */
-    private fun specialTileCount() = (if (hasWeatherTile()) 1 else 0) + (if (hasHaTile()) 1 else 0)
+    private fun specialTileCount() = (if (hasWeatherTile()) 1 else 0) + haTileCount()
 
     override fun getItemViewType(position: Int): Int {
         var pos = position
         if (hasWeatherTile()) { if (pos == 0) return TYPE_WEATHER; pos-- }
-        if (hasHaTile())      { if (pos == 0) return TYPE_HA_TILE;  pos-- }
+        val haTiles = activeHaTiles()
+        if (pos < haTiles.size) return TYPE_HA_TILE
         return TYPE_ROOM
     }
 
@@ -90,11 +101,17 @@ class RoomAdapter(
                 return
             }
             TYPE_HA_TILE -> {
-                holder.titleTextView.text = haTileVC!!.tileTitle()
-                holder.titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, AppThemeHelper.fontRoomTitle(context))
-                holder.titleTextView.setTextColor(AppThemeHelper.textRoom(context))
-                holder.tableLayout.addView(haTileVC!!.buildRoomTile())
-                holder.itemView.setOnClickListener(null)
+                // Determine which HA tile this position maps to
+                var haTilePos = position
+                if (hasWeatherTile()) haTilePos--
+                val vc = activeHaTiles().getOrNull(haTilePos)
+                if (vc != null) {
+                    holder.titleTextView.text = vc.tileTitle()
+                    holder.titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, AppThemeHelper.fontRoomTitle(context))
+                    holder.titleTextView.setTextColor(AppThemeHelper.textRoom(context))
+                    holder.tableLayout.addView(vc.buildRoomTile())
+                    holder.itemView.setOnClickListener(null)
+                }
                 return
             }
         }

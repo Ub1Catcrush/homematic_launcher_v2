@@ -26,24 +26,15 @@
             android:inputType="textPassword"
             android:persistent="true" />
 
-        <EditTextPreference
-            android:key="ha_tile_title"
-            android:title="@string/pref_title_ha_tile_title"
-            android:summary="@string/pref_summary_ha_tile_title"
-            android:hint="Home Assistant"
-            android:inputType="text"
-            android:persistent="true" />
-
     </PreferenceCategory>
 
-    <!-- ========== ENTITÄTEN ========== -->
-    <PreferenceCategory android:title="@string/pref_category_ha_entities">
+    <!-- ========== KACHELN ========== -->
+    <PreferenceCategory android:title="@string/pref_category_ha_tiles">
 
-        <!-- Managed entirely in code via HaEntitiesPreference (custom dialog) -->
         <Preference
-            android:key="action_ha_entities"
-            android:title="@string/pref_title_ha_entities"
-            android:summary="@string/pref_summary_ha_entities" />
+            android:key="action_ha_tiles"
+            android:title="@string/ha_tiles_manager_title"
+            android:summary="@string/ha_tiles_summary_empty" />
 
         <Preference
             android:key="action_ha_test"

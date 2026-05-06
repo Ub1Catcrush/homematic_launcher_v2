@@ -652,4 +652,13 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="ha_entities_known">%1$d entities known from Home Assistant</string>
     <string name="ha_entities_not_connected">⚠ Not connected to HA — manual entry possible</string>
     <string name="ha_edit_entity">Edit data point</string>
+
+    <string name="pref_category_ha_tiles">Tiles</string>
+    <string name="ha_tiles_manager_title">Manage HA Tiles</string>
+    <string name="ha_tiles_summary_empty">No tiles yet — add one here</string>
+    <string name="ha_tiles_summary_count">%1$d tile(s) configured</string>
+    <string name="ha_tiles_empty">No tiles yet</string>
+    <string name="ha_tile_add">+ Add new tile</string>
+    <string name="ha_tile_editor_title">Edit tile</string>
+    <string name="ha_tile_title_label">Tile title</string>
 </resources>
