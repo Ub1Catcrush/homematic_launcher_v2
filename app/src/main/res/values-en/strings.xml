@@ -641,4 +641,15 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="perm_camera_denied_title">Camera permanently denied</string>
     <string name="perm_camera_denied_message">Please enable the Camera permission in App Settings.</string>
 
+    <!-- Motion detection service notification -->
+    <string name="notif_channel_motion_name">Motion Detection</string>
+    <string name="notif_channel_motion_desc">Persistent notification for background motion detection</string>
+    <string name="notif_motion_title">Motion Detection active</string>
+    <string name="notif_motion_text">Monitoring for motion in the background</string>
+
+
+    <string name="ha_search_hint">Search or type entity ID</string>
+    <string name="ha_entities_known">%1$d entities known from Home Assistant</string>
+    <string name="ha_entities_not_connected">⚠ Not connected to HA — manual entry possible</string>
+    <string name="ha_edit_entity">Edit data point</string>
 </resources>

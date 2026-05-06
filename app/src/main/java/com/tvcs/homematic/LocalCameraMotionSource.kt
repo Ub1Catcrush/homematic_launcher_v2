@@ -37,7 +37,7 @@ class LocalCameraMotionSource(
     companion object {
         private const val TAG = "LocalCamMotion"
         /** Analyse at most 1 frame every N ms to avoid overloading the engine. */
-        private const val ANALYSIS_INTERVAL_MS = 2_000L
+        private const val ANALYSIS_INTERVAL_MS = 1_000L
     }
 
     private var cameraProvider: ProcessCameraProvider? = null
@@ -102,13 +102,20 @@ class LocalCameraMotionSource(
 
     private fun processFrame(image: ImageProxy) {
         try {
-            if (!motionEngine.enabled) { image.close(); return }
+            if (!motionEngine.enabled) {
+                Log.v(TAG, "processFrame: engine disabled, skipping")
+                image.close(); return
+            }
 
             val now = System.currentTimeMillis()
             if (now - lastAnalysisMs < ANALYSIS_INTERVAL_MS) { image.close(); return }
             lastAnalysisMs = now
 
-            val bmp = image.toMotionBitmap() ?: run { image.close(); return }
+            Log.v(TAG, "processFrame: analysing ${image.width}x${image.height} frame")
+            val bmp = image.toMotionBitmap() ?: run {
+                Log.w(TAG, "processFrame: toMotionBitmap() returned null")
+                image.close(); return
+            }
             motionEngine.process(bmp)
             bmp.recycle()
         } finally {

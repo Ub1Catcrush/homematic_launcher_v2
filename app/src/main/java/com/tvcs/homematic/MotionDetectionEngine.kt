@@ -37,9 +37,12 @@ class MotionDetectionEngine(
     @Volatile private var prevLuma: IntArray? = null
     @Volatile private var lastTriggerMs = 0L
     @Volatile var enabled = false
+    /** How many frames to consume as baseline before triggering. Default 3. */
+    var warmupFrames: Int = 3
+    @Volatile private var warmupRemaining = warmupFrames
 
     /** Reset: call after enable/disable or sensitivity change to avoid stale prev frame. */
-    fun reset() { prevLuma = null }
+    fun reset() { prevLuma = null; warmupRemaining = warmupFrames }
 
     /**
      * Process a new camera frame. Call from any thread (e.g. ExoPlayer video thread
@@ -56,6 +59,7 @@ class MotionDetectionEngine(
         prevLuma = luma
 
         if (prev == null) return   // need two frames to diff
+        if (warmupRemaining > 0) { warmupRemaining--; return }
 
         val threshold = sensitivityPct.coerceIn(1, 100)
         val total     = luma.size
@@ -65,11 +69,12 @@ class MotionDetectionEngine(
         }
 
         val ratio = changed * 100 / total
+        Log.v(TAG, "Frame diff: $ratio% changed (threshold $threshold%)")
         if (ratio >= threshold) {
             val now = System.currentTimeMillis()
             if (now - lastTriggerMs > COOLDOWN_MS) {
                 lastTriggerMs = now
-                Log.d(TAG, "Motion detected: $ratio% pixels changed (threshold $threshold%)")
+                Log.i(TAG, "Motion detected: $ratio% pixels changed (threshold $threshold%) — firing callback")
                 onMotionDetected()
             }
         }

@@ -54,6 +54,7 @@ class ScreenWakeController(
 
     /** Called by [CameraViewController] / motion callback when motion is detected. */
     fun onMotion() {
+        Log.d(TAG, "onMotion() called — posting wakeScreen")
         handler.post { wakeScreen() }
     }
 

@@ -715,4 +715,15 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="perm_camera_denied_title">Kamera dauerhaft verweigert</string>
     <string name="perm_camera_denied_message">Bitte die Kamera-Berechtigung in den App-Einstellungen aktivieren.</string>
 
+    <!-- Bewegungserkennung Service-Benachrichtigung -->
+    <string name="notif_channel_motion_name">Bewegungserkennung</string>
+    <string name="notif_channel_motion_desc">Dauerbenachrichtigung für die Hintergrund-Bewegungserkennung</string>
+    <string name="notif_motion_title">Bewegungserkennung aktiv</string>
+    <string name="notif_motion_text">Bewegungsüberwachung läuft im Hintergrund</string>
+
+
+    <string name="ha_search_hint">Entity-ID suchen oder eingeben</string>
+    <string name="ha_entities_known">%1$d Entitäten von Home Assistant bekannt</string>
+    <string name="ha_entities_not_connected">⚠ Nicht mit HA verbunden — manuelle Eingabe möglich</string>
+    <string name="ha_edit_entity">Datenpunkt bearbeiten</string>
 </resources>

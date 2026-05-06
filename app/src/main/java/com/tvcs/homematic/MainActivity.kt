@@ -133,6 +133,11 @@ class MainActivity : AppCompatActivity() {
                     if (showPopups) showToast(getString(R.string.toast_loading))
                     loadCcuData()
                 }
+                MotionDetectionService.ACTION_MOTION_DETECTED -> {
+                    if (!isFinishing && !isDestroyed
+                        && ::screenWakeController.isInitialized)
+                        screenWakeController.onMotion()
+                }
             }
         }
     }
@@ -481,6 +486,7 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.MOTION_WEBCAM_ENABLED,
                 PreferenceKeys.MOTION_WEBCAM_SENSITIVITY -> {
                     cameraViewController.applyMotionPrefs()
+                    syncMotionService()
                 }
                 PreferenceKeys.MOTION_LOCAL_ENABLED,
                 PreferenceKeys.MOTION_LOCAL_SENSITIVITY,
@@ -755,7 +761,14 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         isStarted = true
         if (::nightDimController.isInitialized) nightDimController.start()
-        val filter = IntentFilter().apply { addAction(ACTION_UPDATED_DATA); addAction(ACTION_RELOAD_DATA) }
+        if (MotionDetectionService.isAnySourceEnabled(this)) {
+            MotionDetectionService.start(this)
+        }
+        val filter = IntentFilter().apply {
+            addAction(ACTION_UPDATED_DATA)
+            addAction(ACTION_RELOAD_DATA)
+            addAction(MotionDetectionService.ACTION_MOTION_DETECTED)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(broadcastReceiver, filter)
@@ -775,6 +788,7 @@ class MainActivity : AppCompatActivity() {
         if (::screenWakeController.isInitialized) screenWakeController.suspend()
         if (::nightDimController.isInitialized) nightDimController.stop()
         localCameraSource?.stop()
+        // Service keeps running in background intentionally — do NOT stop it here
     }
 
     override fun onPause()  { super.onPause();  isPaused = true  }
@@ -832,12 +846,24 @@ class MainActivity : AppCompatActivity() {
                 motionEngine   = MotionDetectionEngine(
                     sensitivityPct   = sensitivity,
                     onMotionDetected = {
-                        if (!isFinishing && !isDestroyed) screenWakeController.onMotion()
+                        if (!isFinishing && !isDestroyed
+                            && ::screenWakeController.isInitialized)
+                            screenWakeController.onMotion()
                     }
                 ).also { it.enabled = true },
                 facing         = facing
             )
             localCameraSource?.start()
+        }
+        // Keep service in sync
+        syncMotionService()
+    }
+
+    private fun syncMotionService() {
+        if (MotionDetectionService.isAnySourceEnabled(this)) {
+            MotionDetectionService.start(this)
+        } else {
+            MotionDetectionService.stop(this)
         }
     }
 
@@ -863,7 +889,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         if (::screenWakeController.isInitialized) screenWakeController.destroy()
         if (::nightDimController.isInitialized) nightDimController.stop()
-        localCameraSource?.stop()
+        localCameraSource?.stop()   // in-Activity copy (service copy keeps running)
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
         networkCallback?.let {
             (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
