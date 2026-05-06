@@ -73,7 +73,6 @@ class MotionDetectionService : LifecycleService() {
         fun isAnySourceEnabled(context: Context): Boolean {
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
             return prefs.getBoolean(PreferenceKeys.MOTION_LOCAL_ENABLED, false)
-                || prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
                 || prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
         }
     }
@@ -138,8 +137,7 @@ class MotionDetectionService : LifecycleService() {
         }
 
         // Source 2: webcam snapshot polling
-        val webcamEnabled = prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
-            || prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
+        val webcamEnabled = prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
         if (webcamEnabled) {
             startWebcamPolling(prefs)
         }

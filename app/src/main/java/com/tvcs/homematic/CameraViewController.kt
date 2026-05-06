@@ -146,7 +146,6 @@ class CameraViewController(
     fun applyMotionPrefs() {
         // MOTION_WEBCAM_ENABLED takes priority; fall back to legacy key for migration
         val enabled = prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
-            || prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
         val sensitivity = (prefs.getString(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, null)
             ?: prefs.getString(PreferenceKeys.MOTION_DETECT_SENSITIVITY, "8"))
             ?.toIntOrNull()?.coerceIn(1, 30) ?: 8
