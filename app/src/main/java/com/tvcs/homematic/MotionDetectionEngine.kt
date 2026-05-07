@@ -50,7 +50,7 @@ class MotionDetectionEngine(
      */
     fun process(frame: Bitmap) {
         if (!enabled) return
-
+        try {
         val scaled = Bitmap.createScaledBitmap(frame, SAMPLE_W, SAMPLE_H, false)
         val luma   = extractLuma(scaled)
         if (scaled !== frame) scaled.recycle()
@@ -77,6 +77,9 @@ class MotionDetectionEngine(
                 Log.i(TAG, "Motion detected: $ratio% pixels changed (threshold $threshold%) — firing callback")
                 onMotionDetected()
             }
+        }
+        } catch (e: Exception) {
+            Log.w(TAG, "process() error: ${e.message}")
         }
     }
 

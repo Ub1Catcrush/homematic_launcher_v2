@@ -220,6 +220,8 @@ class HaTileViewController(
                         onTileChanged()
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e   // propagate cancellation correctly
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         Log.e(TAG, "State update failed: ${e.message}", e)
                         // Keep existing tileView — don't crash, just skip this update
@@ -227,6 +229,8 @@ class HaTileViewController(
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e   // normal lifecycle cancellation — must not be swallowed
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "collectLatest failed: ${e.message}", e)
             }

@@ -39,6 +39,7 @@ class DiagnosticsActivity : AppCompatActivity() {
         if (item.itemId == android.R.id.home) { finish(); true } else super.onOptionsItemSelected(item)
 
     private fun renderDiagnostics() {
+        try {
         val state = HomeMatic.state
         val prof  = HomeMatic.profile
 
@@ -116,6 +117,11 @@ class DiagnosticsActivity : AppCompatActivity() {
         tvKnownDevTypes.text = if (seenDevTypes.isEmpty())
             getString(R.string.diag_none)
         else seenDevTypes.sorted().joinToString("\n")
+        } catch (e: Exception) {
+            android.util.Log.e("DiagnosticsActivity", "renderDiagnostics failed: ${e.message}", e)
+            findViewById<android.widget.TextView>(R.id.diag_load_status)?.text =
+                getString(R.string.error_generic, e.message ?: "?")
+        }
     }
 
     companion object {

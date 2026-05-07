@@ -81,6 +81,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
      * The file is written to the app's cache dir so no WRITE_EXTERNAL_STORAGE needed.
      */
     fun export() {
+        try {
         val prefs = PreferenceManager.getDefaultSharedPreferences(activity)
         val json  = JSONObject()
         json.put("_version", 1)
@@ -108,6 +109,14 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
         activity.startActivity(Intent.createChooser(shareIntent,
             activity.getString(R.string.profile_export_chooser_title)))
         Log.i(TAG, "Exported profile to $fileName (${file.length()} bytes)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Export failed: ${e.message}", e)
+            android.widget.Toast.makeText(
+                activity,
+                activity.getString(R.string.profile_export_error, e.message ?: "?"),
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     // ── Import ────────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.core.app.NotificationCompat
+import android.os.PowerManager
 import androidx.lifecycle.LifecycleService
 import androidx.preference.PreferenceManager
 import kotlinx.coroutines.CoroutineScope
@@ -99,6 +100,16 @@ class MotionDetectionService : LifecycleService() {
         Dispatchers.IO + SupervisorJob()
     )
 
+    /** Short-lived wake lock used to turn the screen on before the broadcast reaches MainActivity. */
+    @Suppress("DEPRECATION")
+    private val motionWakeLock by lazy {
+        (getSystemService(Context.POWER_SERVICE) as PowerManager)
+            .newWakeLock(
+                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "HomeMaticLauncher:MotionSvcWake"
+            ).also { it.setReferenceCounted(false) }
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     override fun onCreate() {
@@ -121,6 +132,7 @@ class MotionDetectionService : LifecycleService() {
         Log.i(TAG, "Service destroyed")
         stopAllSources()
         serviceScope.cancel()
+        try { if (motionWakeLock.isHeld) motionWakeLock.release() } catch (_: Exception) {}
         super.onDestroy()
     }
 
@@ -256,8 +268,17 @@ class MotionDetectionService : LifecycleService() {
 
     private fun broadcastMotion() {
         Log.i(TAG, "Motion detected — broadcasting")
+        // Acquire a brief wake lock so the screen physically turns on before
+        // MainActivity processes the broadcast and sets its window flags.
+        // The lock is intentionally short (5 s) — ScreenWakeController re-acquires
+        // its own longer lock once the Activity is in the foreground.
+        try {
+            if (!motionWakeLock.isHeld) motionWakeLock.acquire(5_000L)
+        } catch (e: Exception) {
+            Log.w(TAG, "motionWakeLock.acquire: ${e.message}")
+        }
         val intent = Intent(ACTION_MOTION_DETECTED).apply {
-            `package` = packageName   // explicit package → not exported
+            `package` = packageName
         }
         sendBroadcast(intent)
     }

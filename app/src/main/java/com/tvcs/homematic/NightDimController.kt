@@ -111,9 +111,13 @@ class NightDimController(private val activity: Activity) {
 
     private fun setBrightness(value: Float) {
         if (activity.isFinishing || activity.isDestroyed) return
-        val params = activity.window.attributes
-        params.screenBrightness = value
-        activity.window.attributes = params
+        try {
+            val params = activity.window.attributes
+            params.screenBrightness = value
+            activity.window.attributes = params
+        } catch (e: Exception) {
+            Log.w(TAG, "setBrightness failed: ${e.message}")
+        }
     }
 
     /**

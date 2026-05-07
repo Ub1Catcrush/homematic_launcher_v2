@@ -76,7 +76,13 @@ class WeatherViewController(
             ?.toLongOrNull()?.coerceAtLeast(10L) ?: DEFAULT_REFRESH) * 60_000L
         refreshJob = ioScope.launch {
             while (isActive) {
-                refresh()
+                try {
+                    refresh()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "Weather refresh error: ${e.message}", e)
+                }
                 delay(intervalMs)
             }
         }
@@ -163,6 +169,12 @@ class WeatherViewController(
 
     /** Build a standalone room-style tile view for use by RoomAdapter. */
     fun buildRoomTile(): LinearLayout {
+        return try { buildRoomTileInternal() } catch (e: Exception) {
+            android.util.Log.e(TAG, "buildRoomTile error: ${e.message}", e)
+            LinearLayout(context)
+        }
+    }
+    private fun buildRoomTileInternal(): LinearLayout {
         val fc = lastForecast ?: return LinearLayout(context)
         val dp = context.resources.displayMetrics.density
 

@@ -735,4 +735,7 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="ha_tile_add">+ Neue Kachel hinzufügen</string>
     <string name="ha_tile_editor_title">Kachel bearbeiten</string>
     <string name="ha_tile_title_label">Kachel-Titel</string>
+
+    <string name="profile_export_error">Export fehlgeschlagen: %1$s</string>
+    <string name="error_generic">Fehler: %1$s</string>
 </resources>

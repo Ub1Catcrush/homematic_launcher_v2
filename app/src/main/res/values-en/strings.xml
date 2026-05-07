@@ -661,4 +661,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="ha_tile_add">+ Add new tile</string>
     <string name="ha_tile_editor_title">Edit tile</string>
     <string name="ha_tile_title_label">Tile title</string>
+
+    <string name="profile_export_error">Export failed: %1$s</string>
+    <string name="error_generic">Error: %1$s</string>
 </resources>

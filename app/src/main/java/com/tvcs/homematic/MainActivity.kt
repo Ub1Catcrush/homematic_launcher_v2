@@ -801,6 +801,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         isPaused = false
+        // Apply deferred wake flags if motion was detected while Activity was paused
+        if (::screenWakeController.isInitialized) screenWakeController.onActivityResumed()
         if (pendingRecreate) {
             pendingRecreate = false
             recreate()
