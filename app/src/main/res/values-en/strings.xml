@@ -664,4 +664,19 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
 
     <string name="profile_export_error">Export failed: %1$s</string>
     <string name="error_generic">Error: %1$s</string>
+
+    <string name="pref_category_motion_advanced">Advanced Detection Parameters</string>
+    <string name="pref_title_motion_luma_threshold">Brightness threshold (1–80)</string>
+    <string name="pref_summary_motion_luma_threshold">Per-pixel brightness change counted as motion. Lower = more sensitive to noise. Default: 20</string>
+    <string name="pref_title_motion_cooldown">Cooldown after trigger (seconds)</string>
+    <string name="pref_summary_motion_cooldown">Minimum time between two triggers. Default: 2</string>
+    <string name="pref_title_motion_interval">Analysis interval (seconds)</string>
+    <string name="pref_summary_motion_interval">How often a frame is analysed. Higher = less CPU, slower reaction. Default: 1</string>
+    <string name="pref_title_motion_adaptation">Background adaptation (0–20)</string>
+    <string name="pref_summary_motion_adaptation">0 = static background. 5 = slow adaptation to lighting changes (default). Higher = faster adaptation</string>
+    <string name="pref_title_motion_roi">Detection zone (left,top,right,bottom)</string>
+    <string name="pref_summary_motion_roi">Image area as 0.0–1.0 fractions. Empty = full frame. Example: 0,0.3,1,0.9 (middle area)</string>
+    <string name="pref_title_motion_time_start">Active from (HH:MM)</string>
+    <string name="pref_title_motion_time_end">Active until (HH:MM)</string>
+    <string name="pref_summary_motion_time">Leave empty for always active. Night window e.g. 22:00 / 07:00</string>
 </resources>

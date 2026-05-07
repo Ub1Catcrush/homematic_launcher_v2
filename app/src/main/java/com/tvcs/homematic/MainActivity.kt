@@ -489,7 +489,14 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.MOTION_DETECT_ENABLED,
                 PreferenceKeys.MOTION_DETECT_SENSITIVITY,
                 PreferenceKeys.MOTION_WEBCAM_ENABLED,
-                PreferenceKeys.MOTION_WEBCAM_SENSITIVITY -> {
+                PreferenceKeys.MOTION_WEBCAM_SENSITIVITY,
+                PreferenceKeys.MOTION_LUMA_THRESHOLD,
+                PreferenceKeys.MOTION_COOLDOWN_SEC,
+                PreferenceKeys.MOTION_INTERVAL_SEC,
+                PreferenceKeys.MOTION_ADAPTATION_RATE,
+                PreferenceKeys.MOTION_ROI,
+                PreferenceKeys.MOTION_TIME_START,
+                PreferenceKeys.MOTION_TIME_END -> {
                     cameraViewController.applyMotionPrefs()
                     syncMotionService()
                 }

@@ -317,6 +317,14 @@ class SettingsActivity : AppCompatActivity(),
             bindNumber(PreferenceKeys.NIGHT_DIM_START, "")
             bindNumber(PreferenceKeys.NIGHT_DIM_END, "")
             bindNumber(PreferenceKeys.NIGHT_DIM_BRIGHTNESS, " %")
+            // Advanced motion params
+            bindNumber(PreferenceKeys.MOTION_LUMA_THRESHOLD, "")
+            bindNumber(PreferenceKeys.MOTION_COOLDOWN_SEC, " s")
+            bindNumber(PreferenceKeys.MOTION_INTERVAL_SEC, " s")
+            bindNumber(PreferenceKeys.MOTION_ADAPTATION_RATE, "")
+            bindEditText(PreferenceKeys.MOTION_ROI)
+            bindEditText(PreferenceKeys.MOTION_TIME_START)
+            bindEditText(PreferenceKeys.MOTION_TIME_END)
             findPreference<EditTextPreference>(PreferenceKeys.CAMERA_PASSWORD)?.apply {
                 val cur = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: ""
                 summary = if (cur.isNotEmpty()) "••••••" else getString(R.string.pref_summary_camera_password_unset)

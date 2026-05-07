@@ -105,6 +105,22 @@ object PreferenceKeys {
     const val MOTION_LOCAL_FACING       = "motion_local_facing"        // "front" | "back", default "front"
     // Shared wake settings
     const val MOTION_WAKE_TIMEOUT_SEC   = "motion_wake_timeout_sec"    // default 60
+
+    // ── Advanced motion detection parameters ──────────────────────────────────
+    /** Luma delta per pixel to count as changed (1–80). Default 20. */
+    const val MOTION_LUMA_THRESHOLD     = "motion_luma_threshold"      // default 20
+    /** Cooldown between triggers in seconds (1–60). Default 2. */
+    const val MOTION_COOLDOWN_SEC       = "motion_cooldown_sec"        // default 2
+    /** Analysis interval in seconds (1–10). Default 1. */
+    const val MOTION_INTERVAL_SEC       = "motion_interval_sec"        // default 1
+    /** Background adaptation rate × 100 (0–20). 0 = static, 5 = default. */
+    const val MOTION_ADAPTATION_RATE    = "motion_adaptation_rate"     // default 5
+    /** ROI as "left,top,right,bottom" fractions 0.0–1.0. Default "0,0,1,1". */
+    const val MOTION_ROI                = "motion_roi"                 // default "0,0,1,1"
+    /** Active time window start "HH:MM". Empty = always active. */
+    const val MOTION_TIME_START         = "motion_time_start"          // default ""
+    /** Active time window end "HH:MM". Empty = always active. */
+    const val MOTION_TIME_END           = "motion_time_end"            // default ""
     // Legacy key kept for migration
     const val MOTION_DETECT_ENABLED     = "motion_detect_enabled"
     const val MOTION_DETECT_SENSITIVITY = "motion_detect_sensitivity"

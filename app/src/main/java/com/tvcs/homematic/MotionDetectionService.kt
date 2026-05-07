@@ -174,10 +174,9 @@ class MotionDetectionService : LifecycleService() {
         val sensitivity = prefs.getString(PreferenceKeys.MOTION_LOCAL_SENSITIVITY, "8")
             ?.toIntOrNull()?.coerceIn(1, 30) ?: 8
 
-        val engine = MotionDetectionEngine(
-            sensitivityPct   = sensitivity,
-            onMotionDetected = { broadcastMotion() }
-        ).also { it.enabled = true }
+        val engine = MotionDetectionEngine(onMotionDetected = { broadcastMotion() })
+        MotionPrefsHelper.applyTo(engine, prefs,
+            PreferenceKeys.MOTION_LOCAL_SENSITIVITY, PreferenceKeys.MOTION_LOCAL_ENABLED)
 
         localCameraSource = LocalCameraMotionSource(
             context        = this,
@@ -206,10 +205,11 @@ class MotionDetectionService : LifecycleService() {
         val enabled = prefs.getBoolean(PreferenceKeys.MOTION_LOCAL_ENABLED, false)
                 || prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
 
-        webcamMotionEngine = MotionDetectionEngine(
-            sensitivityPct   = sensitivity,
-            onMotionDetected = { broadcastMotion() }
-        ).also { it.enabled = enabled }
+        webcamMotionEngine = MotionDetectionEngine(onMotionDetected = { broadcastMotion() })
+        val wcEnabledKey = if (prefs.contains(PreferenceKeys.MOTION_WEBCAM_ENABLED))
+            PreferenceKeys.MOTION_WEBCAM_ENABLED else PreferenceKeys.MOTION_DETECT_ENABLED
+        MotionPrefsHelper.applyTo(webcamMotionEngine!!, prefs,
+            PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, wcEnabledKey)
 
         webcamJob = serviceScope.launch(Dispatchers.IO) {
             Log.i(TAG, "Webcam polling started ($snapshotUrl, every ${intervalSec}s)")

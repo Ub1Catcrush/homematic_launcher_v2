@@ -179,6 +179,67 @@
 
     </PreferenceCategory>
 
+    <!-- ========== ERWEITERTE ERKENNUNGSPARAMETER ========== -->
+    <PreferenceCategory android:title="@string/pref_category_motion_advanced">
+
+        <EditTextPreference
+            android:key="motion_luma_threshold"
+            android:title="@string/pref_title_motion_luma_threshold"
+            android:summary="@string/pref_summary_motion_luma_threshold"
+            android:defaultValue="20"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="motion_cooldown_sec"
+            android:title="@string/pref_title_motion_cooldown"
+            android:summary="@string/pref_summary_motion_cooldown"
+            android:defaultValue="2"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="motion_interval_sec"
+            android:title="@string/pref_title_motion_interval"
+            android:summary="@string/pref_summary_motion_interval"
+            android:defaultValue="1"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="motion_adaptation_rate"
+            android:title="@string/pref_title_motion_adaptation"
+            android:summary="@string/pref_summary_motion_adaptation"
+            android:defaultValue="5"
+            android:persistent="true"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="motion_roi"
+            android:title="@string/pref_title_motion_roi"
+            android:summary="@string/pref_summary_motion_roi"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="text" />
+
+        <EditTextPreference
+            android:key="motion_time_start"
+            android:title="@string/pref_title_motion_time_start"
+            android:summary="@string/pref_summary_motion_time"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="time" />
+
+        <EditTextPreference
+            android:key="motion_time_end"
+            android:title="@string/pref_title_motion_time_end"
+            android:summary="@string/pref_summary_motion_time"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="time" />
+
+    </PreferenceCategory>
+
     <!-- ========== NACHT-DIMMEN ========== -->
     <PreferenceCategory android:title="@string/pref_category_night_dim">
 

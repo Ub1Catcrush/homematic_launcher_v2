@@ -144,14 +144,11 @@ class CameraViewController(
 
     /** Update motion engine from current prefs without restarting the stream. */
     fun applyMotionPrefs() {
-        // MOTION_WEBCAM_ENABLED takes priority; fall back to legacy key for migration
-        val enabled = prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
-        val sensitivity = (prefs.getString(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, null)
-            ?: prefs.getString(PreferenceKeys.MOTION_DETECT_SENSITIVITY, "8"))
-            ?.toIntOrNull()?.coerceIn(1, 30) ?: 8
-        motionEngine.sensitivityPct = sensitivity
-        motionEngine.enabled = enabled
-        motionEngine.reset()
+        val sensKey = if (prefs.contains(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY))
+            PreferenceKeys.MOTION_WEBCAM_SENSITIVITY else PreferenceKeys.MOTION_DETECT_SENSITIVITY
+        val enabledKey = if (prefs.contains(PreferenceKeys.MOTION_WEBCAM_ENABLED))
+            PreferenceKeys.MOTION_WEBCAM_ENABLED else PreferenceKeys.MOTION_DETECT_ENABLED
+        MotionPrefsHelper.applyTo(motionEngine, prefs, sensKey, enabledKey)
     }
 
     // ── Lifecycle observer ────────────────────────────────────────────────────
