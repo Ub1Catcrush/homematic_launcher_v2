@@ -226,7 +226,9 @@ class MainActivity : AppCompatActivity() {
         )
         haTileViewController.attachToLifecycle(this)
         mAdapter.haTileVC = haTileViewController
-        rebuildHaTileControllers()
+        // Defer tile rebuild to after onCreate — building HaTileViewControllers triggers
+        // HaRepository.connect() which must not run synchronously on the Main Thread.
+        window.decorView.post { rebuildHaTileControllers() }
 
         // ── Motion detection & screen wake ────────────────────────────────────
         screenWakeController = ScreenWakeController(

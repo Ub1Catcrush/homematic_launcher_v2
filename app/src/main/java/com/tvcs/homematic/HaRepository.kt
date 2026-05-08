@@ -1,8 +1,13 @@
 package com.tvcs.homematic
 
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -63,11 +68,20 @@ object HaRepository {
     private var active:   Boolean    = false
     private var retryDelayMs: Long   = 2_000L
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(0,  TimeUnit.SECONDS)   // no read timeout — persistent connection
-        .pingInterval(30, TimeUnit.SECONDS)  // keep-alive
-        .build()
+    // Built lazily on first use — OkHttpClient.build() loads SSL certs and can take
+    // 200–800 ms; doing it eagerly on the Main Thread contributes to ANR.
+    private val client: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(0,  TimeUnit.SECONDS)   // no read timeout — persistent connection
+            .pingInterval(30, TimeUnit.SECONDS)  // keep-alive
+            .build()
+    }
+
+    // IO dispatcher for all blocking network work
+    private val ioScope = CoroutineScope(
+        Dispatchers.IO + SupervisorJob()
+    )
 
     // ── API ───────────────────────────────────────────────────────────────────
 
@@ -105,12 +119,15 @@ object HaRepository {
         _connState.value = ConnState.Connecting
         Log.d(TAG, "Connecting to $wsUrl")
 
+        // Dispatch to IO — URL parsing + OkHttpClient.newWebSocket() acquires SSL
+        // context and does DNS lookups; blocking the Main Thread here causes ANR.
+        ioScope.launch {
         val request = try {
             Request.Builder().url(wsUrl).build()
         } catch (e: Exception) {
             Log.e(TAG, "Invalid URL: $wsUrl")
             _connState.value = ConnState.Error("Ungültige URL: $wsUrl")
-            return
+            return@launch
         }
 
         socket = client.newWebSocket(request, object : WebSocketListener() {
@@ -143,6 +160,7 @@ object HaRepository {
                 }
             }
         })
+        } // end ioScope.launch
     }
 
     private fun handleMessage(ws: WebSocket, text: String) {
@@ -234,8 +252,15 @@ object HaRepository {
         val delay = retryDelayMs
         retryDelayMs = (retryDelayMs * 2).coerceAtMost(60_000L)
         Log.d(TAG, "Reconnecting in ${delay}ms")
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            try { doConnect() } catch (e: Exception) { Log.e(TAG, "doConnect failed: ${e.message}", e) }
-        }, delay)
+        // Use coroutine delay on IO thread — Handler.postDelayed would put doConnect()
+        // back on the Main Thread which is exactly what we are trying to avoid.
+        ioScope.launch {
+            delay(delay)
+            if (active) {
+                try { doConnect() } catch (e: Exception) {
+                    Log.e(TAG, "doConnect failed: ${e.message}", e)
+                }
+            }
+        }
     }
 }

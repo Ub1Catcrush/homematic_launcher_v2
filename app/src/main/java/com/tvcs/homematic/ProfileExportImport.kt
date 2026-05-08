@@ -36,7 +36,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
 
     companion object {
         private const val TAG     = "ProfileIO"
-        private const val VERSION = 2
+        private const val VERSION = 3
     }
 
     // ── Category definitions ──────────────────────────────────────────────────
@@ -169,6 +169,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
     private fun doExport(selected: List<Category>) {
         try {
             val prefs = PreferenceManager.getDefaultSharedPreferences(activity)
+            val all   = prefs.all          // Map<String, Any?> — safe read of all types
             val root  = JSONObject()
             root.put("_version",  VERSION)
             root.put("_app",      "HomeMatic Launcher")
@@ -179,12 +180,19 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
             for (cat in selected) {
                 val obj = JSONObject()
                 for (key in cat.keys) {
-                    val v = prefs.getString(key, null)
-                    if (v != null) obj.put(key, v)
-                    else {
-                        // Try boolean
-                        if (prefs.contains(key)) obj.put(key, prefs.getBoolean(key, false).toString())
+                    val v = all[key] ?: continue   // skip keys not yet set
+                    // Store as {"t":"<type>","v":"<value>"} so import can restore the right type
+                    val entry = JSONObject()
+                    when (v) {
+                        is Boolean    -> { entry.put("t", "bool");   entry.put("v", v.toString()) }
+                        is Int        -> { entry.put("t", "int");    entry.put("v", v.toString()) }
+                        is Long       -> { entry.put("t", "long");   entry.put("v", v.toString()) }
+                        is Float      -> { entry.put("t", "float");  entry.put("v", v.toString()) }
+                        is Set<*>     -> { entry.put("t", "strset"); entry.put("v",
+                            org.json.JSONArray().also { a -> v.forEach { s -> a.put(s.toString()) } }) }
+                        else          -> { entry.put("t", "str");    entry.put("v", v.toString()) }
                     }
+                    obj.put(key, entry)
                 }
                 root.put(cat.id, obj)
             }
@@ -232,11 +240,13 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
         json: JSONObject,
         callback: (Boolean, String) -> Unit
     ) {
-        val version = json.optInt("_version", 1)
+        val version  = json.optInt("_version", 1)
         val exported = json.optString("_exported", "?")
 
-        // Determine which categories are present in the file
-        val present  = categories.filter { json.has(it.id) || version == 1 }
+        // v1: flat JSON (no category objects) — treat all categories as present
+        // v2/v3: category objects at root — only show categories actually in the file
+        val present = if (version == 1) categories
+                      else categories.filter { json.has(it.id) }
         if (present.isEmpty()) {
             callback(false, activity.getString(R.string.profile_import_no_keys))
             return
@@ -270,7 +280,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
 
         for (cat in selected) {
             if (version == 1) {
-                // Legacy v1: flat JSON — all keys at root level
+                // Legacy v1: flat JSON — all values were stored as raw strings
                 for (key in cat.keys) {
                     if (json.has(key)) { editor.putString(key, json.getString(key)); applied++ }
                 }
@@ -278,9 +288,40 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
                 val obj = json.optJSONObject(cat.id) ?: continue
                 val keys = obj.keys()
                 while (keys.hasNext()) {
-                    val key = keys.next()
-                    editor.putString(key, obj.getString(key))
-                    applied++
+                    val key   = keys.next()
+                    val entry = obj.optJSONObject(key)
+                    if (entry != null) {
+                        // New typed format: {"t":"<type>","v":"<value>"}
+                        val type = entry.optString("t", "str")
+                        val raw  = entry.optString("v", "")
+                        try {
+                            when (type) {
+                                "bool"   -> editor.putBoolean(key, raw.toBoolean())
+                                "int"    -> editor.putInt(key, raw.toInt())
+                                "long"   -> editor.putLong(key, raw.toLong())
+                                "float"  -> editor.putFloat(key, raw.toFloat())
+                                "strset" -> {
+                                    val arr = entry.optJSONArray("v")
+                                    if (arr != null) {
+                                        val set = mutableSetOf<String>()
+                                        for (i in 0 until arr.length()) set.add(arr.getString(i))
+                                        editor.putStringSet(key, set)
+                                    }
+                                }
+                                else     -> editor.putString(key, raw)
+                            }
+                            applied++
+                        } catch (e: Exception) {
+                            // Fallback: store as string if type conversion fails
+                            Log.w(TAG, "Type restore failed for $key ($type): ${e.message}")
+                            editor.putString(key, raw)
+                            applied++
+                        }
+                    } else {
+                        // Fallback for partially-typed files
+                        editor.putString(key, obj.optString(key, ""))
+                        applied++
+                    }
                 }
             }
         }
