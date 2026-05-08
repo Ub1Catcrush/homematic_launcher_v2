@@ -1,82 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ── 1. CCU-Verbindung & Sync ───────────────────────────────────────── -->
-    <Preference
-        android:key="nav_ccu"
-        android:title="@string/pref_nav_ccu"
-        android:summary="@string/pref_nav_ccu_summary"
-        android:icon="@drawable/ic_sync_black_24dp" />
+    <!-- ── Verbindung ─────────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_main_cat_connection">
 
-    <!-- ── 2. Räume & Anzeige ─────────────────────────────────────────────── -->
-    <Preference
-        android:key="nav_display"
-        android:title="@string/pref_nav_display"
-        android:summary="@string/pref_nav_display_summary"
-        android:icon="@drawable/ic_info_black_24dp" />
+        <Preference android:key="nav_ccu"
+            android:title="@string/pref_nav_ccu"
+            android:summary="@string/pref_nav_ccu_summary"
+            android:icon="@drawable/ic_sync_black_24dp" />
 
-    <!-- ── 3. Live-Kamera ─────────────────────────────────────────────────── -->
-    <Preference
-        android:key="nav_camera"
-        android:title="@string/pref_category_camera"
-        android:summary="@string/pref_nav_camera_summary"
-        android:icon="@drawable/ic_video_24" />
+    </PreferenceCategory>
 
-    <!-- ── 4. ÖV / DB-Abfahrtsanzeige ────────────────────────────────────── -->
-    <Preference
-        android:key="nav_transit"
-        android:title="@string/pref_category_transit"
-        android:summary="@string/pref_nav_transit_summary"
-        android:icon="@drawable/ic_info_black_24dp" />
+    <!-- ── Anzeige & Inhalt ───────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_main_cat_display">
 
-    <!-- ── 5. Wetter ──────────────────────────────────────────────────────── -->
-    <Preference
-        android:key="nav_weather"
-        android:title="@string/pref_nav_weather"
-        android:summary="@string/pref_nav_weather_summary"
-        android:icon="@drawable/ic_info_black_24dp" />
+        <Preference android:key="nav_display"
+            android:title="@string/pref_nav_display"
+            android:summary="@string/pref_nav_display_summary"
+            android:icon="@drawable/ic_info_black_24dp" />
 
-    <!-- ── 6. Benachrichtigungen ──────────────────────────────────────────── -->
-    <Preference
-        android:key="nav_notifications"
-        android:title="@string/pref_category_notifications"
-        android:summary="@string/pref_nav_notifications_summary"
-        android:icon="@drawable/ic_notifications_black_24dp" />
+        <Preference android:key="nav_appearance"
+            android:title="@string/pref_nav_appearance"
+            android:summary="@string/pref_nav_appearance_summary"
+            android:icon="@drawable/ic_info_black_24dp" />
 
-    <!-- ── 7. Erscheinungsbild ────────────────────────────────────────────── -->
-    <Preference
-        android:key="nav_appearance"
-        android:title="@string/pref_nav_appearance"
-        android:summary="@string/pref_nav_appearance_summary"
-        android:icon="@drawable/ic_info_black_24dp" />
+    </PreferenceCategory>
 
-    <!-- ── 8. Erweitert / Entwickler ─────────────────────────────────────── -->
-    <Preference
-        android:key="nav_advanced"
-        android:title="@string/pref_nav_advanced"
-        android:summary="@string/pref_nav_advanced_summary"
-        android:icon="@drawable/settings" />
+    <!-- ── Smart Home ─────────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_main_cat_smarthome">
 
+        <Preference android:key="nav_ha"
+            android:title="@string/pref_nav_ha"
+            android:summary="@string/pref_nav_ha_summary"
+            android:icon="@drawable/ic_info_black_24dp" />
 
-    <!-- ── 6. Home Assistant ────────────────────────────────────────────────────────────────── -->
-    <Preference
-        android:key="nav_ha"
-        android:title="@string/pref_nav_ha"
-        android:summary="@string/pref_nav_ha_summary"
-        android:icon="@drawable/ic_info_black_24dp" />
+        <Preference android:key="nav_notifications"
+            android:title="@string/pref_category_notifications"
+            android:summary="@string/pref_nav_notifications_summary"
+            android:icon="@drawable/ic_notifications_black_24dp" />
 
+    </PreferenceCategory>
 
-    <!-- ── Export / Import ───────────────────────────────────────────────────── -->
-    <PreferenceCategory android:title="@string/pref_category_backup">
+    <!-- ── Kamera & Erkennung ─────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_main_cat_camera">
 
-        <Preference
-            android:key="action_settings_export"
+        <Preference android:key="nav_camera"
+            android:title="@string/pref_category_camera"
+            android:summary="@string/pref_nav_camera_summary"
+            android:icon="@drawable/ic_video_24" />
+
+        <Preference android:key="nav_motion"
+            android:title="@string/pref_nav_motion"
+            android:summary="@string/pref_nav_motion_summary"
+            android:icon="@drawable/ic_info_black_24dp" />
+
+    </PreferenceCategory>
+
+    <!-- ── Info & Dienste ────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_main_cat_services">
+
+        <Preference android:key="nav_weather"
+            android:title="@string/pref_nav_weather"
+            android:summary="@string/pref_nav_weather_summary"
+            android:icon="@drawable/ic_info_black_24dp" />
+
+        <Preference android:key="nav_transit"
+            android:title="@string/pref_category_transit"
+            android:summary="@string/pref_nav_transit_summary"
+            android:icon="@drawable/ic_info_black_24dp" />
+
+    </PreferenceCategory>
+
+    <!-- ── System ─────────────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_main_cat_system">
+
+        <Preference android:key="nav_advanced"
+            android:title="@string/pref_nav_advanced"
+            android:summary="@string/pref_nav_advanced_summary"
+            android:icon="@drawable/settings" />
+
+        <Preference android:key="action_settings_export"
             android:title="@string/pref_title_settings_export"
             android:summary="@string/pref_summary_settings_export"
             android:icon="@drawable/ic_info_black_24dp" />
 
-        <Preference
-            android:key="action_settings_import"
+        <Preference android:key="action_settings_import"
             android:title="@string/pref_title_settings_import"
             android:summary="@string/pref_summary_settings_import"
             android:icon="@drawable/ic_info_black_24dp" />

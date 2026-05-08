@@ -774,4 +774,29 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_summary_settings_export">Alle Einstellungen als JSON-Datei sichern</string>
     <string name="pref_title_settings_import">Einstellungen importieren</string>
     <string name="pref_summary_settings_import">Einstellungen aus einer gesicherten JSON-Datei wiederherstellen</string>
+
+    <string name="pref_main_cat_connection">Verbindung</string>
+    <string name="pref_main_cat_display">Anzeige &amp; Darstellung</string>
+    <string name="pref_main_cat_smarthome">Smart Home</string>
+    <string name="pref_main_cat_camera">Kamera &amp; Erkennung</string>
+    <string name="pref_main_cat_services">Infodienste</string>
+    <string name="pref_main_cat_system">System</string>
+    <string name="pref_nav_motion">Bewegungserkennung &amp; Nacht</string>
+    <string name="pref_nav_motion_summary">Webcam, Gerätekamera, Bildschirm wecken, Nacht-Dimmen</string>
+    <string name="pref_category_camera_auth">Zugangsdaten</string>
+    <string name="pref_summary_motion_sensitivity_detail">Wie viel Prozent der Bildpunkte müssen sich ändern damit Bewegung gilt. Klein (3–8) = sehr empfindlich, reagiert auf wenig Bewegung. Groß (15–30) = nur deutliche Bewegungen.</string>
+    <string name="pref_summary_motion_wake_timeout_detail">Bildschirm bleibt nach letzter Bewegung oder Berührung für diese Zeit an. Danach übernimmt die System-Displayeinstellung.</string>
+    <string name="pref_summary_motion_luma_detail">Wie stark muss sich die Helligkeit eines Pixels ändern damit er als bewegt gilt (1–80). Niedriger Wert (10–15) = empfindlich, aber anfällig für Rauschen. Höher (25–40) = nur klare Kontraste, robust bei schlechter Beleuchtung.</string>
+    <string name="pref_summary_motion_cooldown_detail">Mindestabstand zwischen zwei Auslösungen. Verhindert dauernde Retrigger bei anhaltender Bewegung.</string>
+    <string name="pref_summary_motion_interval_detail">Wie oft pro Sekunde ein Bild analysiert wird. 1 s = schnelle Reaktion. 2–3 s = Akkuschonend für Nachtbetrieb.</string>
+    <string name="pref_summary_motion_adaptation_detail">0 = starrer Referenzrahmen (ideal für statische Kameras). 5 = passt sich langsam an Beleuchtungsänderungen an (Standard, verhindert Dauerauslösung bei Wolken/Sonnenwechsel). 15–20 = schnelle Anpassung, lernt Bewegungsobjekte in den Hintergrund ein.</string>
+    <string name="pref_category_motion_roi">Erkennungsbereich (Zone)</string>
+    <string name="pref_category_motion_schedule">Aktivzeiten</string>
+    <string name="pref_category_motion_expert">Feineinstellung (Experte)</string>
+    <string name="pref_summary_motion_schedule">Leer = immer aktiv. Nacht-Beispiel: 22:00 / 07:00</string>
+    <string name="roi_full_frame">Gesamtes Bild (Standard)</string>
+    <string name="roi_picker_title">Erkennungszone festlegen</string>
+    <string name="roi_picker_hint">Ziehen zum Zeichnen der Zone · Ecken verschieben zum Anpassen · Innenbereich verschieben</string>
+    <string name="roi_reset">Zurücksetzen (ganzes Bild)</string>
+    <string name="pref_summary_night_dim_brightness_detail" formatted="false">1% = fast dunkel. 30% = deutlich gedimmt. 100% = keine Änderung. Empfehlung: 3–8% für Nachtbetrieb.</string>
 </resources>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ========== KAMERA-QUELLE ========== -->
+    <!-- ── Ein/Aus & Quelle ────────────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/pref_category_camera">
 
         <SwitchPreferenceCompat
@@ -13,6 +13,7 @@
         <EditTextPreference
             android:key="camera_rtsp_url"
             android:title="@string/pref_title_camera_rtsp_url"
+            android:summary="@string/pref_summary_camera_rtsp_url"
             android:defaultValue=""
             android:persistent="true"
             android:inputType="textUri" />
@@ -20,9 +21,15 @@
         <EditTextPreference
             android:key="camera_snapshot_url"
             android:title="@string/pref_title_camera_snapshot_url"
+            android:summary="@string/pref_summary_camera_snapshot_url"
             android:defaultValue=""
             android:persistent="true"
             android:inputType="textUri" />
+
+    </PreferenceCategory>
+
+    <!-- ── Zugangsdaten ────────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_category_camera_auth">
 
         <EditTextPreference
             android:key="camera_username"
@@ -40,16 +47,8 @@
 
     </PreferenceCategory>
 
-    <!-- ========== DARSTELLUNG ========== -->
+    <!-- ── Darstellung ─────────────────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/pref_category_camera_settings">
-
-        <EditTextPreference
-            android:key="camera_overlay_alpha"
-            android:title="@string/pref_title_camera_overlay_alpha"
-            android:summary="@string/pref_summary_camera_overlay_alpha"
-            android:defaultValue="60"
-            android:persistent="true"
-            android:inputType="number" />
 
         <ListPreference
             android:key="camera_scale_type"
@@ -60,41 +59,44 @@
             android:defaultValue="center_crop"
             android:persistent="true" />
 
-        <EditTextPreference
+        <com.tvcs.homematic.SeekBarPreference
+            android:key="camera_overlay_alpha"
+            android:title="@string/pref_title_camera_overlay_alpha"
+            android:summary="@string/pref_summary_camera_overlay_alpha"
+            android:defaultValue="60"
+            android:persistent="true" />
+
+        <com.tvcs.homematic.SeekBarPreference
             android:key="camera_panel_pct_portrait"
             android:title="@string/pref_title_camera_pct_portrait"
             android:summary="@string/pref_summary_panel_pct"
             android:defaultValue="20"
-            android:inputType="number"
             android:persistent="true" />
 
-        <EditTextPreference
+        <com.tvcs.homematic.SeekBarPreference
             android:key="camera_panel_pct_land"
             android:title="@string/pref_title_camera_pct_land"
             android:summary="@string/pref_summary_panel_pct"
             android:defaultValue="20"
-            android:inputType="number"
             android:persistent="true" />
 
-        <EditTextPreference
+        <com.tvcs.homematic.SeekBarPreference
             android:key="transit_panel_pct_portrait"
             android:title="@string/pref_title_transit_pct_portrait"
             android:summary="@string/pref_summary_panel_pct"
             android:defaultValue="20"
-            android:inputType="number"
             android:persistent="true" />
 
-        <EditTextPreference
+        <com.tvcs.homematic.SeekBarPreference
             android:key="transit_panel_pct_land"
             android:title="@string/pref_title_transit_pct_land"
             android:summary="@string/pref_summary_panel_pct"
             android:defaultValue="20"
-            android:inputType="number"
             android:persistent="true" />
 
     </PreferenceCategory>
 
-    <!-- ========== VERBINDUNGSVERHALTEN ========== -->
+    <!-- ── Verbindungsverhalten ────────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/pref_category_camera_connection">
 
         <EditTextPreference
@@ -115,171 +117,7 @@
 
     </PreferenceCategory>
 
-    <!-- ========== BEWEGUNGSERKENNUNG: WEBCAM ========== -->
-    <PreferenceCategory android:title="@string/pref_category_motion_webcam">
-
-        <SwitchPreferenceCompat
-            android:key="motion_webcam_enabled"
-            android:title="@string/pref_title_motion_webcam_enabled"
-            android:summary="@string/pref_summary_motion_webcam_enabled"
-            android:defaultValue="false"
-            android:persistent="true" />
-
-        <EditTextPreference
-            android:key="motion_webcam_sensitivity"
-            android:title="@string/pref_title_motion_sensitivity"
-            android:summary="@string/pref_summary_motion_sensitivity"
-            android:defaultValue="8"
-            android:persistent="true"
-            android:inputType="number"
-            android:dependency="motion_webcam_enabled" />
-
-    </PreferenceCategory>
-
-    <!-- ========== BEWEGUNGSERKENNUNG: GERÄTEKAMERA ========== -->
-    <PreferenceCategory android:title="@string/pref_category_motion_local">
-
-        <SwitchPreferenceCompat
-            android:key="motion_local_enabled"
-            android:title="@string/pref_title_motion_local_enabled"
-            android:summary="@string/pref_summary_motion_local_enabled"
-            android:defaultValue="false"
-            android:persistent="true" />
-
-        <ListPreference
-            android:key="motion_local_facing"
-            android:title="@string/pref_title_motion_local_facing"
-            android:entries="@array/motion_facing_entries"
-            android:entryValues="@array/motion_facing_values"
-            android:defaultValue="front"
-            android:persistent="true"
-            android:dependency="motion_local_enabled" />
-
-        <EditTextPreference
-            android:key="motion_local_sensitivity"
-            android:title="@string/pref_title_motion_sensitivity"
-            android:summary="@string/pref_summary_motion_sensitivity"
-            android:defaultValue="8"
-            android:persistent="true"
-            android:inputType="number"
-            android:dependency="motion_local_enabled" />
-
-    </PreferenceCategory>
-
-    <!-- ========== GEMEINSAME EINSTELLUNGEN ========== -->
-    <PreferenceCategory android:title="@string/pref_category_motion_wake">
-
-        <EditTextPreference
-            android:key="motion_wake_timeout_sec"
-            android:title="@string/pref_title_motion_wake_timeout"
-            android:summary="@string/pref_summary_motion_wake_timeout"
-            android:defaultValue="60"
-            android:persistent="true"
-            android:inputType="number" />
-
-    </PreferenceCategory>
-
-    <!-- ========== ERWEITERTE ERKENNUNGSPARAMETER ========== -->
-    <PreferenceCategory android:title="@string/pref_category_motion_advanced">
-
-        <EditTextPreference
-            android:key="motion_luma_threshold"
-            android:title="@string/pref_title_motion_luma_threshold"
-            android:summary="@string/pref_summary_motion_luma_threshold"
-            android:defaultValue="20"
-            android:persistent="true"
-            android:inputType="number" />
-
-        <EditTextPreference
-            android:key="motion_cooldown_sec"
-            android:title="@string/pref_title_motion_cooldown"
-            android:summary="@string/pref_summary_motion_cooldown"
-            android:defaultValue="2"
-            android:persistent="true"
-            android:inputType="number" />
-
-        <EditTextPreference
-            android:key="motion_interval_sec"
-            android:title="@string/pref_title_motion_interval"
-            android:summary="@string/pref_summary_motion_interval"
-            android:defaultValue="1"
-            android:persistent="true"
-            android:inputType="number" />
-
-        <EditTextPreference
-            android:key="motion_adaptation_rate"
-            android:title="@string/pref_title_motion_adaptation"
-            android:summary="@string/pref_summary_motion_adaptation"
-            android:defaultValue="5"
-            android:persistent="true"
-            android:inputType="number" />
-
-        <EditTextPreference
-            android:key="motion_roi"
-            android:title="@string/pref_title_motion_roi"
-            android:summary="@string/pref_summary_motion_roi"
-            android:defaultValue=""
-            android:persistent="true"
-            android:inputType="text" />
-
-        <EditTextPreference
-            android:key="motion_time_start"
-            android:title="@string/pref_title_motion_time_start"
-            android:summary="@string/pref_summary_motion_time"
-            android:defaultValue=""
-            android:persistent="true"
-            android:inputType="time" />
-
-        <EditTextPreference
-            android:key="motion_time_end"
-            android:title="@string/pref_title_motion_time_end"
-            android:summary="@string/pref_summary_motion_time"
-            android:defaultValue=""
-            android:persistent="true"
-            android:inputType="time" />
-
-    </PreferenceCategory>
-
-    <!-- ========== NACHT-DIMMEN ========== -->
-    <PreferenceCategory android:title="@string/pref_category_night_dim">
-
-        <SwitchPreferenceCompat
-            android:key="night_dim_enabled"
-            android:title="@string/pref_title_night_dim_enabled"
-            android:summary="@string/pref_summary_night_dim_enabled"
-            android:defaultValue="false"
-            android:persistent="true" />
-
-        <EditTextPreference
-            android:key="night_dim_start"
-            android:title="@string/pref_title_night_dim_start"
-            android:summary="@string/pref_summary_night_dim_time"
-            android:defaultValue="22:00"
-            android:persistent="true"
-            android:inputType="time"
-            android:dependency="night_dim_enabled" />
-
-        <EditTextPreference
-            android:key="night_dim_end"
-            android:title="@string/pref_title_night_dim_end"
-            android:summary="@string/pref_summary_night_dim_time"
-            android:defaultValue="07:00"
-            android:persistent="true"
-            android:inputType="time"
-            android:dependency="night_dim_enabled" />
-
-        <EditTextPreference
-            android:key="night_dim_brightness"
-            android:title="@string/pref_title_night_dim_brightness"
-            android:summary="@string/pref_summary_night_dim_brightness"
-            android:defaultValue="5"
-            android:persistent="true"
-            android:inputType="number"
-            android:dependency="night_dim_enabled" />
-
-    </PreferenceCategory>
-
-    <!-- ========== VERBINDUNGSTEST ========== -->
+    <!-- ── Test ────────────────────────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/pref_category_camera_test">
 
         <Preference

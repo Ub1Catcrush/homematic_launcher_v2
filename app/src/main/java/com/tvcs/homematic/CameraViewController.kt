@@ -181,11 +181,8 @@ class CameraViewController(
         releasePlayer()
 
         val renderersFactory = DefaultRenderersFactory(context)
-            .setEnableDecoderFallback(true)
-            // EXTENSION_RENDERER_MODE_PREFER triggers a full codec scan on the Main Thread
-            // which causes "Failed to query component interface" + ANR. OFF = use only
-            // built-in decoders; that is sufficient for every common RTSP/H264 stream.
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            .setEnableDecoderFallback(true) // Versucht alternative Decoder bei Fehlern
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
         val player = ExoPlayer.Builder(context)
             .setRenderersFactory(renderersFactory)

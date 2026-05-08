@@ -137,7 +137,8 @@ class SettingsActivity : AppCompatActivity(),
                 "nav_advanced"      to AdvancedFragment::class.java.name,
                 "nav_appearance"    to AppearanceFragment::class.java.name,
                 "nav_weather"       to WeatherFragment::class.java.name,
-                "nav_ha"            to HaFragment::class.java.name
+                "nav_ha"            to HaFragment::class.java.name,
+                "nav_motion"        to MotionFragment::class.java.name
             ).forEach { (key, cls) ->
                 findPreference<Preference>(key)?.fragment = cls
             }
@@ -323,24 +324,21 @@ class SettingsActivity : AppCompatActivity(),
             bindNumber(PreferenceKeys.TRANSIT_PANEL_PCT_LAND, " %")
             bindList(PreferenceKeys.CAMERA_SCALE_TYPE)
             bindSwitch(PreferenceKeys.CAMERA_ENABLED)
-            bindSwitch(PreferenceKeys.MOTION_WEBCAM_ENABLED)
-            bindNumber(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, "")
-            bindSwitch(PreferenceKeys.MOTION_LOCAL_ENABLED)
-            bindList(PreferenceKeys.MOTION_LOCAL_FACING)
-            bindNumber(PreferenceKeys.MOTION_LOCAL_SENSITIVITY, "")
-            bindNumber(PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC, " s")
-            bindSwitch(PreferenceKeys.NIGHT_DIM_ENABLED)
-            bindNumber(PreferenceKeys.NIGHT_DIM_START, "")
-            bindNumber(PreferenceKeys.NIGHT_DIM_END, "")
-            bindNumber(PreferenceKeys.NIGHT_DIM_BRIGHTNESS, " %")
-            // Advanced motion params
-            bindNumber(PreferenceKeys.MOTION_LUMA_THRESHOLD, "")
-            bindNumber(PreferenceKeys.MOTION_COOLDOWN_SEC, " s")
-            bindNumber(PreferenceKeys.MOTION_INTERVAL_SEC, " s")
-            bindNumber(PreferenceKeys.MOTION_ADAPTATION_RATE, "")
-            bindEditText(PreferenceKeys.MOTION_ROI)
-            bindEditText(PreferenceKeys.MOTION_TIME_START)
-            bindEditText(PreferenceKeys.MOTION_TIME_END)
+            // SeekBar ranges for camera settings
+            fun configSeekBar(key: String, min: Int, max: Int, step: Int, unit: String) {
+                (findPreference<androidx.preference.Preference>(key) as? SeekBarPreference)?.apply {
+                    this.min = min; this.max = max; this.step = step; this.unit = unit
+                }
+            }
+            configSeekBar(PreferenceKeys.CAMERA_OVERLAY_ALPHA,       0, 100, 5, "%")
+            configSeekBar(PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT,   5,  60, 5, "%")
+            configSeekBar(PreferenceKeys.CAMERA_PANEL_PCT_LAND,       5,  60, 5, "%")
+            // transit panel pcts share the camera fragment
+            (findPreference<androidx.preference.Preference>("transit_panel_pct_portrait") as? SeekBarPreference)
+                ?.apply { this.min = 5; this.max = 60; this.step = 5; this.unit = "%" }
+            (findPreference<androidx.preference.Preference>("transit_panel_pct_land") as? SeekBarPreference)
+                ?.apply { this.min = 5; this.max = 60; this.step = 5; this.unit = "%" }
+            // Motion settings moved to MotionFragment (nav_motion)
             findPreference<EditTextPreference>(PreferenceKeys.CAMERA_PASSWORD)?.apply {
                 val cur = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: ""
                 summary = if (cur.isNotEmpty()) "••••••" else getString(R.string.pref_summary_camera_password_unset)
@@ -716,6 +714,44 @@ class SettingsActivity : AppCompatActivity(),
                     }
                 }
                 true
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Motion Detection & Night Dimming
+    // ══════════════════════════════════════════════════════════════════════════
+
+    class MotionFragment : PreferenceFragmentCompat() {
+        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+            setPreferencesFromResource(R.xml.preferences_motion, rootKey)
+
+            // Configure SeekBar ranges
+            configureSeekBar(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, 1, 30, 1, "")
+            configureSeekBar(PreferenceKeys.MOTION_LOCAL_SENSITIVITY,  1, 30, 1, "")
+            configureSeekBar(PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC,   10, 300, 5, " s")
+            configureSeekBar(PreferenceKeys.MOTION_LUMA_THRESHOLD,     1, 80,  1, "")
+            configureSeekBar(PreferenceKeys.MOTION_COOLDOWN_SEC,       1, 60,  1, " s")
+            configureSeekBar(PreferenceKeys.MOTION_INTERVAL_SEC,       1, 10,  1, " s")
+            configureSeekBar(PreferenceKeys.MOTION_ADAPTATION_RATE,    0, 20,  1, "")
+            configureSeekBar(PreferenceKeys.NIGHT_DIM_BRIGHTNESS,      1, 100, 1, "%")
+
+            bindSwitch(PreferenceKeys.MOTION_WEBCAM_ENABLED)
+            bindSwitch(PreferenceKeys.MOTION_LOCAL_ENABLED)
+            bindList(PreferenceKeys.MOTION_LOCAL_FACING)
+            bindSwitch(PreferenceKeys.NIGHT_DIM_ENABLED)
+            bindEditText(PreferenceKeys.MOTION_TIME_START)
+            bindEditText(PreferenceKeys.MOTION_TIME_END)
+            bindEditText(PreferenceKeys.NIGHT_DIM_START)
+            bindEditText(PreferenceKeys.NIGHT_DIM_END)
+        }
+
+        private fun configureSeekBar(key: String, min: Int, max: Int, step: Int, unit: String) {
+            (findPreference<androidx.preference.Preference>(key) as? SeekBarPreference)?.apply {
+                this.min  = min
+                this.max  = max
+                this.step = step
+                this.unit = unit
             }
         }
     }
