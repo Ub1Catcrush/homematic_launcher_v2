@@ -65,4 +65,22 @@
         android:summary="@string/pref_nav_ha_summary"
         android:icon="@drawable/ic_info_black_24dp" />
 
+
+    <!-- ── Export / Import ───────────────────────────────────────────────────── -->
+    <PreferenceCategory android:title="@string/pref_category_backup">
+
+        <Preference
+            android:key="action_settings_export"
+            android:title="@string/pref_title_settings_export"
+            android:summary="@string/pref_summary_settings_export"
+            android:icon="@drawable/ic_info_black_24dp" />
+
+        <Preference
+            android:key="action_settings_import"
+            android:title="@string/pref_title_settings_import"
+            android:summary="@string/pref_summary_settings_import"
+            android:icon="@drawable/ic_info_black_24dp" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

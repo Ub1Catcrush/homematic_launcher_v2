@@ -753,4 +753,25 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_title_motion_time_start">Aktiv ab (HH:MM)</string>
     <string name="pref_title_motion_time_end">Aktiv bis (HH:MM)</string>
     <string name="pref_summary_motion_time">Leer lassen = immer aktiv. Nachtfenster z.B. 22:00 / 07:00</string>
+
+    <string name="export_cat_ccu">CCU-Verbindung</string>
+    <string name="export_cat_profile">Geräteprofil</string>
+    <string name="export_cat_appearance">Darstellung &amp; Layout</string>
+    <string name="export_cat_camera">Kamera</string>
+    <string name="export_cat_motion">Bewegungserkennung &amp; Nacht</string>
+    <string name="export_cat_ha">Home Assistant</string>
+    <string name="export_cat_weather">Wetter</string>
+    <string name="export_cat_transit">ÖPNV</string>
+    <string name="export_cat_notifications">Benachrichtigungen</string>
+    <string name="export_select_categories">Kategorien exportieren</string>
+    <string name="export_action">Exportieren</string>
+    <string name="import_select_categories">Kategorien importieren (gesichert: %1$s)</string>
+    <string name="import_action">Importieren</string>
+    <string name="profile_import_ok_count">%1$d Einstellungen importiert</string>
+
+    <string name="pref_category_backup">Einstellungen sichern</string>
+    <string name="pref_title_settings_export">Einstellungen exportieren</string>
+    <string name="pref_summary_settings_export">Alle Einstellungen als JSON-Datei sichern</string>
+    <string name="pref_title_settings_import">Einstellungen importieren</string>
+    <string name="pref_summary_settings_import">Einstellungen aus einer gesicherten JSON-Datei wiederherstellen</string>
 </resources>

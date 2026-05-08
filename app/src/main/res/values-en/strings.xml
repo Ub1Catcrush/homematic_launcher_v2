@@ -679,4 +679,25 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_title_motion_time_start">Active from (HH:MM)</string>
     <string name="pref_title_motion_time_end">Active until (HH:MM)</string>
     <string name="pref_summary_motion_time">Leave empty for always active. Night window e.g. 22:00 / 07:00</string>
+
+    <string name="export_cat_ccu">CCU Connection</string>
+    <string name="export_cat_profile">Device Profile</string>
+    <string name="export_cat_appearance">Appearance &amp; Layout</string>
+    <string name="export_cat_camera">Camera</string>
+    <string name="export_cat_motion">Motion Detection &amp; Night</string>
+    <string name="export_cat_ha">Home Assistant</string>
+    <string name="export_cat_weather">Weather</string>
+    <string name="export_cat_transit">Public Transit</string>
+    <string name="export_cat_notifications">Notifications</string>
+    <string name="export_select_categories">Select categories to export</string>
+    <string name="export_action">Export</string>
+    <string name="import_select_categories">Select categories to import (backed up: %1$s)</string>
+    <string name="import_action">Import</string>
+    <string name="profile_import_ok_count">%1$d settings imported</string>
+
+    <string name="pref_category_backup">Backup Settings</string>
+    <string name="pref_title_settings_export">Export settings</string>
+    <string name="pref_summary_settings_export">Save all settings as a JSON file</string>
+    <string name="pref_title_settings_import">Import settings</string>
+    <string name="pref_summary_settings_import">Restore settings from a previously saved JSON file</string>
 </resources>

@@ -71,6 +71,8 @@ private fun PreferenceFragmentCompat.bindNumber(key: String, unit: String = "") 
 class SettingsActivity : AppCompatActivity(),
     PreferenceFragmentCompat.OnPreferenceStartFragmentCallback {
 
+    lateinit var profileIO: ProfileExportImport
+
     override fun attachBaseContext(base: Context) =
         super.attachBaseContext(LocaleHelper.wrap(base))
 
@@ -79,6 +81,7 @@ class SettingsActivity : AppCompatActivity(),
         setContentView(R.layout.activity_settings)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = getString(R.string.title_activity_settings)
+        profileIO = ProfileExportImport(this)
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
                 .replace(R.id.settings_container, MainFragment())
@@ -137,6 +140,19 @@ class SettingsActivity : AppCompatActivity(),
                 "nav_ha"            to HaFragment::class.java.name
             ).forEach { (key, cls) ->
                 findPreference<Preference>(key)?.fragment = cls
+            }
+
+            // Export / Import
+            findPreference<Preference>("action_settings_export")?.setOnPreferenceClickListener {
+                (requireActivity() as SettingsActivity).profileIO.export()
+                true
+            }
+            findPreference<Preference>("action_settings_import")?.setOnPreferenceClickListener {
+                (requireActivity() as SettingsActivity).profileIO.import { success, msg ->
+                    android.widget.Toast.makeText(requireContext(), msg,
+                        android.widget.Toast.LENGTH_LONG).show()
+                }
+                true
             }
         }
     }
@@ -968,6 +984,28 @@ class SettingsActivity : AppCompatActivity(),
                         layoutParams = LinearLayout.LayoutParams(
                             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                     }
+                    val btnUp = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.arrow_up_float)
+                        background = null; setColorFilter(0xFFCCCCCC.toInt())
+                        alpha = if (idx > 0) 1f else 0.3f
+                        setOnClickListener {
+                            if (idx > 0) {
+                                val tmp = entities[idx-1]; entities[idx-1] = entities[idx]; entities[idx] = tmp
+                                rebuildEntityList()
+                            }
+                        }
+                    }
+                    val btnDown = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.arrow_down_float)
+                        background = null; setColorFilter(0xFFCCCCCC.toInt())
+                        alpha = if (idx < entities.size - 1) 1f else 0.3f
+                        setOnClickListener {
+                            if (idx < entities.size - 1) {
+                                val tmp = entities[idx+1]; entities[idx+1] = entities[idx]; entities[idx] = tmp
+                                rebuildEntityList()
+                            }
+                        }
+                    }
                     val btnEdit = android.widget.ImageButton(ctx).apply {
                         setImageResource(android.R.drawable.ic_menu_edit)
                         background = null; setColorFilter(0xFF88BBFF.toInt())
@@ -982,7 +1020,8 @@ class SettingsActivity : AppCompatActivity(),
                         background = null; setColorFilter(0xFFFF4444.toInt())
                         setOnClickListener { entities.removeAt(idx); rebuildEntityList() }
                     }
-                    row.addView(tv); row.addView(btnEdit); row.addView(btnDel)
+                    row.addView(tv); row.addView(btnUp); row.addView(btnDown)
+                    row.addView(btnEdit); row.addView(btnDel)
                     listContainer.addView(row)
                 }
             }
@@ -1132,6 +1171,28 @@ class SettingsActivity : AppCompatActivity(),
                         layoutParams = LinearLayout.LayoutParams(
                             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                     }
+                    val btnUp = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.arrow_up_float)
+                        background = null; setColorFilter(0xFFCCCCCC.toInt())
+                        alpha = if (idx > 0) 1f else 0.3f
+                        setOnClickListener {
+                            if (idx > 0) {
+                                val tmp = entities[idx-1]; entities[idx-1] = entities[idx]; entities[idx] = tmp
+                                rebuildList()
+                            }
+                        }
+                    }
+                    val btnDown = android.widget.ImageButton(ctx).apply {
+                        setImageResource(android.R.drawable.arrow_down_float)
+                        background = null; setColorFilter(0xFFCCCCCC.toInt())
+                        alpha = if (idx < entities.size - 1) 1f else 0.3f
+                        setOnClickListener {
+                            if (idx < entities.size - 1) {
+                                val tmp = entities[idx+1]; entities[idx+1] = entities[idx]; entities[idx] = tmp
+                                rebuildList()
+                            }
+                        }
+                    }
                     val btnEdit = android.widget.ImageButton(ctx).apply {
                         setImageResource(android.R.drawable.ic_menu_edit)
                         background = null
@@ -1146,7 +1207,8 @@ class SettingsActivity : AppCompatActivity(),
                         setColorFilter(0xFFFF4444.toInt())
                         setOnClickListener { entities.removeAt(idx); rebuildList() }
                     }
-                    row.addView(tv); row.addView(btnEdit); row.addView(btnDel)
+                    row.addView(tv); row.addView(btnUp); row.addView(btnDown)
+                    row.addView(btnEdit); row.addView(btnDel)
                     listContainer.addView(row)
                 }
                 if (entities.isEmpty()) {
