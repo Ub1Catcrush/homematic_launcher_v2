@@ -1,8 +1,6 @@
 package com.tvcs.homematic
 
-import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
@@ -36,7 +34,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
 
     companion object {
         private const val TAG     = "ProfileIO"
-        private const val VERSION = 3
+        private const val VERSION = 2
     }
 
     // ── Category definitions ──────────────────────────────────────────────────
@@ -90,12 +88,14 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
             PreferenceKeys.CAMERA_PASSWORD, PreferenceKeys.CAMERA_VIEW_HEIGHT_DP,
             PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL,
             PreferenceKeys.CAMERA_OVERLAY_ALPHA, PreferenceKeys.CAMERA_SCALE_TYPE,
-            PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT, PreferenceKeys.CAMERA_PANEL_PCT_LAND
+            PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT, PreferenceKeys.CAMERA_PANEL_PCT_LAND,
+            PreferenceKeys.TRANSIT_PANEL_PCT_PORTRAIT, PreferenceKeys.TRANSIT_PANEL_PCT_LAND
         )),
         Category("motion", R.string.export_cat_motion, listOf(
             PreferenceKeys.MOTION_WEBCAM_ENABLED, PreferenceKeys.MOTION_WEBCAM_SENSITIVITY,
             PreferenceKeys.MOTION_LOCAL_ENABLED, PreferenceKeys.MOTION_LOCAL_SENSITIVITY,
             PreferenceKeys.MOTION_LOCAL_FACING, PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC,
+            PreferenceKeys.MOTION_DETECT_ENABLED, PreferenceKeys.MOTION_DETECT_SENSITIVITY,
             PreferenceKeys.MOTION_LUMA_THRESHOLD, PreferenceKeys.MOTION_COOLDOWN_SEC,
             PreferenceKeys.MOTION_INTERVAL_SEC, PreferenceKeys.MOTION_ADAPTATION_RATE,
             PreferenceKeys.MOTION_ROI, PreferenceKeys.MOTION_TIME_START,
@@ -119,6 +119,10 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
             PreferenceKeys.TRANSIT_TO_ID, PreferenceKeys.TRANSIT_TO_NAME,
             PreferenceKeys.TRANSIT_ROW_COUNT, PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS,
             PreferenceKeys.TRANSIT_REFRESH_INTERVAL, PreferenceKeys.TRANSIT_WATCHED_STATIONS
+        )),
+        Category("launcher", R.string.export_cat_launcher, listOf(
+            PreferenceKeys.ALT_LAUNCHER_ENABLED, PreferenceKeys.ALT_LAUNCHER_PACKAGE,
+            PreferenceKeys.TEST_MODE
         )),
         Category("notifications", R.string.export_cat_notifications, listOf(
             PreferenceKeys.NOTIFY_WINDOW_OPEN, PreferenceKeys.NOTIFY_LOWBAT,
@@ -153,8 +157,12 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
         val labels   = categories.map { activity.getString(it.labelRes) }.toTypedArray()
         val checked  = BooleanArray(categories.size) { true }
 
+        // Warn if any credential-containing category is selected
+        val credentialCategories = setOf("ccu", "camera", "ha")
+
         AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.export_select_categories))
+            .setMessage(activity.getString(R.string.export_credential_warning))
             .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
                 checked[which] = isChecked
             }
@@ -169,7 +177,6 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
     private fun doExport(selected: List<Category>) {
         try {
             val prefs = PreferenceManager.getDefaultSharedPreferences(activity)
-            val all   = prefs.all          // Map<String, Any?> — safe read of all types
             val root  = JSONObject()
             root.put("_version",  VERSION)
             root.put("_app",      "HomeMatic Launcher")
@@ -177,22 +184,31 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
                 "yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
                 .format(java.util.Date()))
 
+            val allEntries: MutableMap<String?, *> = prefs.all
             for (cat in selected) {
                 val obj = JSONObject()
                 for (key in cat.keys) {
-                    val v = all[key] ?: continue   // skip keys not yet set
-                    // Store as {"t":"<type>","v":"<value>"} so import can restore the right type
-                    val entry = JSONObject()
-                    when (v) {
-                        is Boolean    -> { entry.put("t", "bool");   entry.put("v", v.toString()) }
-                        is Int        -> { entry.put("t", "int");    entry.put("v", v.toString()) }
-                        is Long       -> { entry.put("t", "long");   entry.put("v", v.toString()) }
-                        is Float      -> { entry.put("t", "float");  entry.put("v", v.toString()) }
-                        is Set<*>     -> { entry.put("t", "strset"); entry.put("v",
-                            org.json.JSONArray().also { a -> v.forEach { s -> a.put(s.toString()) } }) }
-                        else          -> { entry.put("t", "str");    entry.put("v", v.toString()) }
+                    val value: Any? = allEntries[key]
+
+                    if (value is String) {
+                        // It's a String
+                        obj.put(key, value)
+                    } else if (value is Int) {
+                        // It's an Integer
+                        obj.put(key, value)
+                    } else if (value is Boolean) {
+                        // It's a Boolean
+                        obj.put(key, value)
+                    } else if (value is Float) {
+                        // It's a Float
+                        obj.put(key, value)
+                    } else if (value is Long) {
+                        // It's a Long
+                        obj.put(key, value)
+                    } else if (value is MutableSet<*>) {
+                        // It's a StringSet
+                        obj.put(key, value)
                     }
-                    obj.put(key, entry)
                 }
                 root.put(cat.id, obj)
             }
@@ -240,13 +256,11 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
         json: JSONObject,
         callback: (Boolean, String) -> Unit
     ) {
-        val version  = json.optInt("_version", 1)
+        val version = json.optInt("_version", 1)
         val exported = json.optString("_exported", "?")
 
-        // v1: flat JSON (no category objects) — treat all categories as present
-        // v2/v3: category objects at root — only show categories actually in the file
-        val present = if (version == 1) categories
-                      else categories.filter { json.has(it.id) }
+        // Determine which categories are present in the file
+        val present  = categories.filter { json.has(it.id) || version == 1 }
         if (present.isEmpty()) {
             callback(false, activity.getString(R.string.profile_import_no_keys))
             return
@@ -280,7 +294,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
 
         for (cat in selected) {
             if (version == 1) {
-                // Legacy v1: flat JSON — all values were stored as raw strings
+                // Legacy v1: flat JSON — all keys at root level
                 for (key in cat.keys) {
                     if (json.has(key)) { editor.putString(key, json.getString(key)); applied++ }
                 }
@@ -288,40 +302,18 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
                 val obj = json.optJSONObject(cat.id) ?: continue
                 val keys = obj.keys()
                 while (keys.hasNext()) {
-                    val key   = keys.next()
-                    val entry = obj.optJSONObject(key)
-                    if (entry != null) {
-                        // New typed format: {"t":"<type>","v":"<value>"}
-                        val type = entry.optString("t", "str")
-                        val raw  = entry.optString("v", "")
-                        try {
-                            when (type) {
-                                "bool"   -> editor.putBoolean(key, raw.toBoolean())
-                                "int"    -> editor.putInt(key, raw.toInt())
-                                "long"   -> editor.putLong(key, raw.toLong())
-                                "float"  -> editor.putFloat(key, raw.toFloat())
-                                "strset" -> {
-                                    val arr = entry.optJSONArray("v")
-                                    if (arr != null) {
-                                        val set = mutableSetOf<String>()
-                                        for (i in 0 until arr.length()) set.add(arr.getString(i))
-                                        editor.putStringSet(key, set)
-                                    }
-                                }
-                                else     -> editor.putString(key, raw)
-                            }
-                            applied++
-                        } catch (e: Exception) {
-                            // Fallback: store as string if type conversion fails
-                            Log.w(TAG, "Type restore failed for $key ($type): ${e.message}")
-                            editor.putString(key, raw)
-                            applied++
-                        }
-                    } else {
-                        // Fallback for partially-typed files
-                        editor.putString(key, obj.optString(key, ""))
-                        applied++
+                    val key = keys.next()
+                    // Retrieve value as generic Object to determine its type
+                    when (val value = obj.get(key)) {
+                        is String -> editor.putString(key, value)
+                        is Int -> editor.putInt(key, value)
+                        is Boolean -> editor.putBoolean(key, value)
+                        is Float -> editor.putFloat(key, value)
+                        is Long -> editor.putLong(key, value)
+                        is Double -> editor.putFloat(key, value.toFloat()) // SP doesn't support Double, so cast to Float
+                        // Handle nulls or unexpected types if necessary
                     }
+                    applied++
                 }
             }
         }

@@ -48,9 +48,9 @@ dependencies {
 
     // ── Camera live view ─────────────────────────────────────────────────────
     // Media3 ExoPlayer with RTSP support
-    implementation 'androidx.media3:media3-exoplayer:1.4.1'
-    implementation 'androidx.media3:media3-exoplayer-rtsp:1.4.1'
-    implementation 'androidx.media3:media3-ui:1.4.1'
+    implementation 'androidx.media3:media3-exoplayer:1.10.0'
+    implementation 'androidx.media3:media3-exoplayer-rtsp:1.10.0'
+    implementation 'androidx.media3:media3-ui:1.10.0'
     // Glide for MJPEG snapshot fallback (single-frame JPEG polling)
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'

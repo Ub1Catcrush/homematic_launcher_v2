@@ -61,9 +61,55 @@ private fun PreferenceFragmentCompat.bindList(key: String) {
     }
 }
 
-/** Binds an EditTextPreference that holds a numeric value with a unit suffix. */
+/** Binds an EditTextPreference that holds a numeric value with a unit suffix.
+ *  Silently skips keys that use SeekBarPreference (they manage their own display). */
 private fun PreferenceFragmentCompat.bindNumber(key: String, unit: String = "") {
+    // If the preference is a SeekBarPreference, skip — it handles its own value display
+    val pref = findPreference<androidx.preference.Preference>(key)
+    if (pref is SeekBarPreference) return
     bindEditText(key) { v -> if (v.isNotBlank()) "$v$unit" else "" }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Call once in onCreatePreferences (after all binds) to cap every preference
+ * summary at 2 lines with "…" and show the full text in a dialog on long-press.
+ *
+ * Only applies to preferences whose summary is longer than [charThreshold].
+ */
+private fun PreferenceFragmentCompat.applyLongSummaryHandling(charThreshold: Int = 80) {
+    val screen = preferenceScreen
+    fun visit(group: androidx.preference.PreferenceGroup) {
+        for (i in 0 until group.preferenceCount) {
+            when (val pref = group.getPreference(i)) {
+                is androidx.preference.PreferenceGroup -> visit(pref)
+                else -> {
+                    val full = pref.summary?.toString() ?: continue
+                    if (full.length > charThreshold) {
+                        // Truncate displayed summary to keep list readable
+                        val short = full.take(charThreshold).trimEnd() + "…"
+                        pref.summary = short
+                        // Tap the preference row to see the full summary in a dialog.
+                        // (setOnPreferenceLongClickListener does not exist in the Jetpack
+                        // Preference library; we use a regular click listener instead and
+                        // only intercept clicks when the preference has no other action.)
+                        if (pref.onPreferenceClickListener == null) {
+                            pref.setOnPreferenceClickListener {
+                                AlertDialog.Builder(requireContext())
+                                    .setTitle(pref.title)
+                                    .setMessage(full)
+                                    .setPositiveButton(android.R.string.ok, null)
+                                    .show()
+                                true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    visit(screen)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,6 +189,12 @@ class SettingsActivity : AppCompatActivity(),
                 findPreference<Preference>(key)?.fragment = cls
             }
 
+            // About
+            findPreference<Preference>("action_about")?.setOnPreferenceClickListener {
+                showAboutDialog()
+                true
+            }
+
             // Export / Import
             findPreference<Preference>("action_settings_export")?.setOnPreferenceClickListener {
                 (requireActivity() as SettingsActivity).profileIO.export()
@@ -155,6 +207,20 @@ class SettingsActivity : AppCompatActivity(),
                 }
                 true
             }
+        applyLongSummaryHandling()
+        }
+
+        private fun showAboutDialog() {
+            if (!isResumed) return
+            val ctx = requireContext()
+            val version = try {
+                ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
+            } catch (_: Exception) { "?" }
+            AlertDialog.Builder(ctx)
+                .setTitle(ctx.getString(R.string.about_title))
+                .setMessage(ctx.getString(R.string.about_message, version))
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
         }
     }
 
@@ -224,6 +290,7 @@ class SettingsActivity : AppCompatActivity(),
                 }
                 true
             }
+        applyLongSummaryHandling()
         }
 
         private fun sidSummary(s: String) =
@@ -260,6 +327,7 @@ class SettingsActivity : AppCompatActivity(),
             bindNumber(PreferenceKeys.MAX_WINDOW_INDICATORS)
             bindNumber(PreferenceKeys.MOLD_WARNING_RH, " %")
             bindNumber(PreferenceKeys.MOLD_URGENT_RH, " %")
+        applyLongSummaryHandling()
         }
 
         private fun showLanguageRestartDialog() {
@@ -301,6 +369,7 @@ class SettingsActivity : AppCompatActivity(),
                     true
                 }
             }
+        applyLongSummaryHandling()
         }
     }
 
@@ -391,6 +460,7 @@ class SettingsActivity : AppCompatActivity(),
                 }
                 true
             }
+        applyLongSummaryHandling()
         }
     }
 
@@ -465,6 +535,7 @@ class SettingsActivity : AppCompatActivity(),
                     runExtraSearch(idx, isFrom, pref); true
                 }
             }
+        applyLongSummaryHandling()
         }
 
         private fun runStopSearch(idKey: String, nameKey: String, titleRes: Int, pref: Preference) {
@@ -589,6 +660,7 @@ class SettingsActivity : AppCompatActivity(),
                     .setNegativeButton(android.R.string.cancel, null).show()
                 true
             }
+        applyLongSummaryHandling()
         }
     }
 
@@ -605,6 +677,7 @@ class SettingsActivity : AppCompatActivity(),
             findPreference<Preference>("action_reset_appearance")?.setOnPreferenceClickListener {
                 resetAppearance(); true
             }
+        applyLongSummaryHandling()
         }
 
         private fun bindGridColumns() {
@@ -715,6 +788,7 @@ class SettingsActivity : AppCompatActivity(),
                 }
                 true
             }
+        applyLongSummaryHandling()
         }
     }
 
@@ -744,6 +818,7 @@ class SettingsActivity : AppCompatActivity(),
             bindEditText(PreferenceKeys.MOTION_TIME_END)
             bindEditText(PreferenceKeys.NIGHT_DIM_START)
             bindEditText(PreferenceKeys.NIGHT_DIM_END)
+        applyLongSummaryHandling()
         }
 
         private fun configureSeekBar(key: String, min: Int, max: Int, step: Int, unit: String) {
@@ -807,6 +882,7 @@ class SettingsActivity : AppCompatActivity(),
                 }
                 true
             }
+        applyLongSummaryHandling()
         }
 
         private fun updateTilesSummary() {

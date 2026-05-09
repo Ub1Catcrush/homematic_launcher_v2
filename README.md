@@ -8,59 +8,99 @@
 
 Ein Android-Launcher für die **HomeMatic CCU** (CCU2/CCU3/RaspberryMatic), der Raum- und Gerätestatus direkt auf dem Homescreen anzeigt — optimiert für Wandtablets und Kiosk-Displays.
 
+---
+
 ### Funktionen
 
 #### Raumübersicht
-- **Echtzeit-Übersicht** aller HomeMatic-Räume mit Temperatur, Luftfeuchtigkeit und Fensterstatus
+- **Echtzeit-Rasterübersicht** aller HomeMatic-Räume mit Temperatur, Luftfeuchtigkeit und Fensterstatus
 - **Farbige Fensterindikatoren**: Grün = geschlossen · Gold = gekippt · Rot = offen
 - **Schimmelwarnung**: Automatische Berechnung des absoluten Feuchtigkeitsgehalts mit Blinksignal
-- **LowBat / Sabotage / Störung**: Blinksignal mit Farb-Badge direkt im Raumkachel
+- **LowBat / Sabotage / Störung**: Blinkendes Farb-Badge direkt in der Raumkachel
 - **Etagensortierung**: UG → EG → OG → DG → Außenbereich
-- **Detailansicht**: Tap auf Raumkachel öffnet Bottom-Sheet mit allen Datenpunkten inkl. Zeitstempel und Profil-Analyse (★ = nicht im Profil)
+- **Detailansicht**: Tap auf Raumkachel öffnet Bottom-Sheet mit allen Datenpunkten, Zeitstempeln und Profil-Analyse (★ = nicht im Profil)
 - **Thermostat-Slider**: Langer Druck auf Solltemperatur öffnet Slider-Dialog; optimistische UI-Aktualisierung ohne Warten auf nächsten Sync
-- **Wetterkachel**: Optionale Kachel mit Tagesvorschau, -hoch/tief, Niederschlag
 
-#### Konnektivität & Sync
-- **Paralleles Laden**: Alle 4 CGI-Endpunkte gleichzeitig (~75 % schneller)
-- **Exponentieller Backoff**: Fehler-Retry mit Verdopplungsintervall (max 16×), Zustand überlebt Rotation
-- **Auto-Reload bei Reconnect**: Automatischer Refresh bei Netzwerkrückkehr
-- **Connectivity-Check**: WLAN-SSID, Verbindungstyp, letzter Sync-Zeitstempel in der Statusleiste
-- **Session-ID (SID)**: Authentifizierter Zugriff auf die CCU via `?sid=`-Parameter
-- **Selbstsignierte Zertifikate**: Optionales Trust-All für HTTPS mit eigenem Cert
+#### Home Assistant (HA) Integration
+- **Beliebig viele HA-Kacheln** konfigurierbar — jede Kachel hat eigenen Titel und eigene Datenpunkt-Liste
+- **Echtzeit-WebSocket-Verbindung** zu Home Assistant (WS-API)
+- **Entitäts-Auswahl mit Autocomplete**: Tippen für Vorschläge aus live HA-Datenpunkten, mit automatischer Befüllung von Name und Einheit
+- **Datenpunkte umsortierbar**: ↑↓-Buttons in der Listenansicht jeder Kachel
+- **Verbindungsstatus** direkt in der Kachel (Verbinde… / Authentifiziere… / Fehler)
 
 #### Kamera
 - **RTSP-Stream**: ExoPlayer mit automatischem Fallback auf Snapshot bei Verbindungsproblemen
 - **MJPEG-Snapshot**: Polling-Fallback mit konfigurierbarem Intervall
 - **Mute-Button**: Ton per Tap stummschalten/aktivieren (nur RTSP)
+- **Skalierungsmodi**: Center Crop, Fit, Fill (einstellbar)
+
+#### Bewegungserkennung
+- **Zwei unabhängige Quellen**, getrennt aktivierbar:
+  - **Webcam**: Analyiert den konfigurierten RTSP-Stream oder Snapshot-Feed per Pixel-Differenz-Algorithmus
+  - **Gerätekamera**: Frontkamera oder Rückkamera des Android-Geräts via CameraX
+- **Hintergrund-Betrieb**: Läuft als Foreground-Service weiter wenn Bildschirm aus oder App im Hintergrund
+- **Bildschirm aus Standby wecken**: `FULL_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP` weckt das Gerät physisch aus dem Tiefschlaf
+- **Konfigurierbarer Timeout**: Bildschirm bleibt nach Bewegung/Touch für einstellbare Zeit aktiv (System-Timeout überschrieben)
+- **Erkennungsbereich (ROI)**: Visueller Zonenpicker — per Drag-and-Drop Zone im Kamerabild festlegen
+- **Aktivzeiten**: Bewegungserkennung nur in definierten Uhrzeitfenstern aktiv (z.B. nur nachts)
+- **Algorithmus-Parameter** über Schieberegler einstellbar:
+  - Empfindlichkeit (1–30 % geänderte Pixel)
+  - Helligkeitsschwelle (1–80 Luma-Punkte)
+  - Analyseintervall (1–10 s)
+  - Sperrzeit zwischen Auslösungen (1–60 s)
+  - Hintergrundanpassung (0–20, verhindert Fehlauslösungen bei Beleuchtungsänderungen)
+
+#### Nacht-Dimmen
+- **Automatisches Abdunkeln** in einstellbarem Zeitfenster (z.B. 22:00–07:00)
+- **Helligkeit stufenlos einstellbar** (1–100 %, Empfehlung: 3–8 % für Nachtbetrieb)
+- **Übernacht-Fenster** korrekt unterstützt (z.B. 22:00–07:00)
 
 #### DB-Transit-Anzeige
-- **Echtzeit-Abfahrtsboard** via `v6.db.transport.rest` oder eigene self-hosted Instanz
+- **Echtzeit-Abfahrtsboard** via `v6.db.transport.rest` oder eigener Self-Hosted-Instanz
 - **4 Spalten**: Linie | Zeit | Verspätung/✓ | Umstieg-Info
-- **Transfers**: `+X` Umstiege in Spalte 1 (Fußwege nicht mitgezählt)
 - **Hin/Rück-Toggle**: Verbindungsrichtung per Tap umkehren
 - **Mehrere Verbindungen**: Bis zu 4 konfigurierbare Strecken, per `‹ ›` durchschalten
 - **Detailansicht**: Tap auf Verbindungszeile öffnet Bottom-Sheet mit Abfahrt/Ankunft je Etappe
-- **Tap auf Header**: Sofortiger manueller Refresh
-- **Konfigurierbarer API-Server**: Standard oder eigene Self-Hosting-URL
 
 #### Wetter
-- **OpenMeteo-Integration**: Tagesvorschau, Temperatur-Hoch/Tief, Niederschlag, Icon
-- **Anzeige-Modi**: Als Überlagerung über Kamera, als eigene Kachel im Rastermenü oder deaktiviert
+- **Open-Meteo-Integration**: Tagesvorschau, Temperatur-Hoch/Tief, Niederschlag, Icon
+- **Anzeige-Modi**: Als Überlagerung über Kamera, als eigene Kachel im Raster oder deaktiviert
 
 #### Layout & UI
 - **Portrait**: 2 Spalten, DB-Panel + Kamera untereinander
-- **Landscape**: 3–4 Spalten im Raster (ganze Breite), DB + Kamera nebeneinander unten
-- **Kompakte Toolbar**: 42 dp (Portrait) / 36 dp (Landscape), Launcher-Switch-Button in Menüleiste
+- **Landscape**: 3–4 Spalten (volle Breite), DB + Kamera nebeneinander unten
 - **Farbschema**: Hell, Dunkel oder Systemeinstellung — zur Laufzeit umschaltbar
 - **Anpassbare Farben & Schriftgrößen**: Über Einstellungen → Erscheinungsbild
-- **Launcher-Modus**: Kann als Standard-Home-App gesetzt werden (Kiosk)
-- **Launcher-Switch**: Wechsel zu einem zweiten Launcher per Toolbar-Button
+- **Launcher-Modus**: Als Standard-Home-App nutzbar (Kiosk)
 
-#### Architektur
-- **`HmRepository`-Interface**: `RoomAdapter`, `RoomDetailBottomSheet` und `MainActivity` greifen nicht mehr direkt auf den `HomeMatic`-Singleton zu, sondern über das `HmRepository`-Interface — ermöglicht Unit-Tests ohne CCU oder Android-Gerät
-- **`FakeHmRepository`**: Fertige Test-Double-Implementierung für Unit-Tests
-- **`DeviceProfile`**: Konfigurierbare Gerätezuordnung (Typen, Datenpunktfelder)
-- **`AppThemeHelper`**: Zentralisierte Farb- und Schriftgröße-Verwaltung
+#### Einstellungen & Sicherung
+- **Thematisch gegliederte Einstellungen**: 6 Hauptkategorien (Verbindung · Anzeige · Smart Home · Kamera & Erkennung · Infodienste · System)
+- **Schieberegler statt Texteingabe** für alle numerischen Parameter
+- **Vollständiger Export/Import**: Alle Einstellungen als JSON-Datei sichern und wiederherstellen
+- **Selektiver Import**: Beim Einspielen wählen welche Kategorien überschrieben werden (CCU-Zugangsdaten getrennt von Darstellungs-Einstellungen)
+- **Einstellungs-Format v2** mit Zeitstempel und Kategorisierung, rückwärtskompatibel mit v1
+
+---
+
+### Einstellungen-Übersicht
+
+Die Einstellungen sind in logische Bereiche aufgeteilt und über ⚙ in der Toolbar erreichbar:
+
+| Bereich | Inhalt |
+|---|---|
+| **CCU Verbindung** | Host, Port, HTTPS, API-Pfad, SID, Timeout, Zertifikate |
+| **Anzeige** | Farbschema, Bildschirm aktiv, Statusleiste, Raster-Spalten |
+| **Erscheinungsbild** | Farben, Schriftgrößen, Overlay-Transparenz |
+| **Home Assistant** | WebSocket-URL, Token, Kacheln verwalten (beliebig viele) |
+| **Benachrichtigungen** | Fenster offen, LowBat, Sabotage, Hintergrund |
+| **Kamera** | URLs, Zugangsdaten, Skalierung, Panel-Größe, Timeouts |
+| **Bewegungserkennung & Nacht** | Quellen, ROI, Aktivzeiten, Timeout, Algorithmus-Parameter, Nacht-Dimmen |
+| **Wetter** | Stadt/Koordinaten, Anzeigemodus, Aktualisierungsintervall |
+| **ÖPNV** | Strecken, API-Server, Haltestellen, Intervall |
+| **Erweitert** | Geräteprofil, Entwickleroptionen, Launcher |
+| **Einstellungen sichern** | Export / Import mit Kategorieauswahl |
+
+---
 
 ### Anforderungen
 
@@ -76,21 +116,6 @@ Ein Android-Launcher für die **HomeMatic CCU** (CCU2/CCU3/RaspberryMatic), der 
 2. XML-API installieren: https://github.com/homematic-community/XML-API
 3. Test: `http://<CCU-IP>/addons/xmlapi/devicelist.cgi`
 
-### Session-ID (SID)
-
-Wenn die CCU eine Authentifizierung verlangt:
-1. Über die CCU-WebUI oder die REST-API eine Session-ID (SID) erzeugen
-2. In den Einstellungen unter **CCU Verbindung → Session-ID** eintragen
-3. Die App hängt automatisch `?sid=<wert>` an alle XML-API-Aufrufe an
-
-### DB-Transit einrichten
-
-1. **Einstellungen → DB Transit → Aktivieren**
-2. **Von** und **Nach** per Live-Stationssuche setzen (Tipp-Suche, kein OK-Button nötig)
-3. Optional: Bis zu 3 weitere Verbindungen unter **Verbindung 2–4** konfigurieren
-4. Optional: **Relevante Zwischenstationen** für Umstieg-Anzeige (Spalte 4) hinzufügen
-5. Optional: **API-Server** auf eigene `db-rest`-Instanz umstellen (`http://192.168.x.x:3000`)
-
 ### Installation
 
 **APK direkt:**
@@ -104,60 +129,59 @@ git clone <repository-url>
 cd HomeMaticLauncher
 ./gradlew assembleRelease
 ```
-Voraussetzungen: Android Studio Hedgehog+, JDK 17, Android SDK 35
+Voraussetzungen: Android Studio Hedgehog+, JDK 17, Android SDK 36
 
-### Konfiguration
+### Bewegungserkennung einrichten
 
-Über das **Einstellungs-Symbol** (⚙) in der Toolbar:
+1. **Einstellungen → Bewegungserkennung & Nacht**
+2. **Quelle wählen**: Webcam (braucht konfigurierte Kamera-URL) und/oder Gerätekamera
+3. Gerätekamera: Kamera-Berechtigung wird beim ersten Aktivieren angefragt
+4. **Erkennungsbereich** (ROI): Per Zonenpicker den relevanten Bildbereich einzeichnen — z.B. nur Eingangsbereich, nicht das Fenster das sich im Wind bewegt
+5. **Empfindlichkeit** auf 8 belassen für den Einstieg, dann je nach Fehlauslösungsrate anpassen
+6. **Aktivzeiten** setzen wenn die Erkennung nur nachts aktiv sein soll
+7. App läuft auch bei gesperrtem Bildschirm weiter — eine persistente Benachrichtigung zeigt den Dienst an
 
-| Bereich | Einstellung | Standard |
-|---|---|---|
-| CCU | Hostname / IP | `homematic-ccu2` |
-| CCU | Port | leer (80/443) |
-| CCU | HTTPS | Aus |
-| CCU | API-Pfad | `/addons/xmlapi/` |
-| CCU | Timeout | 5 s |
-| CCU | Session-ID (SID) | leer |
-| Sync | Intervall | 30 s |
-| Sync | Auto-Reload bei Reconnect | An |
-| Anzeige | Farbschema | Systemeinstellung |
-| Anzeige | Bildschirm aktiv halten | An |
-| Kamera | RTSP-URL | leer |
-| Kamera | Snapshot-URL | leer |
-| Kamera | Fallback-Timeout | 10 s |
-| Transit | API-Server | `https://v6.db.transport.rest` |
-| Transit | Hin/Rück | Hinfahrt |
-| Wetter | Stadt oder Koordinaten | leer |
-| Entwickler | Testmodus | Aus |
+### Bekannte Einschränkungen
+
+- **Bildschirm ausschalten** per App erfordert Geräteadministrator-Rechte (noch nicht implementiert; die App zeigt stattdessen einen Hinweis)
+- **HTTPS mit selbstsigniertem Zertifikat**: Option „Selbstsignierte Zertifikate akzeptieren" in den Einstellungen aktivieren
+- Der öffentliche `v6.db.transport.rest`-Server hat ein niedriges Rate-Limit und kann unter Last 503 zurückgeben; Self-Hosting via Docker wird für zuverlässigen Betrieb empfohlen
+
+---
 
 ### Projektstruktur
 
 ```
 app/src/main/
 ├── java/com/tvcs/homematic/
-│   ├── MainActivity.kt              — Hauptscreen, Coroutines, Timer, Netzwerk
-│   ├── HomeMatic.kt                 — CCU-Abruf (parallel), XML-Parsing, Schimmelberechnung
-│   ├── HmRepository.kt             — Interface + Adapter + FakeHmRepository (Tests)
-│   ├── RoomAdapter.kt               — Raumkacheln via HmRepository (testbar)
-│   ├── RoomDetailBottomSheet.kt     — Datenpunkt-Detailansicht via HmRepository
-│   ├── DbTransitRepository.kt       — DB-REST API, Retry-Logik, URL-Encoding
-│   ├── DbTransitViewController.kt   — Transit-Panel, 4-Spalten-Layout, Hin/Rück
-│   ├── TransitDetailBottomSheet.kt  — Verbindungsdetails (Etappen, Zeiten)
-│   ├── CameraViewController.kt      — RTSP/Snapshot, Mute, Fallback
-│   ├── WeatherViewController.kt     — OpenMeteo-Integration, Kachel/Overlay
-│   ├── SettingsActivity.kt          — Einstellungen (PreferenceFragmentCompat)
-│   ├── NetworkUtils.kt              — Netzwerkstatus, WLAN-Info, CCU-Ping
-│   ├── AppThemeHelper.kt            — Farben, Schriftgrößen, Theme
-│   ├── PreferenceKeys.kt            — Alle Preference-Keys als Konstanten
-│   └── ...
-├── java/com/homematic/
-│   └── Models.kt                    — Kotlin-Datenklassen (Room, Device, Channel…)
-├── assets/                          — Test-XML-Dateien
+│   ├── MainActivity.kt                — Hauptscreen, Lifecycle, Netzwerk, Service-Orchestrierung
+│   ├── HomeMatic.kt                   — CCU-Abruf (parallel), XML-Parsing, Schimmelberechnung
+│   ├── HmRepository.kt                — Interface + FakeHmRepository (Tests)
+│   ├── RoomAdapter.kt                 — Raumkacheln, Multi-Kachel-Support (Wetter, HA, Transit)
+│   ├── HaTileViewController.kt        — HA-Kacheln, Multi-Instanz, HaTileConfig
+│   ├── HaRepository.kt                — HA WebSocket-Client, StateFlow, Reconnect
+│   ├── CameraViewController.kt        — RTSP/Snapshot, Mute, Fallback, PixelCopy-Sampling
+│   ├── MotionDetectionEngine.kt        — Pixel-Diff-Algorithmus, ROI, Adaption, Zeitfenster
+│   ├── MotionDetectionService.kt       — Foreground-Service für Hintergrund-Erkennung
+│   ├── MotionPrefsHelper.kt            — Einstellungen → Engine-Konfiguration
+│   ├── LocalCameraMotionSource.kt      — CameraX-Integration für Gerätekamera
+│   ├── ScreenWakeController.kt         — WakeLock, Window-Flags, Timeout-Timer
+│   ├── NightDimController.kt           — Uhrzeitbasiertes Display-Dimmen
+│   ├── RoiPickerPreference.kt          — Visueller Zonenpicker (Custom Preference)
+│   ├── SeekBarPreference.kt            — Schieberegler-Preference
+│   ├── WeatherViewController.kt        — Open-Meteo, Kachel/Overlay
+│   ├── DbTransitViewController.kt      — Transit-Panel, 4-Spalten-Layout
+│   ├── SettingsActivity.kt             — Alle Einstellungs-Fragments
+│   ├── ProfileExportImport.kt          — JSON-Export/Import mit Kategorien
+│   ├── AppThemeHelper.kt               — Farben, Schriftgrößen, Theme
+│   └── PreferenceKeys.kt               — Alle Preference-Keys als Konstanten
 └── res/
-    ├── layout/                      — Portrait-Layouts
-    ├── layout-land/                 — Landscape-Layouts (3–4 Spalten, DB+Cam nebeneinander)
-    ├── values/                      — Deutsche Strings (Standard)
-    └── values-en/                   — Englische Strings (automatisch auf EN-Geräten)
+    ├── xml/preferences_motion.xml      — Bewegungserkennung & Nacht (eigene Seite)
+    ├── xml/preferences_camera.xml      — Kamera (ohne Motion)
+    ├── xml/preferences_main.xml        — Navigation mit 6 Kategorien
+    ├── layout/pref_seekbar.xml         — SeekBar-Preference-Layout
+    ├── values/                          — Deutsche Strings (Standard)
+    └── values-en/                       — Englische Strings
 ```
 
 ### Technologie
@@ -166,14 +190,42 @@ app/src/main/
 |---|---|
 | Sprache | Kotlin (JVM 17) |
 | Min SDK | 26 (Android 8.0) |
-| Target SDK | 35 (Android 15) |
-| Build | Gradle 8.4 + AGP 8.2 |
-| Async | Kotlin Coroutines |
-| XML | Simple XML Framework 2.7.1 |
+| Target SDK | 36 (Android 16) |
+| Build | Gradle 8.x + AGP 8.x |
+| Async | Kotlin Coroutines + StateFlow |
 | Video | ExoPlayer / Media3 |
+| Kamera | CameraX 1.4 |
 | UI | Material3 DayNight |
-| Transit | db-rest / db-vendo-client REST API |
+| HA | WebSocket (OkHttp) |
+| Transit | db-rest REST API |
 | Wetter | Open-Meteo (kostenlos, kein API-Key) |
+
+---
+
+### Changelog
+
+#### v2.2.4 (aktuell)
+- **Bewegungserkennung aus Standby wecken**: `FULL_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP` im Foreground-Service weckt das Gerät physisch; `FLAG_KEEP_SCREEN_ON` hält es aktiv
+- **Vollständige Stabilität**: Alle Coroutinen mit korrektem `CancellationException`-Handling; alle Dialog-Aufrufe mit `isResumed`-Guard; alle Broadcast-/NetworkCallback-Pfade mit `isFinishing`/`isDestroyed`-Guard
+- **Neue Bewegungserkennungs-UX**: Eigene Einstellungsseite, Schieberegler für alle Parameter, visueller ROI-Zonenpicker per Drag-and-Drop
+- **Einstellungs-Navigation neu gegliedert**: 6 logische Hauptkategorien
+- **HA-Datenpunkte umsortierbar**: ↑↓-Buttons in allen Entity-Dialogen
+- **Export/Import komplett überarbeitet**: Kategorieauswahl beim Export und Import, Format v2 mit Zeitstempel
+
+#### v2.2.0
+- **Beliebig viele HA-Kacheln**: Multi-Kachel-Unterstützung mit eigenem Kachel-Manager-Dialog
+- **HA Entity Autocomplete**: Live-Vorschläge aus HA-Datenpunkten, automatische Befüllung von Name und Einheit
+- **Bewegungserkennung**: Zwei Quellen (Webcam + Gerätekamera), ROI, Aktivzeiten, adaptive Hintergrundanpassung, Nacht-Dimmen
+- **Foreground-Service**: Bewegungserkennung läuft auch bei gesperrtem Bildschirm
+
+#### v2.1.0
+- `HmRepository`-Interface, DB Transit komplett, Transit-Detail-Sheet, Kamera-Mute, Launcher-Switch, Landscape-Layout, Wetter-Kachel, Thermostat-Slider, paralleles CCU-Laden, Backoff
+
+#### v2.0.0
+- Vollständige Java → Kotlin Migration, AsyncTask → Coroutines, min SDK 26, Material3
+
+#### v1.0
+- Java, AsyncTask, Basis-Raum-/Temperatur-/Fensterstatus-Anzeige
 
 ---
 
@@ -183,59 +235,99 @@ app/src/main/
 
 An Android launcher for the **HomeMatic CCU** (CCU2/CCU3/RaspberryMatic) displaying room and device status directly on the home screen — optimised for wall tablets and kiosk displays.
 
+---
+
 ### Features
 
 #### Room Overview
 - **Real-time grid** of all HomeMatic rooms with temperature, humidity and window status
-- **Color-coded window indicators**: Green = closed · Gold = tilted · Red = open
+- **Colour-coded window indicators**: Green = closed · Gold = tilted · Red = open
 - **Mould warning**: Automatic absolute humidity calculation with blinking alert
-- **LowBat / Sabotage / Fault**: Blinking badge directly in the room tile
+- **LowBat / Sabotage / Fault**: Blinking colour badge directly in the room tile
 - **Floor sorting**: Basement → Ground → Upper → Attic → Outdoor
 - **Detail view**: Tap a room tile to open a bottom sheet with all data points, timestamps and profile analysis (★ = not in profile)
 - **Thermostat slider**: Long-press the set-temperature row for a slider dialog; optimistic UI update without waiting for the next sync
-- **Weather tile**: Optional tile showing today's forecast, high/low, precipitation
 
-#### Connectivity & Sync
-- **Parallel loading**: All 4 CGI endpoints fetched simultaneously (~75% faster)
-- **Exponential backoff**: Error retry with doubling interval (max 16×), state survives rotation
-- **Auto-reload on reconnect**: Automatic refresh when network returns
-- **Connectivity check**: Wi-Fi SSID, connection type, last sync timestamp in the status bar
-- **Session ID (SID)**: Authenticated CCU access via `?sid=` query parameter
-- **Self-signed certificates**: Optional trust-all for HTTPS with custom cert
+#### Home Assistant (HA) Integration
+- **Unlimited HA tiles** — each tile has its own title and entity list
+- **Real-time WebSocket connection** to Home Assistant
+- **Entity picker with autocomplete**: Type to get live suggestions from HA, with automatic name and unit fill-in
+- **Drag-to-reorder entities**: ↑↓ buttons on every row
+- **Connection status** shown inside the tile (Connecting… / Authenticating… / Error)
 
 #### Camera
 - **RTSP stream**: ExoPlayer with automatic fallback to snapshot on connection failure
 - **MJPEG snapshot**: Polling fallback with configurable interval
 - **Mute button**: Silence/restore audio with a tap (RTSP only)
+- **Scale modes**: Center Crop, Fit, Fill
+
+#### Motion Detection
+- **Two independent sources**, individually activatable:
+  - **Webcam**: Analyses the configured RTSP stream or snapshot feed via pixel-difference algorithm
+  - **Device camera**: Front or rear camera of the Android device via CameraX
+- **Background operation**: Runs as a Foreground Service when the screen is off or the app is in the background
+- **Wake from standby**: `FULL_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP` physically wakes the device from deep sleep
+- **Configurable timeout**: Screen stays on after motion/touch for a set duration (overrides system display timeout)
+- **Detection zone (ROI)**: Visual zone picker — drag to draw the active area in the camera frame
+- **Active time window**: Motion detection only active within configured hours (e.g. night-only)
+- **Algorithm parameters** via sliders:
+  - Sensitivity (1–30 % changed pixels)
+  - Brightness threshold (1–80 luma points)
+  - Analysis interval (1–10 s)
+  - Cooldown between triggers (1–60 s)
+  - Background adaptation (0–20, prevents false triggers on lighting changes)
+
+#### Night Dimming
+- **Automatic dimming** within a configurable time window (e.g. 22:00–07:00)
+- **Brightness adjustable** from 1–100 % (recommended: 3–8 % for night operation)
+- **Overnight windows** correctly supported (e.g. 22:00–07:00)
 
 #### DB Transit Display
 - **Real-time departure board** via `v6.db.transport.rest` or a self-hosted instance
 - **4 columns**: Line | Time | Delay/✓ | Transfer info
-- **Transfers**: `+X` count in column 1 (walking legs excluded)
 - **Outward/Return toggle**: Flip direction with a tap
 - **Multiple connections**: Up to 4 configurable routes, switchable via `‹ ›`
-- **Detail view**: Tap a departure row for a bottom sheet with per-leg departure and arrival times
-- **Tap header**: Immediate manual refresh
-- **Configurable API server**: Default public endpoint or custom self-hosted URL
+- **Detail view**: Tap a departure row for a bottom sheet with per-leg departure and arrival
 
 #### Weather
 - **Open-Meteo integration**: Daily forecast, high/low temperature, precipitation, icon
 - **Display modes**: Overlay on camera, tile in the room grid, or disabled
 
 #### Layout & UI
-- **Portrait**: 2 columns, DB panel + camera stacked vertically
-- **Landscape**: 3–4 columns (full width), DB + camera side by side at the bottom
-- **Compact toolbar**: 42 dp (portrait) / 36 dp (landscape), launcher-switch button in menu bar
-- **Color scheme**: Light, Dark, or System — switchable at runtime
-- **Customisable colors & font sizes**: via Settings → Appearance
+- **Portrait**: 2 columns, DB panel + camera stacked
+- **Landscape**: 3–4 columns (full width), DB + camera side by side
+- **Colour scheme**: Light, Dark, or System — switchable at runtime
+- **Customisable colours & font sizes**: via Settings → Appearance
 - **Launcher mode**: Can be set as the default home app (kiosk)
-- **Launcher switch**: Switch to a secondary launcher via toolbar button
 
-#### Architecture
-- **`HmRepository` interface**: `RoomAdapter`, `RoomDetailBottomSheet` and `MainActivity` no longer access the `HomeMatic` singleton directly — dependency injection via `HmRepository` enables unit testing without a real CCU or Android device
-- **`FakeHmRepository`**: Ready-to-use test double for unit tests
-- **`DeviceProfile`**: Configurable device-type-to-datapoint mapping
-- **`AppThemeHelper`**: Centralised color and font-size management
+#### Settings & Backup
+- **Logically organised settings**: 6 main categories (Connection · Display · Smart Home · Camera & Detection · Info Services · System)
+- **Sliders instead of text fields** for all numeric parameters
+- **Full Export/Import**: All settings as a JSON file
+- **Selective import**: Choose which categories to restore (keep CCU credentials, restore only appearance)
+- **Settings format v2** with timestamp and categories, backwards-compatible with v1
+
+---
+
+### Settings Overview
+
+Access via ⚙ in the toolbar:
+
+| Section | Contents |
+|---|---|
+| **CCU Connection** | Host, port, HTTPS, API path, SID, timeout, certificates |
+| **Display** | Colour scheme, keep screen on, status bar, grid columns |
+| **Appearance** | Colours, font sizes, overlay opacity |
+| **Home Assistant** | WebSocket URL, token, tile manager (unlimited tiles) |
+| **Notifications** | Window open, LowBat, sabotage, background |
+| **Camera** | URLs, credentials, scale mode, panel size, timeouts |
+| **Motion Detection & Night** | Sources, ROI, schedule, timeout, algorithm params, night dim |
+| **Weather** | City/coordinates, display mode, refresh interval |
+| **Public Transit** | Routes, API server, stops, interval |
+| **Advanced** | Device profile, developer options, launcher |
+| **Backup Settings** | Export / Import with category selection |
+
+---
 
 ### Requirements
 
@@ -251,27 +343,12 @@ An Android launcher for the **HomeMatic CCU** (CCU2/CCU3/RaspberryMatic) display
 2. Install XML-API: https://github.com/homematic-community/XML-API
 3. Test: `http://<CCU-IP>/addons/xmlapi/devicelist.cgi`
 
-### Session ID (SID)
-
-If your CCU requires authentication:
-1. Generate a session ID via the CCU web UI or REST API
-2. Enter it in **Settings → CCU Connection → Session ID**
-3. The app automatically appends `?sid=<value>` to all XML-API calls
-
-### DB Transit Setup
-
-1. **Settings → DB Transit → Enable**
-2. Set **From** and **To** via live station search (type-as-you-search, no OK button needed)
-3. Optionally configure up to 3 more routes under **Connection 2–4**
-4. Optionally add **Relevant intermediate stops** for the transfer column (column 4)
-5. Optionally point **API server** to a self-hosted `db-rest` instance (`http://192.168.x.x:3000`)
-
 ### Installation
 
 **Direct APK:**
 1. Download the release APK
 2. Enable **Settings → Security → Unknown sources**
-3. Install and set as default launcher (recommended for tablet kiosk use)
+3. Install and optionally set as default launcher (recommended for tablet kiosk)
 
 **From source:**
 ```bash
@@ -279,60 +356,59 @@ git clone <repository-url>
 cd HomeMaticLauncher
 ./gradlew assembleRelease
 ```
-Requirements: Android Studio Hedgehog+, JDK 17, Android SDK 35
+Requirements: Android Studio Hedgehog+, JDK 17, Android SDK 36
 
-### Configuration
+### Motion Detection Setup
 
-Via the **settings icon** (⚙) in the toolbar:
+1. **Settings → Motion Detection & Night**
+2. **Choose source(s)**: Webcam (requires camera URL) and/or device camera
+3. Device camera: Camera permission is requested on first enable
+4. **Detection zone** (ROI): Use the zone picker to draw the relevant area — e.g. doorway only, not the window that moves in wind
+5. **Sensitivity**: Start at 8, then adjust based on false trigger rate
+6. **Active times**: Set if detection should only run at night
+7. The app continues running with a persistent notification when the screen is locked
 
-| Section | Setting | Default |
-|---|---|---|
-| CCU | Hostname / IP | `homematic-ccu2` |
-| CCU | Port | empty (80/443) |
-| CCU | HTTPS | Off |
-| CCU | API path | `/addons/xmlapi/` |
-| CCU | Timeout | 5 s |
-| CCU | Session ID (SID) | empty |
-| Sync | Interval | 30 s |
-| Sync | Auto-reload on reconnect | On |
-| Display | Color scheme | System default |
-| Display | Keep screen on | On |
-| Camera | RTSP URL | empty |
-| Camera | Snapshot URL | empty |
-| Camera | Fallback timeout | 10 s |
-| Transit | API server | `https://v6.db.transport.rest` |
-| Transit | Direction | Outward |
-| Weather | City or coordinates | empty |
-| Developer | Test mode | Off |
+### Known Limitations
 
-### Architecture
+- **Screen off** via app requires Device Admin rights (not yet implemented; the app shows a hint instead)
+- **HTTPS with self-signed certificate**: Enable "Accept self-signed certificates" in settings
+- The public `v6.db.transport.rest` server has a low rate limit and may return 503 under load; self-hosting via Docker is recommended for reliable operation
+
+---
+
+### Project Structure
 
 ```
 app/src/main/
 ├── java/com/tvcs/homematic/
-│   ├── MainActivity.kt              — Main screen, coroutines, timer, network callbacks
-│   ├── HomeMatic.kt                 — CCU fetch (parallel), XML parsing, mould calculation
-│   ├── HmRepository.kt             — Interface + adapter + FakeHmRepository (tests)
-│   ├── RoomAdapter.kt               — Room tiles via HmRepository (unit-testable)
-│   ├── RoomDetailBottomSheet.kt     — Data-point detail view via HmRepository
-│   ├── DbTransitRepository.kt       — DB REST API, retry logic, URL encoding
-│   ├── DbTransitViewController.kt   — Transit panel, 4-column layout, direction toggle
-│   ├── TransitDetailBottomSheet.kt  — Journey details (legs, times)
-│   ├── CameraViewController.kt      — RTSP/snapshot, mute, fallback
-│   ├── WeatherViewController.kt     — Open-Meteo integration, tile/overlay
-│   ├── SettingsActivity.kt          — Settings (PreferenceFragmentCompat)
-│   ├── NetworkUtils.kt              — Network status, Wi-Fi info, CCU ping
-│   ├── AppThemeHelper.kt            — Colors, font sizes, theme
-│   ├── PreferenceKeys.kt            — All preference keys as constants
-│   └── ...
-├── java/com/homematic/
-│   └── Models.kt                    — Kotlin data classes (Room, Device, Channel…)
-├── assets/                          — Test XML files
+│   ├── MainActivity.kt                — Main screen, lifecycle, network, service orchestration
+│   ├── HomeMatic.kt                   — CCU fetch (parallel), XML parsing, mould calculation
+│   ├── HmRepository.kt                — Interface + FakeHmRepository (tests)
+│   ├── RoomAdapter.kt                 — Room tiles, multi-tile support (weather, HA, transit)
+│   ├── HaTileViewController.kt        — HA tiles, multi-instance, HaTileConfig
+│   ├── HaRepository.kt                — HA WebSocket client, StateFlow, reconnect
+│   ├── CameraViewController.kt        — RTSP/snapshot, mute, fallback, PixelCopy sampling
+│   ├── MotionDetectionEngine.kt        — Pixel-diff algorithm, ROI, adaptation, time window
+│   ├── MotionDetectionService.kt       — Foreground service for background detection
+│   ├── MotionPrefsHelper.kt            — Settings → engine configuration
+│   ├── LocalCameraMotionSource.kt      — CameraX integration for device camera
+│   ├── ScreenWakeController.kt         — WakeLock, window flags, inactivity timer
+│   ├── NightDimController.kt           — Time-based display dimming
+│   ├── RoiPickerPreference.kt          — Visual zone picker (custom Preference)
+│   ├── SeekBarPreference.kt            — Slider preference
+│   ├── WeatherViewController.kt        — Open-Meteo, tile/overlay
+│   ├── DbTransitViewController.kt      — Transit panel, 4-column layout
+│   ├── SettingsActivity.kt             — All settings fragments
+│   ├── ProfileExportImport.kt          — JSON export/import with categories
+│   ├── AppThemeHelper.kt               — Colours, font sizes, theme
+│   └── PreferenceKeys.kt               — All preference keys as constants
 └── res/
-    ├── layout/                      — Portrait layouts
-    ├── layout-land/                 — Landscape layouts (3–4 cols, DB+cam side by side)
-    ├── values/                      — German strings (default)
-    └── values-en/                   — English strings (auto-selected on EN devices)
+    ├── xml/preferences_motion.xml      — Motion detection & night (own page)
+    ├── xml/preferences_camera.xml      — Camera (without motion)
+    ├── xml/preferences_main.xml        — Navigation with 6 categories
+    ├── layout/pref_seekbar.xml         — SeekBar preference layout
+    ├── values/                          — German strings (default)
+    └── values-en/                       — English strings
 ```
 
 ### Tech Stack
@@ -341,50 +417,39 @@ app/src/main/
 |---|---|
 | Language | Kotlin (JVM 17) |
 | Min SDK | 26 (Android 8.0) |
-| Target SDK | 35 (Android 15) |
-| Build | Gradle 8.4 + AGP 8.2 |
-| Async | Kotlin Coroutines |
-| XML | Simple XML Framework 2.7.1 |
+| Target SDK | 36 (Android 16) |
+| Build | Gradle 8.x + AGP 8.x |
+| Async | Kotlin Coroutines + StateFlow |
 | Video | ExoPlayer / Media3 |
+| Camera | CameraX 1.4 |
 | UI | Material3 DayNight |
-| Transit | db-rest / db-vendo-client REST API |
-| Weather | Open-Meteo (free, no API key required) |
-
-### Known Limitations
-
-- **Screen off** requires Device Admin rights (not yet implemented; the app shows a hint instead)
-- **HTTPS with self-signed certificate**: Enable the trust-self-signed option in settings — the cert does not need to be in the system trust store
-- The public `v6.db.transport.rest` instance has a low rate limit and may return 503 under load; self-hosting `db-rest` via Docker is recommended for reliable operation
+| HA | WebSocket (OkHttp) |
+| Transit | db-rest REST API |
+| Weather | Open-Meteo (free, no API key) |
 
 ---
 
 ### Changelog
 
-#### v2.1.0 (current)
-- **`HmRepository` interface** — `RoomAdapter`, `RoomDetailBottomSheet` and `MainActivity` fully decoupled from `HomeMatic` singleton; `FakeHmRepository` test double included
-- **DB Transit** — full departure board with 4 aligned columns, Hin/Rück toggle, up to 4 connections, live station search (type-as-you-search, no second dialog), self-hosted API server option, Retry + exponential backoff, `%20` URL encoding fix
-- **Transit detail sheet** — per-leg origin/destination with planned + realtime times and delay badges
-- **Transit header tap** — manual refresh on tap
-- **Camera mute button** — inline ImageButton, visible only during RTSP playback, state survives reconnects
-- **Launcher switch in toolbar** — FABs removed; launcher-switch icon added to menu bar
-- **Landscape layout** — room grid fills full width (3–4 columns), DB + camera side by side below
-- **Compact toolbar** — 42 dp portrait / 36 dp landscape; thinner status strip
-- **Weather tile** — proper `getItemViewType()` instead of position-0 hack; rooms keep their original positions
-- **Optimistic thermostat update** — tile reflects new setpoint immediately via `optimisticSetTemp()`
-- **Backoff state survives rotation** — `backoffMultiplier` persisted in `onSaveInstanceState`
-- **`switchSummary` deduplicated** — shared top-level `sharedSwitchSummary()` function
-- **`R.xml.preferences_main` fix** — corrected resource reference in `SettingsFragment`
-- **`minimumWidth` fix** — `LinearLayout.minimumWidth` instead of non-existent `minWidth`
-- **Missing transit pref keys** — `TRANSIT_BASE_URL`, `TRANSIT_EXTRA_CONNECTIONS`, `TRANSIT_REFRESH_INTERVAL` added to change listener
-- **Weather panel wired** — `WeatherViewController` now receives the real `camera_panel` view
-- **Status text** — `maxLines=1` + `ellipsize=end` prevents clipping on long error messages
-- **SID support, parallel CCU fetching, gear FAB → settings icon, Light/Dark/System theme, bilingual README
-- **Timer reset fix, `PreferenceKeys.kt`, `getCcuBaseUrl()` refactor, sync timestamp
-- **Multiple concurrency and API deprecation fixes, SP text sizes, all strings in `strings.xml`
-- **And more
+#### v2.2.4 (current)
+- **Wake from standby**: `FULL_WAKE_LOCK + ACQUIRE_CAUSES_WAKEUP` in the Foreground Service physically wakes the device; `FLAG_KEEP_SCREEN_ON` keeps it awake
+- **Full stability pass**: All coroutines with correct `CancellationException` propagation; all dialog calls guarded by `isResumed`; all broadcast/NetworkCallback paths guarded by `isFinishing`/`isDestroyed`
+- **New motion detection UX**: Dedicated settings page, sliders for all parameters, visual ROI zone picker
+- **Settings navigation reorganised**: 6 logical main categories
+- **HA entity reordering**: ↑↓ buttons in all entity list dialogs
+- **Export/Import redesigned**: Category selection on export and import, format v2 with timestamp
+
+#### v2.2.0
+- **Unlimited HA tiles**: Multi-tile support with tile manager dialog
+- **HA entity autocomplete**: Live suggestions from HA with automatic name and unit fill
+- **Motion detection**: Two sources (webcam + device camera), ROI, time windows, adaptive background, night dimming
+- **Foreground service**: Motion detection continues with screen locked
+
+#### v2.1.0
+- `HmRepository` interface, full DB Transit, transit detail sheet, camera mute, launcher switch, landscape layout, weather tile, thermostat slider, parallel CCU loading, backoff
 
 #### v2.0.0
-- Full Java → Kotlin, AsyncTask → Coroutines, min SDK 26, Material3, status bar
+- Full Java → Kotlin migration, AsyncTask → Coroutines, min SDK 26, Material3
 
 #### v1.0
 - Java, AsyncTask, basic room/temperature/window display

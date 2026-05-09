@@ -55,11 +55,9 @@ object WeatherRepository {
 
     suspend fun getForecast(lat: Double, lon: Double): Result<WeatherForecast> =
         withContext(Dispatchers.IO) {
-            val url = FORECAST_URL.format(
-                java.util.Locale.US, // Erzwingt den Punkt als Dezimaltrenner
-                "%.4f".format(java.util.Locale.US, lat),
-                "%.4f".format(java.util.Locale.US, lon)
-            )
+            val latStr = "%.4f".format(java.util.Locale.US, lat)
+            val lonStr = "%.4f".format(java.util.Locale.US, lon)
+            val url = FORECAST_URL.format(latStr, lonStr)
             try {
                 val body = get(url)
                 val root = JSONObject(body)

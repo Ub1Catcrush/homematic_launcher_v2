@@ -406,7 +406,8 @@ object HomeMatic {
             val sid       = p.getString(PreferenceKeys.CCU_SID, "") ?: ""
             val timeoutMs = (p.getString(PreferenceKeys.CONNECTION_TIMEOUT, "5")?.toIntOrNull() ?: 5) * 1000
             val trustSelf = p.getBoolean(PreferenceKeys.CCU_TRUST_SELF_SIGNED, false)
-            val url       = appendSid("${baseUrl}setValue.cgi?ise_id=$iseId&value=$value", sid)
+            val encodedValue = java.net.URLEncoder.encode(value, "UTF-8")
+            val url       = appendSid("${baseUrl}setValue.cgi?ise_id=$iseId&value=$encodedValue", sid)
 
             Log.d(TAG, "setValue: ise_id=$iseId value=$value")
             return@withContext try {

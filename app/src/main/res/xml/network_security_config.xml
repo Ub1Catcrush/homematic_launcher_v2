@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Config
+    ─────────────────────────────────────────────────────────────────────────
+    Cleartext (HTTP) traffic is blocked by default on Android 9+.
+    This app communicates exclusively with local-network devices:
+      • HomeMatic CCU  — HTTP or HTTPS, local IP address
+      • Camera streams — RTSP (rtsp://) and HTTP snapshot URLs, local IP
+      • DB transit API — HTTPS (public), or HTTP for self-hosted instances
+      • Home Assistant — ws:// or wss://, local IP
+
+    Android's <domain-config> does NOT match raw IP addresses — only hostnames.
+    Using <base-config cleartextTrafficPermitted="true"> is therefore the only
+    correct way to allow HTTP to local IPs like 192.168.x.x, 10.x.x.x, etc.
+
+    All sensitive credentials (CCU SID, HA token) are short-lived or stored
+    only in SharedPreferences; the threat model for a local-network launcher
+    does not require TLS enforcement at the OS level.
+-->
+<network-security-config>
+
+    <!-- Allow cleartext for all destinations (LAN-only app, IP addresses
+         cannot be whitelisted via <domain-config> in Android NSC). -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Allow user-installed CAs for self-signed CCU/HA certificates -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+
+</network-security-config>
+

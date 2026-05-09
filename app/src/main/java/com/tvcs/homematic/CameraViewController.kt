@@ -69,7 +69,7 @@ class CameraViewController(
 
     private val prefs     = PreferenceManager.getDefaultSharedPreferences(context)
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val ioScope   = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var ioScope   = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /**
      * Optional callback fired on the main thread whenever motion is detected.
@@ -92,6 +92,13 @@ class CameraViewController(
     private var started         = false
     private var rtspFailReason: String? = null
     private var isMuted         = false
+    /**
+     * Set to true when RTSP fails with an unrecoverable SDP/codec error
+     * (e.g. "missing attribute fmtp"). In that case we skip RTSP entirely
+     * for the rest of this session and go straight to snapshot.
+     * Reset when the user explicitly changes camera settings.
+     */
+    private var rtspPermanentlyFailed = false
 
     // ── Mute toggle (public so MainActivity can wire the button if needed) ────
     fun toggleMute() {
@@ -117,12 +124,19 @@ class CameraViewController(
     @MainThread
     fun start() {
         if (!isEnabled()) { hide(); return }
+        // Recreate scope if cancelled by a previous onDestroy (e.g. config change)
+        if (!ioScope.isActive) ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         show()
         started = true
         inSnapshotMode = false
         rtspFailReason = null
         applyMotionPrefs()
-        startRtsp()
+        if (rtspPermanentlyFailed) {
+            Log.w(TAG, "Skipping RTSP — unrecoverable SDP error in previous attempt")
+            fallbackToSnapshot(rtspFailReason ?: "RTSP SDP error")
+        } else {
+            startRtsp()
+        }
     }
 
     @MainThread
@@ -138,6 +152,7 @@ class CameraViewController(
 
     fun applyPrefsChange() {
         if (!started) return
+        rtspPermanentlyFailed = false   // user may have fixed the URL/camera
         stop()
         start()
     }
@@ -181,8 +196,9 @@ class CameraViewController(
         releasePlayer()
 
         val renderersFactory = DefaultRenderersFactory(context)
-            .setEnableDecoderFallback(true) // Versucht alternative Decoder bei Fehlern
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setEnableDecoderFallback(true)
+            // OFF avoids blocking codec scan on main thread (prevents ANR)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
         val player = ExoPlayer.Builder(context)
             .setRenderersFactory(renderersFactory)
@@ -194,7 +210,11 @@ class CameraViewController(
         snapshotView.visibility = View.GONE
 
         val source = RtspMediaSource.Factory()
-            .setForceUseRtpTcp(true)    // TCP avoids UDP packet-loss AND fixes NPE in RtspClient response parsing
+            // TCP tunneling is more robust than UDP for cameras that omit optional
+            // SDP attributes like "fmtp" — ExoPlayer's RTSP parser throws
+            // IllegalArgumentException("missing attribute fmtp") for some H.264
+            // Baseline streams over UDP. TCP also handles NAT traversal better.
+            .setForceUseRtpTcp(true)
             .createMediaSource(MediaItem.fromUri(rtspUrl.toUri()))
 
         player.addListener(object : Player.Listener {
@@ -209,17 +229,37 @@ class CameraViewController(
                     Player.STATE_BUFFERING ->
                         setStatus(context.getString(R.string.camera_status_buffering))
                     Player.STATE_ENDED ->
-                        fallbackToSnapshot("RTSP stream ended")
+                        mainHandler.post { if (started && !inSnapshotMode) fallbackToSnapshot("RTSP stream ended") }
                     else -> { /* IDLE — ignore */ }
                 }
             }
             override fun onPlayerError(error: PlaybackException) {
-                // Catch-all: ExoPlayer can throw NPEs from RtspClient internals
-                // (e.g. checkNotNull in RtspClient$MessageListener.handleRtspResponse)
-                val msg = error.message ?: error.cause?.message ?: "RTSP error"
+                val cause = error.cause
+                val msg   = error.message ?: cause?.message ?: "RTSP error"
                 Log.w(TAG, "RTSP player error: $msg", error)
-                try { fallbackToSnapshot(msg) } catch (t: Throwable) {
-                    Log.e(TAG, "fallbackToSnapshot itself threw", t)
+
+                // Detect unrecoverable SDP/codec errors that will fail on every retry.
+                // "missing attribute fmtp" means the camera's SDP is incompatible with
+                // ExoPlayer's strict parser — retrying is pointless.
+                val isUnrecoverable = cause?.message?.contains("missing attribute", ignoreCase = true) == true
+                    || cause?.message?.contains("fmtp", ignoreCase = true) == true
+                    || cause?.message?.contains("IllegalArgumentException", ignoreCase = true) == true
+                    || (cause?.cause?.message?.contains("missing attribute", ignoreCase = true) == true)
+                if (isUnrecoverable) {
+                    Log.e(TAG, "Unrecoverable RTSP SDP error — disabling RTSP for this session")
+                    rtspPermanentlyFailed = true
+                }
+
+                // IMPORTANT: Do NOT call fallbackToSnapshot() directly inside an ExoPlayer
+                // listener callback. ExoPlayer may still be processing its internal state
+                // machine; calling releasePlayer() synchronously here can deadlock.
+                // Post to the next Looper cycle so ExoPlayer finishes its callback chain first.
+                mainHandler.post {
+                    if (started && !inSnapshotMode) {
+                        try { fallbackToSnapshot(msg) } catch (t: Throwable) {
+                            Log.e(TAG, "fallbackToSnapshot threw: ${t.message}", t)
+                        }
+                    }
                 }
             }
             // Hide the PlayerView once we get the first rendered frame

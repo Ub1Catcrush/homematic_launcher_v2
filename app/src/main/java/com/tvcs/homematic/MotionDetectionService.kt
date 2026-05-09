@@ -258,8 +258,8 @@ class MotionDetectionService : LifecycleService() {
     private fun stopAllSources() {
         localCameraSource?.stop()
         localCameraSource = null
-        webcamJob?.cancel()
-        webcamJob = null
+        val job = webcamJob; webcamJob = null
+        job?.cancel()
         webcamMotionEngine?.enabled = false
         webcamMotionEngine = null
     }

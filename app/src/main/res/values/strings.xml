@@ -798,5 +798,18 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="roi_picker_title">Erkennungszone festlegen</string>
     <string name="roi_picker_hint">Ziehen zum Zeichnen der Zone · Ecken verschieben zum Anpassen · Innenbereich verschieben</string>
     <string name="roi_reset">Zurücksetzen (ganzes Bild)</string>
-    <string name="pref_summary_night_dim_brightness_detail" formatted="false">1% = fast dunkel. 30% = deutlich gedimmt. 100% = keine Änderung. Empfehlung: 3–8% für Nachtbetrieb.</string>
+    <string name="pref_summary_night_dim_brightness_detail">1% = fast dunkel. 30% = deutlich gedimmt. 100% = keine Änderung. Empfehlung: 3–8% für Nachtbetrieb.</string>
+    <string name="export_cat_launcher">Launcher &amp; Test</string>
+
+    <string name="about_title">Über HomeMatic Launcher</string>
+    <string name="about_message">Version %1$s
+
+Ein Android-Launcher für die HomeMatic CCU.
+
+Daten: Open-Meteo (Wetter), DB REST API (ÖPNV)
+
+Kein Tracking · Keine Werbung · Open Source</string>
+    <string name="pref_title_about">Über die App</string>
+    <string name="pref_summary_about">Version, Lizenzen und Informationen</string>
+    <string name="export_credential_warning">⚠ Der Export kann vertrauliche Daten enthalten (CCU-SID, HA-Token, Kamera-Passwort). Bewahre die Datei sicher auf.</string>
 </resources>

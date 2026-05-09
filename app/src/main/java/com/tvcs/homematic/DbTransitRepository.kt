@@ -11,6 +11,7 @@ import java.net.URLEncoder
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 object DbTransitRepository {
@@ -248,9 +249,20 @@ object DbTransitRepository {
         return RawResult.Err(lastError)
     }
 
-    private fun parseTime(iso: String, fmt: DateTimeFormatter): String =
-        if (iso.isBlank()) "" else
-        try { fmt.format(Instant.parse(iso)) } catch (_: Exception) { iso.take(5) }
+    private fun parseTime(iso: String, fmt: DateTimeFormatter): String {
+        if (iso.isBlank()) return ""
+        return try {
+            // Explicitly convert Instant → ZonedDateTime before formatting.
+            // Calling fmt.format(Instant) directly is unreliable on Android 10
+            // (API 29) with the desugared java.time — it may output the date
+            // instead of the time. ZonedDateTime.ofInstant() is always correct.
+            val zdt = ZonedDateTime.ofInstant(Instant.parse(iso), ZoneId.systemDefault())
+            fmt.format(zdt)
+        } catch (_: Exception) {
+            // Fallback: API returns "HH:mm" directly on some endpoints
+            iso.take(5)
+        }
+    }
 
     private fun get(url: String): String {
         Log.d(TAG, "GET $url")

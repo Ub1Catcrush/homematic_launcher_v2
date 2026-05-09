@@ -89,6 +89,11 @@
             android:summary="@string/pref_summary_settings_import"
             android:icon="@drawable/ic_info_black_24dp" />
 
+        <Preference android:key="action_about"
+            android:title="@string/pref_title_about"
+            android:summary="@string/pref_summary_about"
+            android:icon="@drawable/ic_info_black_24dp" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

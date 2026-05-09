@@ -287,7 +287,10 @@ class HaTileViewController(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                setStretchAllColumns(true)
+                setStretchAllColumns(false)
+                setColumnStretchable(0, true)   // label column stretches
+                setColumnShrinkable(0, true)    // label shrinks first under pressure
+                setColumnShrinkable(1, false)   // value column never clips numbers
             }
 
             if (rows.isEmpty()) {
@@ -320,17 +323,41 @@ class HaTileViewController(
         label: String, value: String,
         textSp: Float, labelColor: Int, valueColor: Int
     ): TableRow = TableRow(context).apply {
-        val tv1 = TextView(context).apply {
-            text = label
-            setTextColor(labelColor)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, textSp)
-            layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f)
+        val dp      = context.resources.displayMetrics.density
+        val spacing = (8 * dp).toInt()   // min gap between label and value
+
+        // Pre-measure value text so we can reserve the exact width needed —
+        // no wasted gap on the right, no premature line-break on the left.
+        val valuePaint = android.graphics.Paint().apply {
+            textSize = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP,
+                textSp,
+                context.resources.displayMetrics
+            )
         }
+        val valueNatural  = valuePaint.measureText(value).toInt()
+        val valueMinWidth = (28 * dp).toInt()
+        val valueWidth    = maxOf(valueNatural, valueMinWidth) + spacing
+
+        // Value: fixed width, right-aligned, never shrinks
         val tv2 = TextView(context).apply {
-            text = value
+            text      = value
             setTextColor(valueColor)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, textSp)
-            gravity = Gravity.END
+            gravity   = Gravity.END
+            maxLines  = 1
+            setSingleLine()
+            layoutParams = TableRow.LayoutParams(valueWidth, TableRow.LayoutParams.WRAP_CONTENT)
+        }
+
+        // Label: takes all remaining space, ellipsizes if still too long
+        val tv1 = TextView(context).apply {
+            text      = label
+            setTextColor(labelColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, textSp)
+            maxLines  = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+            layoutParams = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f)
         }
         addView(tv1); addView(tv2)
     }

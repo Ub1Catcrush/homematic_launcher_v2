@@ -679,12 +679,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_title_motion_time_start">Active from (HH:MM)</string>
     <string name="pref_title_motion_time_end">Active until (HH:MM)</string>
     <string name="pref_summary_motion_time">Leave empty for always active. Night window e.g. 22:00 / 07:00</string>
-    <string name="pref_summary_motion_sensitivity_detail">How many percent of the pixels must change for motion to be detected. Small (3–8) = very sensitive, reacts to minimal movement. Large (15–30) = only detects clear movements.</string>
-    <string name="pref_summary_motion_wake_timeout_detail">The screen stays on for this duration after the last motion or touch. After that, the system display setting takes over.</string>
-    <string name="pref_summary_motion_luma_detail">How much the brightness of a pixel must change for it to count as movement (1–80). Lower value (10–15) = sensitive but prone to noise. Higher value (25–40) = only clear contrasts, robust in poor lighting.</string>
-    <string name="pref_summary_motion_cooldown_detail">Minimum delay between two triggers. Prevents constant retriggering during continuous movement.</string>
-    <string name="pref_summary_motion_interval_detail">How often per second an image is analyzed. 1 s = fast reaction. 2–3 s = power‑saving for night mode.</string>
-    <string name="pref_summary_motion_adaptation_detail">0 = fixed reference frame (ideal for static cameras). 5 = slowly adapts to lighting changes (default, prevents constant triggering from clouds/sun changes). 15–20 = fast adaptation, learns moving objects into the background.</string>
+
     <string name="export_cat_ccu">CCU Connection</string>
     <string name="export_cat_profile">Device Profile</string>
     <string name="export_cat_appearance">Appearance &amp; Layout</string>
@@ -715,6 +710,12 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_nav_motion">Motion Detection &amp; Night</string>
     <string name="pref_nav_motion_summary">Webcam, device camera, screen wake, night dimming</string>
     <string name="pref_category_camera_auth">Credentials</string>
+    <string name="pref_summary_motion_sensitivity_detail">Percentage of pixels that must change to count as motion. Low (3–8) = very sensitive, reacts to small movement. High (15–30) = only strong movement triggers.</string>
+    <string name="pref_summary_motion_wake_timeout_detail">Screen stays on for this long after the last motion or touch. After that, the system display timeout takes over.</string>
+    <string name="pref_summary_motion_luma_detail">How much a pixel\'s brightness must change to count as moved (1–80). Low (10–15) = sensitive but prone to noise. High (25–40) = only clear contrasts, robust in poor lighting.</string>
+    <string name="pref_summary_motion_cooldown_detail">Minimum gap between two triggers. Prevents repeated triggers during ongoing motion.</string>
+    <string name="pref_summary_motion_interval_detail">How often a frame is analysed. 1 s = fast response. 2–3 s = battery-saving for night operation.</string>
+    <string name="pref_summary_motion_adaptation_detail">0 = static reference frame (ideal for fixed cameras). 5 = slowly adapts to lighting changes (default, prevents false triggers from clouds). 15–20 = fast adaptation, learns moving objects into background.</string>
     <string name="pref_category_motion_roi">Detection Zone</string>
     <string name="pref_category_motion_schedule">Active Times</string>
     <string name="pref_category_motion_expert">Fine Tuning (Expert)</string>
@@ -723,5 +724,18 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="roi_picker_title">Set detection zone</string>
     <string name="roi_picker_hint">Drag to draw zone · Move corners to adjust · Drag inside to move</string>
     <string name="roi_reset">Reset (full frame)</string>
-    <string name="pref_summary_night_dim_brightness_detail" formatted="false">1% = nearly dark. 30% = noticeably dimmed. 100% = no change. Recommended: 3–8% for night operation.</string>
+    <string name="pref_summary_night_dim_brightness_detail">1% = nearly dark. 30% = noticeably dimmed. 100% = no change. Recommended: 3–8% for night operation.</string>
+    <string name="export_cat_launcher">Launcher &amp; Test</string>
+
+    <string name="about_title">About HomeMatic Launcher</string>
+    <string name="about_message">Version %1$s
+
+An Android launcher for the HomeMatic CCU.
+
+Data: Open-Meteo (weather), DB REST API (transit)
+
+No tracking · No ads · Open source</string>
+    <string name="pref_title_about">About</string>
+    <string name="pref_summary_about">Version, licenses and information</string>
+    <string name="export_credential_warning">⚠ The export may contain sensitive data (CCU SID, HA token, camera password). Store the file securely.</string>
 </resources>

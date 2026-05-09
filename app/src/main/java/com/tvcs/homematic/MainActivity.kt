@@ -165,10 +165,10 @@ class MainActivity : AppCompatActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val contentBelow = sharedPreferences.getBoolean(PreferenceKeys.CONTENT_BELOW_STATUS_BAR, true)
-        applyEdgeToEdge(contentBelow)
-        applySystemBarVisibility()
-
+        // WindowCompat.setDecorFitsSystemWindows must be called BEFORE setContentView
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
+        applyEdgeToEdge(contentBelow)
         applySystemBarVisibility()
 
         toolbar = findViewById(R.id.toolbar)
@@ -348,8 +348,8 @@ class MainActivity : AppCompatActivity() {
      *   4. Show/hide status bar and nav bar according to preferences.
      */
     private fun applyEdgeToEdge(contentBelow: Boolean) {
-        // Always opt-in to edge-to-edge so we control every inset ourselves
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        // WindowCompat.setDecorFitsSystemWindows is called in onCreate before setContentView.
+        // Here we only set up the inset listener on the already-inflated view hierarchy.
 
         val root        = findViewById<View>(R.id.activity_main) ?: return
         val rootVg      = root as? android.view.ViewGroup
@@ -400,12 +400,30 @@ class MainActivity : AppCompatActivity() {
             }
         } else @Suppress("DEPRECATION") {
             var flags = window.decorView.systemUiVisibility
+            // Always keep layout-stable flags to avoid content jumping
+            flags = flags or
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
             flags = if (showStatus) flags and android.view.View.SYSTEM_UI_FLAG_FULLSCREEN.inv()
                     else flags or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
-            flags = if (showNav)   flags and android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION.inv()
-                    else flags or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            flags = if (showNav)   flags and (android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                                              android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY).inv()
+                    else flags or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                                  android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             window.decorView.systemUiVisibility = flags
         }
+    }
+
+    // ── Immersive mode: re-hide bars after Android temporarily shows them on touch ──
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Re-apply immersive flags after window regains focus (e.g. after dialog dismiss).
+        // Use post() to defer until after the current input event is fully dispatched —
+        // calling applySystemBarVisibility() synchronously here can block the input
+        // dispatcher on Android 10 and cause ANR ("Channel is unrecoverably broken").
+        if (hasFocus) window.decorView.post { applySystemBarVisibility() }
     }
 
     // ── Status bar ────────────────────────────────────────────────────────────
