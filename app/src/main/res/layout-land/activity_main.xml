@@ -143,11 +143,21 @@
                     app:use_controller="false"
                     app:resize_mode="fixed_width" />
 
-                <org.videolan.libvlc.util.VLCVideoLayout
-                    android:id="@+id/camera_vlc_view"
+                <!-- VLC wrapper: fixed height clips VLC's MATCH_PARENT internal surface -->
+                <FrameLayout
+                    android:id="@+id/camera_vlc_container"
                     android:layout_width="match_parent"
                     android:layout_height="120dp"
-                    android:visibility="gone" />
+                    android:visibility="gone"
+                    android:clipChildren="true">
+
+                    <org.videolan.libvlc.util.VLCVideoLayout
+                        android:id="@+id/camera_vlc_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="center" />
+
+                </FrameLayout>
 
                 <ImageView
                     android:id="@+id/camera_snapshot_view"

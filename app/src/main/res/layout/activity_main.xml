@@ -114,12 +114,23 @@
                 app:use_controller="false"
                 app:resize_mode="fixed_width" />
 
-            <!-- libVLC surface for RTSP — Tier 2 engine -->
-            <org.videolan.libvlc.util.VLCVideoLayout
-                android:id="@+id/camera_vlc_view"
+            <!-- libVLC surface for RTSP — Tier 2 engine.
+                 Wrapped in a fixed-height FrameLayout so that libVLC's internal
+                 MATCH_PARENT SurfaceView cannot expand beyond the camera panel. -->
+            <FrameLayout
+                android:id="@+id/camera_vlc_container"
                 android:layout_width="match_parent"
                 android:layout_height="180dp"
-                android:visibility="gone" />
+                android:visibility="gone"
+                android:clipChildren="true">
+
+                <org.videolan.libvlc.util.VLCVideoLayout
+                    android:id="@+id/camera_vlc_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="center" />
+
+            </FrameLayout>
 
             <!-- ImageView for MJPEG snapshot fallback — full size of frame -->
             <ImageView

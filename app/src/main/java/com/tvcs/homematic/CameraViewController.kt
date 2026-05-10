@@ -317,6 +317,7 @@ class CameraViewController(
         stopRtspMotionSampler()
         releasePlayer()
         playerView.visibility  = View.GONE
+        (vlcLayout.parent as? android.view.View)?.visibility = View.GONE
         snapshotView.visibility = View.VISIBLE
         muteButton?.visibility = View.GONE   // no audio in snapshot mode
         // Show RTSP failure reason prominently — snapshot working doesn't hide the error
@@ -347,7 +348,7 @@ class CameraViewController(
         setStatus(context.getString(R.string.camera_status_connecting_vlc))
         releasePlayer()
         playerView.visibility   = View.GONE
-        vlcLayout.visibility    = View.VISIBLE
+        (vlcLayout.parent as? android.view.View)?.visibility = View.VISIBLE
         snapshotView.visibility = View.GONE
         val vlcEngine = VlcRtspEngine(context, vlcLayout)
         activeVlcEngine = vlcEngine
@@ -541,6 +542,7 @@ class CameraViewController(
 
     private fun show() {
         playerView.visibility   = View.VISIBLE
+        (vlcLayout.parent as? android.view.View)?.visibility = View.GONE
         snapshotView.visibility = View.GONE
         statusLabel.visibility  = View.VISIBLE
         applyOverlayAlpha()
@@ -584,7 +586,8 @@ class CameraViewController(
 
     private fun hide() {
         playerView.visibility   = View.GONE
-        vlcLayout.visibility    = View.GONE
+        (vlcLayout.parent as? android.view.View)?.visibility = View.GONE
+        vlcLayout.visibility    = View.GONE   // also hide VLC itself
         snapshotView.visibility = View.GONE
         statusLabel.visibility  = View.GONE
         muteButton?.visibility  = View.GONE

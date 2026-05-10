@@ -312,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         val transPx = ((transPct.coerceIn(1, 50) / 100f) * totalPx).toInt()
 
         // Camera player/snapshot views
-        listOf(R.id.camera_player_view, R.id.camera_vlc_view, R.id.camera_snapshot_view).forEach { id ->
+        listOf(R.id.camera_player_view, R.id.camera_vlc_container, R.id.camera_snapshot_view).forEach { id ->
             findViewById<View>(id)?.let { v ->
                 v.layoutParams.height = camPx
                 v.requestLayout()

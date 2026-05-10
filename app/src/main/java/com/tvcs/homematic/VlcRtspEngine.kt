@@ -71,6 +71,8 @@ class VlcRtspEngine(
             mp.attachViews(vlcLayout, null, false, false)
             mp.volume = if (muted) 0 else 100
 
+            // VLCVideoLayout is inside a fixed-height FrameLayout container — size is constrained by the container
+
             // Wire VLC event listener
             mp.setEventListener { event ->
                 when (event.type) {
