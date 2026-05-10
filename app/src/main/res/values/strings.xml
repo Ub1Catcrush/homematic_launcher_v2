@@ -546,20 +546,34 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_nav_appearance">Erscheinungsbild</string>
     <string name="pref_nav_appearance_summary">Farben (dark/light), Schriftgrößen</string>
     <string name="pref_nav_weather">Wettervorhersage</string>
-    <string name="pref_nav_weather_summary">Tagesvorhersage per Open-Meteo API</string>
+    <string name="pref_nav_weather_summary">Vorhersage für 1 h / 3 h / 6 h / Heute per Open-Meteo API</string>
 
     <!-- Weather -->
     <string name="pref_category_weather">Wettervorhersage</string>
     <string name="pref_title_weather_enabled">Wetter aktivieren</string>
-    <string name="pref_summary_weather_enabled">Tagesvorhersage (Temperatur, Niederschlag, Wetterlage) anzeigen</string>
+    <string name="pref_summary_weather_enabled">Vorhersage (Temperatur, Niederschlag, Wetterlage) als Slideshow anzeigen</string>
     <string name="pref_title_weather_display_mode">Anzeigemodus</string>
     <string name="pref_title_weather_city">Ort / Stadt</string>
     <string name="pref_summary_weather_city">Stadtname für automatische Koordinatenauflösung</string>
     <string name="pref_title_weather_lat">Breitengrad (optional)</string>
     <string name="pref_title_weather_lon">Längengrad (optional)</string>
     <string name="pref_summary_weather_lat_lon">Überschreibt Stadtsuche wenn gesetzt (z.B. 48.1351)</string>
+    <!-- Horizons category -->
+    <string name="pref_category_weather_horizons">Anzuzeigende Zeiträume</string>
+    <string name="pref_title_weather_show_1h">Nächste Stunde</string>
+    <string name="pref_summary_weather_show_1h">Durchschnitt der kommenden 1 Stunde anzeigen</string>
+    <string name="pref_title_weather_show_3h">Nächste 3 Stunden</string>
+    <string name="pref_summary_weather_show_3h">Durchschnitt der kommenden 3 Stunden anzeigen</string>
+    <string name="pref_title_weather_show_6h">Nächste 6 Stunden</string>
+    <string name="pref_summary_weather_show_6h">Durchschnitt der kommenden 6 Stunden anzeigen</string>
+    <string name="pref_title_weather_show_daily">Tagesvorhersage</string>
+    <string name="pref_summary_weather_show_daily">Min/Max-Werte für den gesamten heutigen Tag anzeigen</string>
+    <!-- Timing category -->
+    <string name="pref_category_weather_timing">Zeitsteuerung</string>
+    <string name="pref_title_weather_slide_duration">Anzeigedauer je Folie (Sekunden)</string>
+    <string name="pref_summary_weather_slide_duration">Wie lange jede Zeitraum-Folie sichtbar ist (Standard: 5 s)</string>
     <string name="pref_title_weather_refresh">Aktualisierungsintervall (Minuten)</string>
-    <string name="pref_summary_weather_refresh">Standard: 30 Minuten</string>
+    <string name="pref_summary_weather_refresh">Wie oft die Wetterdaten neu abgerufen werden (Standard: 30 Minuten)</string>
     <string name="pref_title_weather_test">Wetter jetzt abrufen</string>
     <string name="pref_summary_weather_test">Tippen zum Testen</string>
 

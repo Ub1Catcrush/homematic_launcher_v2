@@ -488,20 +488,34 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_nav_appearance">Appearance</string>
     <string name="pref_nav_appearance_summary">Colours (dark/light), font sizes</string>
     <string name="pref_nav_weather">Weather forecast</string>
-    <string name="pref_nav_weather_summary">Daily forecast via Open-Meteo API</string>
+    <string name="pref_nav_weather_summary">Forecast for 1 h / 3 h / 6 h / Today via Open-Meteo API</string>
 
     <!-- Weather -->
     <string name="pref_category_weather">Weather forecast</string>
     <string name="pref_title_weather_enabled">Enable weather</string>
-    <string name="pref_summary_weather_enabled">Show daily forecast (temperature, precipitation, conditions)</string>
+    <string name="pref_summary_weather_enabled">Show forecast (temperature, precipitation, conditions) as slideshow</string>
     <string name="pref_title_weather_display_mode">Display mode</string>
     <string name="pref_title_weather_city">City / Location</string>
     <string name="pref_summary_weather_city">City name for automatic coordinate lookup</string>
     <string name="pref_title_weather_lat">Latitude (optional)</string>
     <string name="pref_title_weather_lon">Longitude (optional)</string>
     <string name="pref_summary_weather_lat_lon">Overrides city search when set (e.g. 48.1351)</string>
+    <!-- Horizons category -->
+    <string name="pref_category_weather_horizons">Time horizons to show</string>
+    <string name="pref_title_weather_show_1h">Next hour</string>
+    <string name="pref_summary_weather_show_1h">Show average for the next 1 hour</string>
+    <string name="pref_title_weather_show_3h">Next 3 hours</string>
+    <string name="pref_summary_weather_show_3h">Show average for the next 3 hours</string>
+    <string name="pref_title_weather_show_6h">Next 6 hours</string>
+    <string name="pref_summary_weather_show_6h">Show average for the next 6 hours</string>
+    <string name="pref_title_weather_show_daily">Today\'s forecast</string>
+    <string name="pref_summary_weather_show_daily">Show min/max values for the full day</string>
+    <!-- Timing category -->
+    <string name="pref_category_weather_timing">Timing</string>
+    <string name="pref_title_weather_slide_duration">Slide display duration (seconds)</string>
+    <string name="pref_summary_weather_slide_duration">How long each slide is visible (default: 5 s)</string>
     <string name="pref_title_weather_refresh">Refresh interval (minutes)</string>
-    <string name="pref_summary_weather_refresh">Default: 30 minutes</string>
+    <string name="pref_summary_weather_refresh">How often weather data is fetched (default: 30 minutes)</string>
     <string name="pref_title_weather_test">Fetch weather now</string>
     <string name="pref_summary_weather_test">Tap to test</string>
 

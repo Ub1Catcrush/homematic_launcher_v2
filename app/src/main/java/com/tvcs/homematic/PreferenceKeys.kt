@@ -232,4 +232,11 @@ object PreferenceKeys {
     const val WEATHER_LON                = "weather_lon"
     /** Refresh interval in minutes (default 30) */
     const val WEATHER_REFRESH_MIN        = "weather_refresh_min"
+    /** How long each forecast slide is shown in seconds (default 5) */
+    const val WEATHER_SLIDE_DURATION_SEC = "weather_slide_duration_sec"
+    /** Which horizons are shown in the slideshow */
+    const val WEATHER_SHOW_1H            = "weather_show_1h"
+    const val WEATHER_SHOW_3H            = "weather_show_3h"
+    const val WEATHER_SHOW_6H            = "weather_show_6h"
+    const val WEATHER_SHOW_DAILY         = "weather_show_daily"
 }

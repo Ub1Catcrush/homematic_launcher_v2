@@ -753,8 +753,13 @@ class SettingsActivity : AppCompatActivity(),
             setPreferencesFromResource(R.xml.preferences_weather, rootKey)
             bindSwitch(PreferenceKeys.WEATHER_ENABLED)
             bindList(PreferenceKeys.WEATHER_DISPLAY_MODE)
-            listOf(PreferenceKeys.WEATHER_CITY, PreferenceKeys.WEATHER_LAT,
-                   PreferenceKeys.WEATHER_LON,  PreferenceKeys.WEATHER_REFRESH_MIN).forEach { key ->
+            listOf(
+                PreferenceKeys.WEATHER_CITY,
+                PreferenceKeys.WEATHER_LAT,
+                PreferenceKeys.WEATHER_LON,
+                PreferenceKeys.WEATHER_REFRESH_MIN,
+                PreferenceKeys.WEATHER_SLIDE_DURATION_SEC
+            ).forEach { key ->
                 findPreference<EditTextPreference>(key)?.apply {
                     val cur = PreferenceManager.getDefaultSharedPreferences(requireContext()).getString(key, "") ?: ""
                     if (cur.isNotEmpty()) summary = cur
@@ -777,11 +782,14 @@ class SettingsActivity : AppCompatActivity(),
                     val coords = if (lat != null && lon != null) lat to lon
                                  else if (city.isNotBlank()) WeatherRepository.geocode(city) else null
                     if (coords == null) { pref.summary = "Kein Ort oder Koordinaten konfiguriert"; return@launch }
-                    when (val r = WeatherRepository.getForecast(coords.first, coords.second)) {
+                    when (val r = WeatherRepository.getAllForecasts(coords.first, coords.second)) {
                         is WeatherRepository.Result.Success -> {
-                            val fc = r.data
-                            pref.summary = "${fc.icon} ${fc.description}  ▲${"%.1f".format(fc.tempMax)}° ▼${"%.1f".format(fc.tempMin)}°" +
-                                if (fc.precipMm > 0f) "  💧${"%.1f".format(fc.precipMm)}mm" else ""
+                            val all = r.data
+                            val lines = all.toList().joinToString("  |  ") { fc ->
+                                "${fc.label}: ${fc.icon} ${fc.description} ▲${"%.1f".format(fc.tempMax)}° ▼${"%.1f".format(fc.tempMin)}°" +
+                                if (fc.precipMm > 0f) " 💧${"%.1f".format(fc.precipMm)}mm" else ""
+                            }
+                            pref.summary = lines.ifEmpty { "Keine Daten" }
                         }
                         is WeatherRepository.Result.Error -> pref.summary = "Fehler: ${r.message}"
                     }

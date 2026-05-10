@@ -58,7 +58,7 @@ class RoomAdapter(
 
     private fun hasWeatherTile(): Boolean {
         val wvc = weatherVC
-        return wvc != null && wvc.isEnabled() && wvc.displayMode() == "room" && wvc.lastForecast != null
+        return wvc != null && wvc.isEnabled() && wvc.displayMode() == "room" && wvc.lastForecasts != null
     }
 
     private fun hasHaTile(): Boolean {

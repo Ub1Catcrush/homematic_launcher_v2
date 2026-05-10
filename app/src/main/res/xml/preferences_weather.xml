@@ -42,6 +42,50 @@
             android:inputType="numberDecimal|numberSigned"
             android:persistent="true" />
 
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_category_weather_horizons">
+
+        <SwitchPreferenceCompat
+            android:key="weather_show_1h"
+            android:title="@string/pref_title_weather_show_1h"
+            android:summary="@string/pref_summary_weather_show_1h"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="weather_show_3h"
+            android:title="@string/pref_title_weather_show_3h"
+            android:summary="@string/pref_summary_weather_show_3h"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="weather_show_6h"
+            android:title="@string/pref_title_weather_show_6h"
+            android:summary="@string/pref_summary_weather_show_6h"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+        <SwitchPreferenceCompat
+            android:key="weather_show_daily"
+            android:title="@string/pref_title_weather_show_daily"
+            android:summary="@string/pref_summary_weather_show_daily"
+            android:defaultValue="true"
+            android:persistent="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_category_weather_timing">
+
+        <EditTextPreference
+            android:key="weather_slide_duration_sec"
+            android:title="@string/pref_title_weather_slide_duration"
+            android:summary="@string/pref_summary_weather_slide_duration"
+            android:defaultValue="5"
+            android:inputType="number"
+            android:persistent="true" />
+
         <EditTextPreference
             android:key="weather_refresh_min"
             android:title="@string/pref_title_weather_refresh"
