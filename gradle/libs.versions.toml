@@ -1,19 +1,96 @@
 [versions]
-agp = "9.1.1"
-coreKtx = "1.18.0"
-junit = "4.13.2"
-junitVersion = "1.3.0"
-espressoCore = "3.7.0"
-appcompat = "1.7.1"
-material = "1.13.0"
+agp                    = "9.1.1"
+kotlin                 = "2.3.21"
+
+# AndroidX core
+coreKtx                = "1.18.0"
+appcompat              = "1.7.1"
+constraintlayout       = "2.2.1"
+material               = "1.13.0"
+securityCrypto         = "1.1.0"
+
+# Lifecycle
+lifecycle              = "2.10.0"
+
+# Preferences / Work
+preferenceKtx          = "1.2.1"
+workRuntimeKtx         = "2.11.2"
+
+# Coroutines
+coroutines             = "1.11.0"
+
+# XML parsing
+simpleXml              = "2.7.1"
+
+# Media3 / ExoPlayer
+media3                 = "1.10.0"
+
+# CameraX
+camerax                = "1.6.1"
+
+# Image loading
+glide                  = "5.0.7"
+
+# Networking
+okhttp                 = "5.3.2"
+
+# VLC
+libvlc                 = "3.7.0"
+
+# Test
+junit                  = "4.13.2"
+junitVersion           = "1.3.0"
+espressoCore           = "3.7.0"
+
 
 [libraries]
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
-junit = { group = "junit", name = "junit", version.ref = "junit" }
-androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+# AndroidX core
+androidx-core-ktx           = { group = "androidx.core",                    name = "core-ktx",                version.ref = "coreKtx" }
+androidx-core               = { group = "androidx.core",                    name = "core",                    version.ref = "coreKtx" }
+androidx-appcompat          = { group = "androidx.appcompat",               name = "appcompat",               version.ref = "appcompat" }
+androidx-constraintlayout   = { group = "androidx.constraintlayout",        name = "constraintlayout",        version.ref = "constraintlayout" }
+material                    = { group = "com.google.android.material",      name = "material",                version.ref = "material" }
+androidx-security-crypto    = { group = "androidx.security",                name = "security-crypto",         version.ref = "securityCrypto" }
+
+# Lifecycle
+androidx-lifecycle-runtime  = { group = "androidx.lifecycle",               name = "lifecycle-runtime-ktx",   version.ref = "lifecycle" }
+androidx-lifecycle-service  = { group = "androidx.lifecycle",               name = "lifecycle-service",       version.ref = "lifecycle" }
+
+# Preferences / Work
+androidx-preference-ktx     = { group = "androidx.preference",              name = "preference-ktx",          version.ref = "preferenceKtx" }
+androidx-work-runtime       = { group = "androidx.work",                    name = "work-runtime-ktx",        version.ref = "workRuntimeKtx" }
+
+# Coroutines
+kotlinx-coroutines-android  = { group = "org.jetbrains.kotlinx",            name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-core     = { group = "org.jetbrains.kotlinx",            name = "kotlinx-coroutines-core",    version.ref = "coroutines" }
+
+# XML parsing
+simple-xml                  = { group = "org.simpleframework",              name = "simple-xml",              version.ref = "simpleXml" }
+
+# Media3 / ExoPlayer
+androidx-media3-exoplayer   = { group = "androidx.media3",                  name = "media3-exoplayer",        version.ref = "media3" }
+androidx-media3-rtsp        = { group = "androidx.media3",                  name = "media3-exoplayer-rtsp",   version.ref = "media3" }
+androidx-media3-ui          = { group = "androidx.media3",                  name = "media3-ui",               version.ref = "media3" }
+
+# CameraX
+androidx-camera-core        = { group = "androidx.camera",                  name = "camera-core",             version.ref = "camerax" }
+androidx-camera-camera2     = { group = "androidx.camera",                  name = "camera-camera2",          version.ref = "camerax" }
+androidx-camera-lifecycle   = { group = "androidx.camera",                  name = "camera-lifecycle",        version.ref = "camerax" }
+
+# Image loading
+glide                       = { group = "com.github.bumptech.glide",        name = "glide",                   version.ref = "glide" }
+
+# Networking
+okhttp                      = { group = "com.squareup.okhttp3",             name = "okhttp",                  version.ref = "okhttp" }
+
+# VLC
+libvlc                      = { group = "org.videolan.android",             name = "libvlc-all",              version.ref = "libvlc" }
+
+# Test
+junit                       = { group = "junit",                            name = "junit",                   version.ref = "junit" }
+androidx-junit              = { group = "androidx.test.ext",                name = "junit",                   version.ref = "junitVersion" }
+androidx-espresso-core      = { group = "androidx.test.espresso",           name = "espresso-core",           version.ref = "espressoCore" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

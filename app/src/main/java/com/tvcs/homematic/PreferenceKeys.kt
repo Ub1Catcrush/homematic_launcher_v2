@@ -93,6 +93,8 @@ object PreferenceKeys {
      * Values: "center_crop" (default, fills, may clip), "fit_center" (letterbox, whole image),
      *         "center_inside" (no upscale), "fit_xy" (stretch to fill, ignores ratio)
      */
+    /** Force a specific RTSP engine: "auto"|"exo"|"vlc"|"snapshot". Default "auto". */
+    const val CAMERA_RTSP_ENGINE        = "camera_rtsp_engine"
     const val CAMERA_SCALE_TYPE         = "camera_scale_type"         // default "center_crop"
 
     // ── Motion detection & screen wake ────────────────────────────────────────

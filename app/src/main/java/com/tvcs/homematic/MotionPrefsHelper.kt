@@ -36,8 +36,8 @@ object MotionPrefsHelper {
         engine.analysisIntervalMs = (prefs.getString(PreferenceKeys.MOTION_INTERVAL_SEC, "1")
             ?.toLongOrNull()?.coerceIn(1L, 10L) ?: 1L) * 1_000L
 
-        engine.adaptationRate   = (prefs.getString(PreferenceKeys.MOTION_ADAPTATION_RATE, "5")
-            ?.toIntOrNull()?.coerceIn(0, 20) ?: 5) / 100f
+        engine.adaptationRate   = (prefs.getString(PreferenceKeys.MOTION_ADAPTATION_RATE, "1")
+            ?.toIntOrNull()?.coerceIn(0, 20) ?: 1) / 1000f  // stored as 0–20, divided by 1000 = 0.0–0.02/s
 
         engine.roi = parseRoi(prefs.getString(PreferenceKeys.MOTION_ROI, "") ?: "")
 

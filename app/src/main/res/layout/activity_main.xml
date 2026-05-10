@@ -114,6 +114,13 @@
                 app:use_controller="false"
                 app:resize_mode="fixed_width" />
 
+            <!-- libVLC surface for RTSP — Tier 2 engine -->
+            <org.videolan.libvlc.util.VLCVideoLayout
+                android:id="@+id/camera_vlc_view"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:visibility="gone" />
+
             <!-- ImageView for MJPEG snapshot fallback — full size of frame -->
             <ImageView
                 android:id="@+id/camera_snapshot_view"

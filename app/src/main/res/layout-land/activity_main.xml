@@ -143,6 +143,12 @@
                     app:use_controller="false"
                     app:resize_mode="fixed_width" />
 
+                <org.videolan.libvlc.util.VLCVideoLayout
+                    android:id="@+id/camera_vlc_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:visibility="gone" />
+
                 <ImageView
                     android:id="@+id/camera_snapshot_view"
                     android:layout_width="match_parent"

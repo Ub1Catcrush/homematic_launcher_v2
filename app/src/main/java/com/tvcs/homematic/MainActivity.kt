@@ -193,6 +193,7 @@ class MainActivity : AppCompatActivity() {
         cameraViewController = CameraViewController(
             context       = this,
             playerView    = findViewById(R.id.camera_player_view),
+            vlcLayout     = findViewById(R.id.camera_vlc_view),
             snapshotView  = findViewById(R.id.camera_snapshot_view),
             statusLabel   = findViewById(R.id.camera_status_label),
             muteButton    = findViewById(R.id.camera_mute_button)
@@ -311,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         val transPx = ((transPct.coerceIn(1, 50) / 100f) * totalPx).toInt()
 
         // Camera player/snapshot views
-        listOf(R.id.camera_player_view, R.id.camera_snapshot_view).forEach { id ->
+        listOf(R.id.camera_player_view, R.id.camera_vlc_view, R.id.camera_snapshot_view).forEach { id ->
             findViewById<View>(id)?.let { v ->
                 v.layoutParams.height = camPx
                 v.requestLayout()
@@ -818,7 +819,7 @@ class MainActivity : AppCompatActivity() {
         reloadJob?.cancel(); timeJob?.cancel()
         if (::screenWakeController.isInitialized) screenWakeController.suspend()
         if (::nightDimController.isInitialized) nightDimController.stop()
-        localCameraSource?.stop()
+        // localCameraSource is no longer used in the Activity (Service owns the camera)
         // Service keeps running in background intentionally — do NOT stop it here
     }
 
@@ -889,46 +890,71 @@ class MainActivity : AppCompatActivity() {
     // ── Motion / NightDim helpers ─────────────────────────────────────────────
 
     private fun applyLocalCameraMotion() {
+        // Do NOT start a LocalCameraMotionSource in the Activity.
+        // The MotionDetectionService owns the camera exclusively — running two
+        // CameraX sessions for the same lens causes one to be silently killed,
+        // making detection appear inactive.
+        //
+        // If local camera needs the permission, request it here so the Service
+        // can use it when it starts — but the actual CameraX session stays in
+        // the Service only.
         val enabled = sharedPreferences.getBoolean(PreferenceKeys.MOTION_LOCAL_ENABLED, false)
-        if (!enabled) {
+        if (enabled) {
+            permissionHelper.requestCameraPermission { /* grant recorded; service uses it */ }
+        } else {
+            // Ensure any leftover Activity-side source is cleaned up (migration)
             localCameraSource?.stop()
             localCameraSource = null
-            return
         }
-        permissionHelper.requestCameraPermission { granted ->
-            if (!granted) return@requestCameraPermission
-            val facingPref = sharedPreferences.getString(PreferenceKeys.MOTION_LOCAL_FACING, "front")
-            val facing = if (facingPref == "back")
-                androidx.camera.core.CameraSelector.LENS_FACING_BACK
-            else
-                androidx.camera.core.CameraSelector.LENS_FACING_FRONT
-            val sensitivity = sharedPreferences.getString(
-                PreferenceKeys.MOTION_LOCAL_SENSITIVITY, "8")?.toIntOrNull()?.coerceIn(1, 30) ?: 8
-            localCameraSource?.stop()
-            localCameraSource = LocalCameraMotionSource(
-                context        = this,
-                lifecycleOwner = this,
-                motionEngine   = MotionDetectionEngine(
-                    sensitivityPct   = sensitivity,
-                    onMotionDetected = {
-                        if (!isFinishing && !isDestroyed
-                            && ::screenWakeController.isInitialized)
-                            screenWakeController.onMotion()
-                    }
-                ).also { it.enabled = true },
-                facing         = facing
-            )
-            localCameraSource?.start()
-        }
-        // Keep service in sync
         syncMotionService()
     }
 
     private fun syncMotionService() {
         if (MotionDetectionService.isAnySourceEnabled(this)) {
             MotionDetectionService.start(this)
+            checkBatteryOptimization()
         } else {
             MotionDetectionService.stop(this)
+            // Reset the "prompted" flag so warning shows again next time Motion is enabled
+            sharedPreferences.edit().remove("_battery_opt_prompted").apply()
+        }
+    }
+
+    /**
+     * On Android 6+ (Doze mode): if the app is NOT whitelisted from battery
+     * optimizations, Android will eventually freeze background processes including
+     * our Foreground Service. Show a one-time snackbar guiding the user to
+     * disable battery optimization for reliable motion detection.
+     */
+    private fun checkBatteryOptimization() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) return
+        val pm = getSystemService(android.content.Context.POWER_SERVICE)
+                 as android.os.PowerManager
+        if (pm.isIgnoringBatteryOptimizations(packageName)) return
+
+        // Only show once per app session (not on every sync)
+        if (sharedPreferences.getBoolean("_battery_opt_prompted", false)) return
+        sharedPreferences.edit().putBoolean("_battery_opt_prompted", true).apply()
+
+        showSnackbar(
+            getString(R.string.battery_opt_warning),
+            com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE,
+            actionLabel = getString(R.string.battery_opt_action)
+        ) {
+            // Open system battery optimization settings for this app
+            try {
+                val intent = android.content.Intent(
+                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            } catch (e: Exception) {
+                // Fallback: open general battery settings
+                try {
+                    startActivity(android.content.Intent(
+                        android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -954,7 +980,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         if (::screenWakeController.isInitialized) screenWakeController.destroy()
         if (::nightDimController.isInitialized) nightDimController.stop()
-        localCameraSource?.stop()   // in-Activity copy (service copy keeps running)
+        localCameraSource?.stop()   // safety cleanup for any leftover migration instances
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
         networkCallback?.let {
             (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
@@ -1023,6 +1049,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showToast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-    private fun showSnackbar(msg: String, dur: Int = Snackbar.LENGTH_SHORT) =
-        Snackbar.make(window.decorView.findViewById(android.R.id.content), msg, dur).show()
+    private fun showSnackbar(
+        msg: String,
+        dur: Int = Snackbar.LENGTH_SHORT,
+        actionLabel: String? = null,
+        action: (() -> Unit)? = null
+    ) {
+        if (isFinishing || isDestroyed) return
+        val snack = Snackbar.make(
+            window.decorView.findViewById(android.R.id.content), msg, dur)
+        if (actionLabel != null && action != null) snack.setAction(actionLabel) { action() }
+        snack.show()
+    }
 }

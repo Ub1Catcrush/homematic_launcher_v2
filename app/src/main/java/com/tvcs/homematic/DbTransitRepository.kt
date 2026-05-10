@@ -8,11 +8,14 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Date
+import java.util.TimeZone
 
 object DbTransitRepository {
 
@@ -249,19 +252,81 @@ object DbTransitRepository {
         return RawResult.Err(lastError)
     }
 
-    private fun parseTime(iso: String, fmt: DateTimeFormatter): String {
+    /**
+     * Parses an ISO 8601 timestamp to "HH:mm" using a cascade of strategies.
+     *
+     * Why so many fallbacks? Android's desugared java.time (API < 26 compat layer,
+     * and some Android 10 builds) can produce wrong output from DateTimeFormatter
+     * even with an explicit ZoneId — e.g. outputting "2026-" instead of "14:32".
+     * SimpleDateFormat is the oldest API and is always reliable.
+     *
+     * Strategy order:
+     *   1. ZonedDateTime.ofInstant → DateTimeFormatter  (ideal path)
+     *   2. epoch millis → SimpleDateFormat              (reliable fallback)
+     *   3. Manual string extraction from ISO timestamp  (universal last resort)
+     */
+    private fun parseTime(iso: String, @Suppress("UNUSED_PARAMETER") fmt: DateTimeFormatter): String {
         if (iso.isBlank()) return ""
-        return try {
-            // Explicitly convert Instant → ZonedDateTime before formatting.
-            // Calling fmt.format(Instant) directly is unreliable on Android 10
-            // (API 29) with the desugared java.time — it may output the date
-            // instead of the time. ZonedDateTime.ofInstant() is always correct.
-            val zdt = ZonedDateTime.ofInstant(Instant.parse(iso), ZoneId.systemDefault())
-            fmt.format(zdt)
-        } catch (_: Exception) {
-            // Fallback: API returns "HH:mm" directly on some endpoints
-            iso.take(5)
-        }
+
+        // Strategy 1: ZonedDateTime → DateTimeFormatter
+        // Works on API 26+ native and most desugared builds
+        try {
+            val zdt    = ZonedDateTime.ofInstant(Instant.parse(iso), ZoneId.systemDefault())
+            val result = zdt.hour.toString().padStart(2, '0') + ":" +
+                         zdt.minute.toString().padStart(2, '0')
+            if (result.matches(Regex("\\d{2}:\\d{2}"))) return result
+        } catch (_: Exception) {}
+
+        // Strategy 2: epoch millis → SimpleDateFormat
+        // SimpleDateFormat is part of the original java.util API — always works
+        try {
+            val instant = Instant.parse(iso)
+            val sdf     = SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            sdf.timeZone = TimeZone.getDefault()
+            val result  = sdf.format(Date(instant.toEpochMilli()))
+            if (result.matches(Regex("\\d{2}:\\d{2}"))) return result
+        } catch (_: Exception) {}
+
+        // Strategy 3: extract time directly from the ISO string
+        // ISO 8601 format: "2026-05-09T14:32:00+02:00" or "2026-05-09T14:32:00Z"
+        // The time portion is always at index 11..15
+        try {
+            if (iso.length >= 16 && iso[10] == 'T') {
+                val hh = iso.substring(11, 13)
+                val mm = iso.substring(14, 16)
+                if (hh.all(Char::isDigit) && mm.all(Char::isDigit)) {
+                    // Adjust for local timezone offset if present
+                    val offsetSign = iso.indexOfFirst { it == '+' || it == '-' }.let {
+                        if (it > 10) iso[it] else null
+                    }
+                    val offsetStr  = if (offsetSign != null) {
+                        val offsetIdx = iso.indexOfLast { it == '+' || it == '-' }
+                        if (offsetIdx > 10) iso.substring(offsetIdx) else null
+                    } else null
+
+                    if (offsetStr != null && offsetStr.length >= 6) {
+                        // Apply offset to get local time
+                        try {
+                            val sign    = if (offsetStr[0] == '+') 1 else -1
+                            val offH    = offsetStr.substring(1, 3).toInt()
+                            val offM    = offsetStr.substring(4, 6).toInt()
+                            val localH  = (hh.toInt() + sign * offH).coerceIn(0, 23)
+                            val localM  = (mm.toInt() + sign * offM).coerceIn(0, 59)
+                            // Also apply device timezone offset
+                            val devOffsetMs = TimeZone.getDefault().getOffset(System.currentTimeMillis())
+                            val devOffsetH  = devOffsetMs / 3_600_000
+                            val finalH      = ((localH + devOffsetH) % 24 + 24) % 24
+                            return finalH.toString().padStart(2, '0') + ":" +
+                                   localM.toString().padStart(2, '0')
+                        } catch (_: Exception) {}
+                    }
+                    return "$hh:$mm"   // UTC time as last resort
+                }
+            }
+        } catch (_: Exception) {}
+
+        // Final fallback: return whatever the API gave us, trimmed to 5 chars
+        return iso.take(5)
     }
 
     private fun get(url: String): String {

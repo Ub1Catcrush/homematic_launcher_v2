@@ -74,6 +74,7 @@ class MotionDetectionService : LifecycleService() {
         fun isAnySourceEnabled(context: Context): Boolean {
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
             return prefs.getBoolean(PreferenceKeys.MOTION_LOCAL_ENABLED, false)
+                || prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
                 || prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
         }
     }
@@ -96,9 +97,7 @@ class MotionDetectionService : LifecycleService() {
     private var localCameraSource: LocalCameraMotionSource? = null
     private var webcamMotionEngine: MotionDetectionEngine?  = null
     private var webcamJob: Job?          = null
-    private val serviceScope = CoroutineScope(
-        Dispatchers.IO + SupervisorJob()
-    )
+    private var serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /** Short-lived wake lock used to turn the screen on before the broadcast reaches MainActivity. */
     @Suppress("DEPRECATION")
@@ -111,6 +110,9 @@ class MotionDetectionService : LifecycleService() {
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    private var webcamSourceActive = false
+    private var localSourceActive  = false
 
     override fun onCreate() {
         super.onCreate()
@@ -141,6 +143,8 @@ class MotionDetectionService : LifecycleService() {
     /** Re-read prefs and restart sources accordingly. Call after settings change. */
     fun applyPrefs() {
         stopAllSources()
+        // Recreate scope in case it was cancelled during a previous stop
+        if (!serviceScope.isActive) serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
 
         // Source 1: local device camera
@@ -149,14 +153,15 @@ class MotionDetectionService : LifecycleService() {
         }
 
         // Source 2: webcam snapshot polling
-        val webcamEnabled = prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
+        val webcamEnabled = prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
+            || prefs.getBoolean(PreferenceKeys.MOTION_DETECT_ENABLED, false)
         if (webcamEnabled) {
             startWebcamPolling(prefs)
         }
 
-        // If nothing is running, stop the service
+        // If nothing is running, stop the service to save battery
         if (localCameraSource == null && webcamJob == null) {
-            Log.i(TAG, "No sources active — stopping self")
+            Log.i(TAG, "No sources active — stopping self to preserve battery")
             stopSelf()
         }
     }
@@ -186,6 +191,8 @@ class MotionDetectionService : LifecycleService() {
         )
         localCameraSource?.start()
         Log.i(TAG, "Local camera source started (facing=$facing, sensitivity=$sensitivity)")
+        localSourceActive = true
+        updateNotification(webcamSourceActive, localSourceActive)
     }
 
     private fun startWebcamPolling(prefs: android.content.SharedPreferences) {
@@ -199,20 +206,21 @@ class MotionDetectionService : LifecycleService() {
         val sensitivity = (prefs.getString(PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, null)
             ?: prefs.getString(PreferenceKeys.MOTION_DETECT_SENSITIVITY, "8"))
             ?.toIntOrNull()?.coerceIn(1, 30) ?: 8
-        val intervalSec = prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL, "2")
+        // Use motion-specific interval, not camera display interval
+        val intervalSec = prefs.getString(PreferenceKeys.MOTION_INTERVAL_SEC, "2")
             ?.toLongOrNull()?.coerceAtLeast(1L) ?: 2L
-
-        val enabled = prefs.getBoolean(PreferenceKeys.MOTION_LOCAL_ENABLED, false)
-                || prefs.getBoolean(PreferenceKeys.MOTION_WEBCAM_ENABLED, false)
 
         webcamMotionEngine = MotionDetectionEngine(onMotionDetected = { broadcastMotion() })
         val wcEnabledKey = if (prefs.contains(PreferenceKeys.MOTION_WEBCAM_ENABLED))
             PreferenceKeys.MOTION_WEBCAM_ENABLED else PreferenceKeys.MOTION_DETECT_ENABLED
         MotionPrefsHelper.applyTo(webcamMotionEngine!!, prefs,
             PreferenceKeys.MOTION_WEBCAM_SENSITIVITY, wcEnabledKey)
+        // engine.enabled is set by MotionPrefsHelper above — no separate check needed
 
         webcamJob = serviceScope.launch(Dispatchers.IO) {
             Log.i(TAG, "Webcam polling started ($snapshotUrl, every ${intervalSec}s)")
+            webcamSourceActive = true
+            updateNotification(webcamSourceActive, localSourceActive)
             while (isActive) {
                 try {
                     val bmp = fetchSnapshot(snapshotUrl, username, password)
@@ -262,6 +270,8 @@ class MotionDetectionService : LifecycleService() {
         job?.cancel()
         webcamMotionEngine?.enabled = false
         webcamMotionEngine = null
+        webcamSourceActive = false
+        localSourceActive  = false
     }
 
     // ── Broadcast ─────────────────────────────────────────────────────────────
@@ -300,20 +310,39 @@ class MotionDetectionService : LifecycleService() {
         nm.createNotificationChannel(channel)
     }
 
-    private fun buildNotification(): Notification {
+    fun buildNotification(webcamActive: Boolean = false, localActive: Boolean = false): Notification {
         val tapIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val sources = buildList {
+            if (webcamActive) add(getString(R.string.notif_source_webcam))
+            if (localActive)  add(getString(R.string.notif_source_local))
+        }.joinToString(", ").ifBlank { getString(R.string.notif_source_starting) }
+
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val batteryOptText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M
+            && !pm.isIgnoringBatteryOptimizations(packageName)) {
+            "  ⚠ " + getString(R.string.notif_battery_opt_warning)
+        } else ""
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notif_motion_title))
-            .setContentText(getString(R.string.notif_motion_text))
+            .setContentText(sources + batteryOptText)
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText(sources + batteryOptText))
             .setSmallIcon(R.drawable.ic_notifications_black_24dp)
             .setContentIntent(tapIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
+    }
+
+    fun updateNotification(webcamActive: Boolean, localActive: Boolean) {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        try { nm.notify(NOTIF_ID, buildNotification(webcamActive, localActive)) }
+        catch (_: Exception) {}
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

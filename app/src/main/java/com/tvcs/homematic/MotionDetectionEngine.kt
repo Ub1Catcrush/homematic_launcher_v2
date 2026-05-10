@@ -42,7 +42,14 @@ class MotionDetectionEngine(
      * 0.05 = adapts slowly to gradual lighting changes (default).
      * Higher values adapt faster but may learn moving objects into background.
      */
-    var adaptationRate: Float = 0.05f
+    /**
+     * Background adaptation rate per SECOND (0.0–1.0).
+     * 0.0   = static, never adapts (use for perfectly stable lighting).
+     * 0.003 = slow adaptation, ~5 min half-life (default, good for indoor).
+     * 0.01  = moderate, ~1 min half-life (for changing outdoor lighting).
+     * 0.05  = fast (old default — caused false negatives after ~80 s).
+     */
+    var adaptationRate: Float = 0.003f
 
     /** Minimum ms between two triggers. Default 2000. */
     var cooldownMs: Long = 2_000L
@@ -185,11 +192,26 @@ class MotionDetectionEngine(
         }
     }
 
+    /**
+     * Blend new frame into background with time-weighted adaptation.
+     *
+     * Instead of a fixed per-frame rate (which caused background to fully absorb
+     * a moving object after ~80 s at 2 s intervals), we scale the blend by the
+     * elapsed time since the last analysis so the effective half-life is constant
+     * regardless of analysis interval.
+     *
+     * adaptationRate is interpreted as: fraction to blend per SECOND.
+     * Default 0.05 → 5% per second → half-life ~14 s for slow lighting changes.
+     * Use 0.002 for very stable scenes; 0.01 for normal indoor use.
+     */
     private fun blendBackground(bg: FloatArray, luma: IntArray) {
         val rate = adaptationRate.coerceIn(0f, 1f)
         if (rate == 0f) return
+        // Scale by elapsed seconds since last frame so rate is time-consistent
+        val elapsedSec = (analysisIntervalMs / 1000f).coerceIn(0.1f, 10f)
+        val frameRate  = (rate * elapsedSec).coerceIn(0f, 0.5f)  // cap at 50% per frame
         for (i in bg.indices) {
-            bg[i] = bg[i] * (1f - rate) + luma[i] * rate
+            bg[i] = bg[i] * (1f - frameRate) + luma[i] * frameRate
         }
     }
 }

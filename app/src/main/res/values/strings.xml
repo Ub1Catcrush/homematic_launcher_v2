@@ -812,4 +812,19 @@ Kein Tracking · Keine Werbung · Open Source</string>
     <string name="pref_title_about">Über die App</string>
     <string name="pref_summary_about">Version, Lizenzen und Informationen</string>
     <string name="export_credential_warning">⚠ Der Export kann vertrauliche Daten enthalten (CCU-SID, HA-Token, Kamera-Passwort). Bewahre die Datei sicher auf.</string>
+
+    <string name="camera_status_connecting_vlc">⏳ libVLC verbindet…</string>
+    <string name="camera_status_live_vlc">▶ Live (libVLC)</string>
+    <string name="pref_title_camera_engine">RTSP-Engine</string>
+    <string name="pref_summary_camera_engine">Automatisch: ExoPlayer → libVLC → Snapshot. Manuell wenn eine Engine bevorzugt werden soll.</string>
+
+    <string-array name="camera_engine_entries"><item>Automatisch (empfohlen)</item><item>ExoPlayer</item><item>libVLC</item><item>Nur Snapshot</item></string-array>
+    <string-array name="camera_engine_values"><item>auto</item><item>exo</item><item>vlc</item><item>snapshot</item></string-array>
+
+    <string name="notif_source_webcam">Webcam</string>
+    <string name="notif_source_local">Gerätekamera</string>
+    <string name="notif_source_starting">startet…</string>
+    <string name="notif_battery_opt_warning">Energieverwaltung einschränkt Erkennung</string>
+    <string name="battery_opt_warning">⚠ Akkuoptimierung aktiv — Bewegungserkennung kann einfrieren. Optimierung für diese App deaktivieren?</string>
+    <string name="battery_opt_action">Deaktivieren</string>
 </resources>

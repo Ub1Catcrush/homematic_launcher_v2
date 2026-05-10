@@ -10,6 +10,15 @@
             android:defaultValue="false"
             android:persistent="true" />
 
+        <ListPreference
+            android:key="camera_rtsp_engine"
+            android:title="@string/pref_title_camera_engine"
+            android:summary="@string/pref_summary_camera_engine"
+            android:entries="@array/camera_engine_entries"
+            android:entryValues="@array/camera_engine_values"
+            android:defaultValue="auto"
+            android:persistent="true" />
+
         <EditTextPreference
             android:key="camera_rtsp_url"
             android:title="@string/pref_title_camera_rtsp_url"

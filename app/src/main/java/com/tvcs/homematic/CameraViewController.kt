@@ -28,6 +28,7 @@ import java.net.URL
 import java.util.Base64
 import androidx.core.net.toUri
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import org.videolan.libvlc.util.VLCVideoLayout
 import android.os.Build
 import android.view.PixelCopy
 import android.view.SurfaceView
@@ -56,6 +57,7 @@ import android.view.SurfaceView
 class CameraViewController(
     private val context: Context,
     private val playerView:    PlayerView,
+    private val vlcLayout:     VLCVideoLayout,
     private val snapshotView:  ImageView,
     private val statusLabel:   TextView,
     private val muteButton:    android.widget.ImageButton? = null
@@ -100,6 +102,10 @@ class CameraViewController(
      */
     private var rtspPermanentlyFailed = false
 
+    private enum class EngineChoice { EXO, VLC, SNAPSHOT }
+    private var nextEngine = EngineChoice.EXO
+    private var activeVlcEngine: VlcRtspEngine? = null
+
     // ── Mute toggle (public so MainActivity can wire the button if needed) ────
     fun toggleMute() {
         isMuted = !isMuted
@@ -131,12 +137,12 @@ class CameraViewController(
         inSnapshotMode = false
         rtspFailReason = null
         applyMotionPrefs()
-        if (rtspPermanentlyFailed) {
-            Log.w(TAG, "Skipping RTSP — unrecoverable SDP error in previous attempt")
-            fallbackToSnapshot(rtspFailReason ?: "RTSP SDP error")
-        } else {
-            startRtsp()
+        nextEngine = when (prefs.getString(PreferenceKeys.CAMERA_RTSP_ENGINE, "auto")) {
+            "vlc"      -> EngineChoice.VLC
+            "snapshot" -> EngineChoice.SNAPSHOT
+            else       -> if (rtspPermanentlyFailed) EngineChoice.VLC else EngineChoice.EXO
         }
+        startWithEngine(nextEngine)
     }
 
     @MainThread
@@ -152,7 +158,8 @@ class CameraViewController(
 
     fun applyPrefsChange() {
         if (!started) return
-        rtspPermanentlyFailed = false   // user may have fixed the URL/camera
+        rtspPermanentlyFailed = false
+        nextEngine = EngineChoice.EXO
         stop()
         start()
     }
@@ -177,6 +184,15 @@ class CameraViewController(
     }
 
     // ── RTSP ──────────────────────────────────────────────────────────────────
+
+    private fun startWithEngine(choice: EngineChoice) {
+        if (!started) return
+        when (choice) {
+            EngineChoice.EXO      -> startRtsp()
+            EngineChoice.VLC      -> startVlc()
+            EngineChoice.SNAPSHOT -> fallbackToSnapshot(rtspFailReason ?: "No RTSP engine succeeded")
+        }
+    }
 
     @OptIn(UnstableApi::class)
     private fun startRtsp() {
@@ -250,15 +266,14 @@ class CameraViewController(
                     rtspPermanentlyFailed = true
                 }
 
-                // IMPORTANT: Do NOT call fallbackToSnapshot() directly inside an ExoPlayer
-                // listener callback. ExoPlayer may still be processing its internal state
-                // machine; calling releasePlayer() synchronously here can deadlock.
-                // Post to the next Looper cycle so ExoPlayer finishes its callback chain first.
+                // Post to next Looper cycle — escalate to VLC, never call release() inside Player callback
                 mainHandler.post {
-                    if (started && !inSnapshotMode) {
-                        try { fallbackToSnapshot(msg) } catch (t: Throwable) {
-                            Log.e(TAG, "fallbackToSnapshot threw: ${t.message}", t)
-                        }
+                    if (!started || inSnapshotMode) return@post
+                    rtspFailReason = msg
+                    nextEngine = EngineChoice.VLC
+                    try { startWithEngine(EngineChoice.VLC) } catch (t: Throwable) {
+                        Log.e(TAG, "startVlc threw: ${t.message}", t)
+                        fallbackToSnapshot(msg)
                     }
                 }
             }
@@ -282,8 +297,10 @@ class CameraViewController(
         val timeoutMs = prefs.getString(PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, "")
             ?.toLongOrNull() ?: DEFAULT_RTSP_TIMEOUT_MS
         rtspTimeoutJob = Runnable {
-            Log.w(TAG, "RTSP timeout after ${timeoutMs}ms — falling back to snapshot")
-            fallbackToSnapshot(context.getString(R.string.camera_status_rtsp_timeout))
+            Log.w(TAG, "RTSP timeout after ${timeoutMs}ms — trying libVLC")
+            rtspFailReason = context.getString(R.string.camera_status_rtsp_timeout)
+            nextEngine = EngineChoice.VLC
+            if (started && !inSnapshotMode) startWithEngine(EngineChoice.VLC)
         }
         mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
     }
@@ -316,6 +333,73 @@ class CameraViewController(
             ?.toIntOrNull() ?: DEFAULT_SNAPSHOT_INTERVAL
 
         startSnapshotLoop(snapshotUrl, intervalSec)
+    }
+
+    private fun startVlc() {
+        if (!started) return
+        val rawUrl = prefs.getString(PreferenceKeys.CAMERA_RTSP_URL, "") ?: ""
+        if (rawUrl.isBlank()) { fallbackToSnapshot("No RTSP URL"); return }
+        val url = injectCredentials(rawUrl,
+            user = prefs.getString(PreferenceKeys.CAMERA_USERNAME, "") ?: "",
+            pass = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: "",
+            at   = true)
+        Log.i(TAG, "Trying libVLC RTSP")
+        setStatus(context.getString(R.string.camera_status_connecting_vlc))
+        releasePlayer()
+        playerView.visibility   = View.GONE
+        vlcLayout.visibility    = View.VISIBLE
+        snapshotView.visibility = View.GONE
+        val vlcEngine = VlcRtspEngine(context, vlcLayout)
+        activeVlcEngine = vlcEngine
+        val timeoutMs = prefs.getString(PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, "")
+            ?.toLongOrNull() ?: DEFAULT_RTSP_TIMEOUT_MS
+        rtspTimeoutJob = Runnable {
+            Log.w(TAG, "VLC timeout — falling back to snapshot")
+            if (started && !inSnapshotMode) fallbackToSnapshot(rtspFailReason ?: "VLC timeout")
+        }
+        mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
+        vlcEngine.start(url, isMuted, object : RtspEngine.Listener {
+            override fun onPlaying() {
+                cancelRtspTimeout()
+                setStatus(context.getString(R.string.camera_status_live_vlc))
+                muteButton?.visibility = View.VISIBLE
+                updateMuteButton()
+                startVlcMotionSamplerIfEnabled()
+            }
+            override fun onError(message: String, unrecoverable: Boolean) {
+                Log.w(TAG, "VLC error: $message")
+                cancelRtspTimeout()
+                rtspFailReason = message
+                if (started && !inSnapshotMode) mainHandler.post { fallbackToSnapshot(message) }
+            }
+            override fun onEnded() {
+                mainHandler.post { if (started && !inSnapshotMode) fallbackToSnapshot("VLC stream ended") }
+            }
+        })
+    }
+
+    private fun startVlcMotionSamplerIfEnabled() {
+        if (!motionEngine.enabled) return
+        val snapshotUrl = prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_URL, "") ?: ""
+        if (snapshotUrl.isBlank()) return
+        val intervalSec = prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL, "")
+            ?.toIntOrNull() ?: DEFAULT_SNAPSHOT_INTERVAL
+        stopRtspMotionSampler()
+        rtspSampleJob = ioScope.launch {
+            val url = injectCredentials(snapshotUrl,
+                user = prefs.getString(PreferenceKeys.CAMERA_USERNAME, "") ?: "",
+                pass = prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: "",
+                at = false)
+            while (isActive) {
+                delay((intervalSec * 1000L).coerceAtLeast(2000L))
+                try {
+                    val bmp = fetchSnapshot(url)
+                    motionEngine.process(bmp)
+                    bmp.recycle()
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                  catch (_: Exception) {}
+            }
+        }
     }
 
     private fun startSnapshotLoop(url: String, intervalSec: Int) {
@@ -441,6 +525,9 @@ class CameraViewController(
     private fun releasePlayer() {
         exoPlayer?.let { it.stop(); it.release() }
         exoPlayer = null
+        playerView.player = null
+        activeVlcEngine?.release()
+        activeVlcEngine = null
     }
 
     private fun stopSnapshotLoop() { snapshotJob?.cancel(); snapshotJob = null }
@@ -497,6 +584,7 @@ class CameraViewController(
 
     private fun hide() {
         playerView.visibility   = View.GONE
+        vlcLayout.visibility    = View.GONE
         snapshotView.visibility = View.GONE
         statusLabel.visibility  = View.GONE
         muteButton?.visibility  = View.GONE
