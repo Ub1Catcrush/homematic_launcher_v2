@@ -81,13 +81,32 @@ object WeatherRepository {
                 val times = hourly.getJSONArray("time")
                 val nowMs = System.currentTimeMillis()
                 // ISO-8601 without seconds: "2024-06-01T14:00"
-                val nowHourStr = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:00", java.util.Locale.US)
-                    .also { it.timeZone = java.util.TimeZone.getDefault() }
-                    .format(java.util.Date(nowMs))
+                // Set timezone BEFORE formatting — on Android 10 setting it after
+                // has no effect, causing UTC time to be formatted instead of local time,
+                // so nowHourStr never matches any entry in the hourly array.
+                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:00", java.util.Locale.US)
+                sdf.timeZone = java.util.TimeZone.getDefault()
+                val nowHourStr = sdf.format(java.util.Date(nowMs))
 
                 var startIdx = 0
+                var foundHour = false
                 for (i in 0 until times.length()) {
-                    if (times.getString(i) == nowHourStr) { startIdx = i; break }
+                    if (times.getString(i) == nowHourStr) { startIdx = i; foundHour = true; break }
+                }
+                // Fallback: if exact hour not found (timezone edge case), find closest past hour
+                if (!foundHour && times.length() > 0) {
+                    val nowEpoch = nowMs / 1000
+                    var bestDiff = Long.MAX_VALUE
+                    for (i in 0 until times.length()) {
+                        try {
+                            val sdf2 = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm", java.util.Locale.US)
+                            sdf2.timeZone = java.util.TimeZone.getDefault()
+                            val t = sdf2.parse(times.getString(i) + ":00")?.time?.div(1000) ?: continue
+                            val diff = nowEpoch - t
+                            if (diff >= 0 && diff < bestDiff) { bestDiff = diff; startIdx = i }
+                        } catch (_: Exception) {}
+                    }
+                    Log.d(TAG, "Hour fallback: startIdx=$startIdx (nowHourStr=$nowHourStr, entry=${times.optString(startIdx)})")
                 }
 
                 val hTemps   = hourly.getJSONArray("temperature_2m")
@@ -195,15 +214,27 @@ object WeatherRepository {
 
     private fun get(url: String): String {
         Log.d(TAG, "GET $url")
+        // Use OkHttp-style explicit TLS setup via HttpsURLConnection to ensure
+        // TLS 1.2/1.3 works reliably on Android 10 (API 29).
         val con = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = TIMEOUT; readTimeout = TIMEOUT
-            setRequestProperty("Accept", "application/json")
+            connectTimeout = TIMEOUT
+            readTimeout    = TIMEOUT
+            setRequestProperty("Accept",     "application/json")
             setRequestProperty("User-Agent", "HomematicLauncher/1.0")
+            // Force modern TLS on Android 10 where the default SSLContext may
+            // not negotiate TLS 1.3 correctly with some CDN configurations.
+            if (this is javax.net.ssl.HttpsURLConnection) {
+                try {
+                    val sc = javax.net.ssl.SSLContext.getInstance("TLSv1.2")
+                    sc.init(null, null, null)
+                    sslSocketFactory = sc.socketFactory
+                } catch (_: Exception) { /* leave default if init fails */ }
+            }
         }
         return try {
             val code = con.responseCode
-            if (code >= 400) error("HTTP $code")
-            con.inputStream.bufferedReader().readText()
+            if (code >= 400) error("HTTP $code: ${con.responseMessage}")
+            con.inputStream.bufferedReader(Charsets.UTF_8).readText()
         } finally { con.disconnect() }
     }
 }

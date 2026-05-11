@@ -26,12 +26,15 @@
             android:inputType="text"
             android:persistent="true" />
 
+        <!-- inputType="text" because "numberDecimal|numberSigned" on Android 10
+             blocks entering a minus sign and decimal point simultaneously.
+             The value is parsed robustly in code (comma or dot accepted). -->
         <EditTextPreference
             android:key="weather_lat"
             android:title="@string/pref_title_weather_lat"
             android:summary="@string/pref_summary_weather_lat_lon"
             android:defaultValue=""
-            android:inputType="numberDecimal|numberSigned"
+            android:inputType="text"
             android:persistent="true" />
 
         <EditTextPreference
@@ -39,7 +42,7 @@
             android:title="@string/pref_title_weather_lon"
             android:summary="@string/pref_summary_weather_lat_lon"
             android:defaultValue=""
-            android:inputType="numberDecimal|numberSigned"
+            android:inputType="text"
             android:persistent="true" />
 
     </PreferenceCategory>

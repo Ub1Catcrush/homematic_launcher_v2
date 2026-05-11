@@ -94,11 +94,21 @@ class WeatherViewController(
         val intervalMs = (prefs.getString(PreferenceKeys.WEATHER_REFRESH_MIN, DEFAULT_REFRESH_MIN.toString())
             ?.toLongOrNull()?.coerceAtLeast(5L) ?: DEFAULT_REFRESH_MIN) * 60_000L
         refreshJob = ioScope.launch {
+            var failCount = 0
             while (isActive) {
-                try { refresh() }
-                catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                catch (e: Exception) { android.util.Log.e(TAG, "Weather refresh error: ${e.message}", e) }
-                delay(intervalMs)
+                try {
+                    refresh()
+                    failCount = 0
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                  catch (e: Exception) {
+                    failCount++
+                    android.util.Log.e(TAG, "Weather refresh error (attempt $failCount): ${e.message}", e)
+                }
+                // On repeated failures, back off — but cap at the configured interval
+                val backoffMs = if (failCount > 0)
+                    (60_000L * failCount).coerceAtMost(intervalMs)
+                else intervalMs
+                delay(backoffMs)
             }
         }
     }
@@ -118,17 +128,41 @@ class WeatherViewController(
     }
 
     private suspend fun resolveLatLon(): Pair<Double, Double>? {
-        val lat = prefs.getString(PreferenceKeys.WEATHER_LAT, "")?.toDoubleOrNull()
-        val lon = prefs.getString(PreferenceKeys.WEATHER_LON, "")?.toDoubleOrNull()
-        if (lat != null && lon != null) return lat to lon
-        val city = prefs.getString(PreferenceKeys.WEATHER_CITY, "") ?: ""
-        if (city.isBlank()) return null
-        val resolved = WeatherRepository.geocode(city) ?: return null
+        val lat = parseCoord(prefs.getString(PreferenceKeys.WEATHER_LAT, ""))
+        val lon = parseCoord(prefs.getString(PreferenceKeys.WEATHER_LON, ""))
+        if (lat != null && lon != null) {
+            android.util.Log.d(TAG, "Using stored coords: $lat, $lon")
+            return lat to lon
+        }
+        val city = prefs.getString(PreferenceKeys.WEATHER_CITY, "")?.trim() ?: ""
+        if (city.isBlank()) {
+            android.util.Log.w(TAG, "No location configured (no lat/lon, no city)")
+            return null
+        }
+        android.util.Log.d(TAG, "Geocoding city: $city")
+        val resolved = WeatherRepository.geocode(city)
+        if (resolved == null) {
+            android.util.Log.w(TAG, "Geocoding failed for: $city")
+            return null
+        }
+        // Persist resolved coords so next fetch skips geocoding
         prefs.edit()
             .putString(PreferenceKeys.WEATHER_LAT, resolved.first.toString())
             .putString(PreferenceKeys.WEATHER_LON, resolved.second.toString())
             .apply()
+        android.util.Log.d(TAG, "Geocoded $city → ${resolved.first}, ${resolved.second}")
         return resolved
+    }
+
+    /**
+     * Parse a coordinate string robustly:
+     *   - Accepts both "." and "," as decimal separator (German locale inputs)
+     *   - Trims whitespace
+     *   - Returns null for blank or unparseable input
+     */
+    private fun parseCoord(raw: String?): Double? {
+        if (raw.isNullOrBlank()) return null
+        return raw.trim().replace(',', '.').toDoubleOrNull()
     }
 
     // ── Slideshow ─────────────────────────────────────────────────────────────

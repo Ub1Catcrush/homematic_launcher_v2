@@ -753,21 +753,55 @@ class SettingsActivity : AppCompatActivity(),
             setPreferencesFromResource(R.xml.preferences_weather, rootKey)
             bindSwitch(PreferenceKeys.WEATHER_ENABLED)
             bindList(PreferenceKeys.WEATHER_DISPLAY_MODE)
+            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+
+            // City: clear cached coords when changed
+            findPreference<EditTextPreference>(PreferenceKeys.WEATHER_CITY)?.apply {
+                summary = prefs.getString(PreferenceKeys.WEATHER_CITY, "")?.ifBlank { null }
+                    ?: getString(R.string.pref_summary_weather_city)
+                onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+                    // Clear cached lat/lon so geocoding runs on next refresh
+                    prefs.edit()
+                        .remove(PreferenceKeys.WEATHER_LAT)
+                        .remove(PreferenceKeys.WEATHER_LON)
+                        .apply()
+                    p.summary = v.toString().ifBlank { getString(R.string.pref_summary_weather_city) }
+                    true
+                }
+            }
+
+            // Lat/Lon: normalize comma→dot, validate range, show formatted value
+            fun bindCoord(key: String, range: ClosedRange<Double>, label: String) {
+                findPreference<EditTextPreference>(key)?.apply {
+                    fun fmt(raw: String?): String? {
+                        if (raw.isNullOrBlank()) return null
+                        val v = raw.trim().replace(',', '.').toDoubleOrNull() ?: return "⚠ Ungültig: $raw"
+                        if (v !in range) return "⚠ Außerhalb ($label ${range.start}..${range.endInclusive})"
+                        return "%.6f".format(v)
+                    }
+                    summary = fmt(prefs.getString(key, "")) ?: getString(R.string.pref_summary_weather_lat_lon)
+                    onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+                        val normalized = v.toString().trim().replace(',', '.')
+                        val display = fmt(normalized) ?: getString(R.string.pref_summary_weather_lat_lon)
+                        p.summary = display
+                        // Persist normalized value (dot decimal)
+                        prefs.edit().putString(key, normalized).apply()
+                        false   // false = we handled persistence ourselves
+                    }
+                }
+            }
+            bindCoord(PreferenceKeys.WEATHER_LAT, -90.0..90.0,   "Breitengrad")
+            bindCoord(PreferenceKeys.WEATHER_LON, -180.0..180.0, "Längengrad")
+
+            // Numeric fields
             listOf(
-                PreferenceKeys.WEATHER_CITY,
-                PreferenceKeys.WEATHER_LAT,
-                PreferenceKeys.WEATHER_LON,
                 PreferenceKeys.WEATHER_REFRESH_MIN,
                 PreferenceKeys.WEATHER_SLIDE_DURATION_SEC
             ).forEach { key ->
                 findPreference<EditTextPreference>(key)?.apply {
-                    val cur = PreferenceManager.getDefaultSharedPreferences(requireContext()).getString(key, "") ?: ""
+                    val cur = prefs.getString(key, "") ?: ""
                     if (cur.isNotEmpty()) summary = cur
                     onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
-                        if (key == PreferenceKeys.WEATHER_CITY) {
-                            PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
-                                .remove(PreferenceKeys.WEATHER_LAT).remove(PreferenceKeys.WEATHER_LON).apply()
-                        }
                         p.summary = v.toString().ifEmpty { null }; true
                     }
                 }
