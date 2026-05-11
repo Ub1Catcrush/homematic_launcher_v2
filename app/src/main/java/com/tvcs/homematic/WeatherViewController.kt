@@ -140,9 +140,14 @@ class WeatherViewController(
             return null
         }
         android.util.Log.d(TAG, "Geocoding city: $city")
-        val resolved = WeatherRepository.geocode(city)
+        val resolved = try {
+            WeatherRepository.geocode(city)
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Geocoding exception for '$city': ${e.message}", e)
+            return null
+        }
         if (resolved == null) {
-            android.util.Log.w(TAG, "Geocoding failed for: $city")
+            android.util.Log.w(TAG, "No geocoding result for: $city")
             return null
         }
         // Persist resolved coords so next fetch skips geocoding

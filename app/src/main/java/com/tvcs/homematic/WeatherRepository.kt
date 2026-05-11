@@ -174,20 +174,33 @@ object WeatherRepository {
 
     // ── Geocoding ─────────────────────────────────────────────────────────────
 
+    /**
+     * Geocode [city] to lat/lon via the Open-Meteo geocoding API.
+     * Returns null if city not found.
+     * Throws on network/parse errors so callers can surface the reason.
+     */
     suspend fun geocode(city: String): Pair<Double, Double>? =
         withContext(Dispatchers.IO) {
-            val url = GEO_URL.format(URLEncoder.encode(city, "UTF-8"))
-            try {
-                val body    = get(url)
-                val results = JSONObject(body).optJSONArray("results") ?: return@withContext null
-                if (results.length() == 0) return@withContext null
-                val r   = results.getJSONObject(0)
-                val lat = r.optDouble("latitude",  Double.NaN)
-                val lon = r.optDouble("longitude", Double.NaN)
-                if (lat.isNaN() || lon.isNaN()) null else lat to lon
-            } catch (e: Exception) {
-                Log.w(TAG, "Geocode failed", e)
+            val encoded = URLEncoder.encode(city.trim(), "UTF-8")
+            val url = GEO_URL.format(encoded)
+            Log.d(TAG, "Geocoding: $url")
+            val body = get(url)  // throws on network error — let it propagate
+            Log.d(TAG, "Geocode response: ${body.take(200)}")
+            val root    = JSONObject(body)
+            val results = root.optJSONArray("results")
+            if (results == null || results.length() == 0) {
+                Log.w(TAG, "No geocoding results for: $city")
+                return@withContext null
+            }
+            val r   = results.getJSONObject(0)
+            val lat = r.optDouble("latitude",  Double.NaN)
+            val lon = r.optDouble("longitude", Double.NaN)
+            if (lat.isNaN() || lon.isNaN()) {
+                Log.w(TAG, "Geocoding result missing coordinates")
                 null
+            } else {
+                Log.i(TAG, "Geocoded '$city' → $lat, $lon")
+                lat to lon
             }
         }
 
@@ -214,27 +227,26 @@ object WeatherRepository {
 
     private fun get(url: String): String {
         Log.d(TAG, "GET $url")
-        // Use OkHttp-style explicit TLS setup via HttpsURLConnection to ensure
-        // TLS 1.2/1.3 works reliably on Android 10 (API 29).
-        val con = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = TIMEOUT
-            readTimeout    = TIMEOUT
-            setRequestProperty("Accept",     "application/json")
-            setRequestProperty("User-Agent", "HomematicLauncher/1.0")
-            // Force modern TLS on Android 10 where the default SSLContext may
-            // not negotiate TLS 1.3 correctly with some CDN configurations.
-            if (this is javax.net.ssl.HttpsURLConnection) {
-                try {
-                    val sc = javax.net.ssl.SSLContext.getInstance("TLSv1.2")
-                    sc.init(null, null, null)
-                    sslSocketFactory = sc.socketFactory
-                } catch (_: Exception) { /* leave default if init fails */ }
-            }
-        }
+        var con: HttpURLConnection? = null
         return try {
+            con = URL(url).openConnection() as HttpURLConnection
+            con.connectTimeout = TIMEOUT
+            con.readTimeout    = TIMEOUT
+            con.instanceFollowRedirects = true
+            con.setRequestProperty("Accept",          "application/json")
+            con.setRequestProperty("Accept-Encoding", "identity") // no gzip — simplifies reading
+            con.setRequestProperty("User-Agent",      "HomematicLauncher/1.0")
+            // On Android 10 (API 29) TLS negotiation with some endpoints requires
+            // that we read the response code before the input stream — this triggers
+            // the full TLS handshake before we attempt to read.
             val code = con.responseCode
-            if (code >= 400) error("HTTP $code: ${con.responseMessage}")
+            if (code >= 400) {
+                val err = try { con.errorStream?.bufferedReader()?.readText() } catch (_: Exception) { null }
+                error("HTTP $code ${con.responseMessage}: $err")
+            }
             con.inputStream.bufferedReader(Charsets.UTF_8).readText()
-        } finally { con.disconnect() }
+        } finally {
+            try { con?.disconnect() } catch (_: Exception) {}
+        }
     }
 }

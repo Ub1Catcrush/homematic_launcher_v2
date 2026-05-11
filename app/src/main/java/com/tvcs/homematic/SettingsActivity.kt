@@ -810,12 +810,42 @@ class SettingsActivity : AppCompatActivity(),
                 pref.summary = getString(R.string.pref_summary_checking)
                 viewLifecycleOwner.lifecycleScope.launch {
                     val p    = PreferenceManager.getDefaultSharedPreferences(requireContext())
-                    val city = p.getString(PreferenceKeys.WEATHER_CITY, "") ?: ""
-                    val lat  = p.getString(PreferenceKeys.WEATHER_LAT, "")?.toDoubleOrNull()
-                    val lon  = p.getString(PreferenceKeys.WEATHER_LON, "")?.toDoubleOrNull()
-                    val coords = if (lat != null && lon != null) lat to lon
-                                 else if (city.isNotBlank()) WeatherRepository.geocode(city) else null
-                    if (coords == null) { pref.summary = "Kein Ort oder Koordinaten konfiguriert"; return@launch }
+                    // helper: parse coord string (accepts comma or dot decimal)
+                    fun parseCoord(s: String?) = s?.trim()?.replace(',', '.')?.toDoubleOrNull()
+
+                    val lat  = parseCoord(p.getString(PreferenceKeys.WEATHER_LAT, ""))
+                    val lon  = parseCoord(p.getString(PreferenceKeys.WEATHER_LON, ""))
+                    val city = p.getString(PreferenceKeys.WEATHER_CITY, "")?.trim() ?: ""
+
+                    val coords: Pair<Double, Double>? = when {
+                        lat != null && lon != null -> {
+                            pref.summary = "Koordinaten: $lat, $lon — abrufen…"
+                            lat to lon
+                        }
+                        city.isNotBlank() -> {
+                            pref.summary = "Suche Ort: $city…"
+                            try {
+                                val r = WeatherRepository.geocode(city)
+                                if (r == null) {
+                                    pref.summary = "⚠ Ort nicht gefunden: "$city""
+                                    return@launch
+                                }
+                                // Save resolved coords
+                                p.edit().putString(PreferenceKeys.WEATHER_LAT, r.first.toString())
+                                        .putString(PreferenceKeys.WEATHER_LON, r.second.toString()).apply()
+                                pref.summary = "✓ Gefunden: ${r.first}, ${r.second} — abrufen…"
+                                r
+                            } catch (e: Exception) {
+                                pref.summary = "⚠ Geocoding-Fehler: ${e.message}"
+                                return@launch
+                            }
+                        }
+                        else -> {
+                            pref.summary = "⚠ Kein Ort und keine Koordinaten konfiguriert"
+                            return@launch
+                        }
+                    }
+                    if (coords == null) return@launch
                     when (val r = WeatherRepository.getAllForecasts(coords.first, coords.second)) {
                         is WeatherRepository.Result.Success -> {
                             val all = r.data
