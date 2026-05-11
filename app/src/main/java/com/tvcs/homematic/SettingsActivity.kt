@@ -827,7 +827,7 @@ class SettingsActivity : AppCompatActivity(),
                             try {
                                 val r = WeatherRepository.geocode(city)
                                 if (r == null) {
-                                    pref.summary = "⚠ Ort nicht gefunden: "$city""
+                                    pref.summary = "⚠ Ort nicht gefunden: \"$city\""
                                     return@launch
                                 }
                                 // Save resolved coords
