@@ -452,7 +452,7 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="camera_status_rtsp_and_snapshot_error">✗ RTSP: %1$s | Snapshot: %2$s</string>
 
     <!-- DB Transit panel -->
-    <string name="pref_category_transit">Abfahrtsanzeige (DB)</string>
+    <string name="pref_category_transit">Abfahrtsanzeige (ÖPNV)</string>
     <string name="pref_title_transit_enabled">Abfahrtsanzeige aktivieren</string>
     <string name="pref_summary_transit_enabled">Nächste Verbindungen über der Kamera anzeigen</string>
     <string name="pref_title_transit_from">Von (Stationsname)</string>
@@ -496,6 +496,30 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_category_transit_conn3">Verbindung 3 (optional)</string>
     <string name="pref_category_transit_conn4">Verbindung 4 (optional)</string>
 
+    <string name="pref_title_transit_provider">Anbieter / Region</string>
+    <string-array name="pref_transit_provider_titles">
+        <item>Deutsche Bahn (DB) – inkl. VRN/HVV</item>
+        <item>Berlin/Brandenburg (VBB)</item>
+        <item>Berlin (BVG)</item>
+        <item>Österreich (ÖBB)</item>
+        <item>VRN – Rhein-Neckar (EFA)</item>
+        <item>RNN – Rhein-Nahe (EFA)</item>
+        <item>RMV – Rhein-Main (OpenData, Token)</item>
+        <item>Manuell (Eigene URL)</item>
+    </string-array>
+    <string-array name="pref_transit_provider_values">
+        <item>db</item>
+        <item>vbb</item>
+        <item>bvg</item>
+        <item>oebb</item>
+        <item>vrn</item>
+        <item>rnn</item>
+        <item>rmv</item>
+        <item>custom</item>
+    </string-array>
+    <string name="pref_title_transit_api_token">API-Token</string>
+    <string name="pref_summary_transit_api_token">Zugriffstoken für RMV OpenData (kostenlos unter opendata.rmv.de registrieren)</string>
+
     <!-- Transit refresh interval -->
     <string name="pref_title_transit_refresh">Aktualisierungsintervall</string>
     <string name="pref_summary_transit_refresh">Wie oft die Abfahrtsliste aktualisiert wird</string>
@@ -533,7 +557,7 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_category_colors_light">Farben – Light Mode</string>
     <string name="pref_title_color_bg_status">Statusleiste Hintergrund</string>
     <string name="pref_title_color_bg_header">Header/Toolbar Hintergrund</string>
-    <string name="pref_title_color_bg_transit">DB-Panel Hintergrund</string>
+    <string name="pref_title_color_bg_transit">ÖV-Panel Hintergrund</string>
     <string name="pref_title_color_bg_camera">Kamera-Panel Hintergrund</string>
     <string name="pref_title_color_border_room">Raumkachel Umrandung</string>
     <string name="pref_title_color_text_room">Raumtext / Datenwerte</string>
@@ -617,8 +641,8 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="notif_fault">Gerätefehler</string>
     <string name="room_tile_error">Fehler: %s</string>
 
-    <string name="pref_title_transit_base_url">API Basis-URL</string>
-    <string name="pref_summary_transit_base_url">Basis-URL für die DB-Transit-API (Standard: https://v6.db.transport.rest)</string>
+    <string name="pref_title_transit_base_url">API Basis-URL (Manuell)</string>
+    <string name="pref_summary_transit_base_url">Basis-URL für HAFAS-API (z.B. https://v6.db.transport.rest). Für VRN/HVV bitte den DB-Endpunkt wählen (enthält deren Daten).</string>
 
     <string name="audio_playback_attribution">"Diese App nutzt Audio-Funktionen"</string>
 

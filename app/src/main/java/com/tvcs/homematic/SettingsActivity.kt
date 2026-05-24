@@ -478,6 +478,31 @@ class SettingsActivity : AppCompatActivity(),
             bindEditText(PreferenceKeys.TRANSIT_FROM_NAME)
             bindEditText(PreferenceKeys.TRANSIT_TO_NAME)
 
+            // Provider selection logic
+            findPreference<ListPreference>(PreferenceKeys.TRANSIT_PROVIDER)?.apply {
+                val idx = findIndexOfValue(value)
+                if (idx >= 0) summary = entries[idx]
+
+                fun updateFieldVisibility(v: String) {
+                    findPreference<EditTextPreference>(PreferenceKeys.TRANSIT_BASE_URL)?.isVisible = (v == "custom")
+                    findPreference<EditTextPreference>(PreferenceKeys.TRANSIT_API_TOKEN)?.isVisible =
+                        v in VrnTransitRepository.REQUIRES_TOKEN
+                }
+
+                // Initial visibility
+                updateFieldVisibility(value)
+
+                onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v ->
+                    val lp = p as ListPreference
+                    val i  = lp.findIndexOfValue(v.toString())
+                    p.summary = if (i >= 0) lp.entries[i] else v.toString()
+                    updateFieldVisibility(v.toString())
+                    true
+                }
+            }
+            bindEditText(PreferenceKeys.TRANSIT_BASE_URL)
+            bindEditText(PreferenceKeys.TRANSIT_API_TOKEN)
+
             // Extra connection name fields
             listOf(
                 "transit_conn2_from_name", "transit_conn2_to_name",
@@ -597,9 +622,16 @@ class SettingsActivity : AppCompatActivity(),
                 override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
                 override fun afterTextChanged(s: android.text.Editable?) {
                     val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
-                    val rawUrl = prefs.getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
-                    val baseUrl = rawUrl?.trimEnd('/')?.ifBlank { DbTransitRepository.DEFAULT_BASE }
-                        ?: DbTransitRepository.DEFAULT_BASE
+                    val provider = prefs.getString(PreferenceKeys.TRANSIT_PROVIDER, "db") ?: "db"
+                    val baseUrl = if (provider == "custom") {
+                        prefs.getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
+                            ?.trimEnd('/')?.ifBlank { DbTransitRepository.DEFAULT_BASE }
+                            ?: DbTransitRepository.DEFAULT_BASE
+                    } else {
+                        DbTransitRepository.PROVIDERS[provider] ?: DbTransitRepository.DEFAULT_BASE
+                    }
+                    val apiToken = prefs.getString(PreferenceKeys.TRANSIT_API_TOKEN, "") ?: ""
+                    val isVrnProvider = provider in VrnTransitRepository.PROVIDERS.keys
 
                     val q = s?.toString()?.trim() ?: ""
                     searchJob?.cancel()
@@ -608,7 +640,11 @@ class SettingsActivity : AppCompatActivity(),
                     searchJob = viewLifecycleOwner.lifecycleScope.launch {
                         kotlinx.coroutines.delay(350)
                         if (!isResumed) return@launch
-                        when (val r = DbTransitRepository.searchStops(baseUrl, q)) {
+                        val r = if (isVrnProvider)
+                            VrnTransitRepository.searchStops(provider, baseUrl, q, apiToken)
+                        else
+                            DbTransitRepository.searchStops(baseUrl, q)
+                        when (r) {
                             is DbTransitRepository.Result.Error   -> statusText.text = getString(R.string.pref_summary_transit_search_error, r.message)
                             is DbTransitRepository.Result.Success -> {
                                 statusText.visibility = android.view.View.GONE

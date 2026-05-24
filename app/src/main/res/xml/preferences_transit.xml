@@ -1,26 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <!-- ========== DB TRANSIT ========== -->
+    <!-- ========== TRANSIT PROVIDER ========== -->
     <PreferenceCategory android:title="@string/pref_category_transit">
-
-
-        <ListPreference
-            android:key="transit_refresh_interval"
-            android:title="@string/pref_title_transit_refresh"
-            android:summary="@string/pref_summary_transit_refresh"
-            android:entries="@array/pref_transit_refresh_titles"
-            android:entryValues="@array/pref_transit_refresh_values"
-            android:defaultValue="120"
-            android:persistent="true" />
-
-        <EditTextPreference
-            android:key="transit_row_count"
-            android:title="@string/pref_title_transit_row_count"
-            android:summary="@string/pref_summary_transit_row_count"
-            android:defaultValue="3"
-            android:inputType="number"
-            android:persistent="true" />
 
         <SwitchPreferenceCompat
             android:key="transit_enabled"
@@ -29,45 +12,88 @@
             android:defaultValue="false"
             android:persistent="true" />
 
+        <ListPreference
+            android:key="transit_provider"
+            android:title="@string/pref_title_transit_provider"
+            android:entries="@array/pref_transit_provider_titles"
+            android:entryValues="@array/pref_transit_provider_values"
+            android:defaultValue="db"
+            android:persistent="true"
+            app:dependency="transit_enabled" />
+
         <EditTextPreference
             android:key="transit_base_url"
             android:title="@string/pref_title_transit_base_url"
             android:summary="@string/pref_summary_transit_base_url"
             android:defaultValue="https://v6.db.transport.rest"
             android:inputType="textUri"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
+
+        <EditTextPreference
+            android:key="transit_api_token"
+            android:title="@string/pref_title_transit_api_token"
+            android:summary="@string/pref_summary_transit_api_token"
+            android:inputType="textVisiblePassword"
+            android:persistent="true"
+            app:dependency="transit_enabled" />
+
+        <ListPreference
+            android:key="transit_refresh_interval"
+            android:title="@string/pref_title_transit_refresh"
+            android:summary="@string/pref_summary_transit_refresh"
+            android:entries="@array/pref_transit_refresh_titles"
+            android:entryValues="@array/pref_transit_refresh_values"
+            android:defaultValue="120"
+            android:persistent="true"
+            app:dependency="transit_enabled" />
+
+        <EditTextPreference
+            android:key="transit_row_count"
+            android:title="@string/pref_title_transit_row_count"
+            android:summary="@string/pref_summary_transit_row_count"
+            android:defaultValue="3"
+            android:inputType="number"
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <EditTextPreference
             android:key="transit_from_name"
             android:title="@string/pref_title_transit_from"
             android:summary="@string/pref_summary_transit_from"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <EditTextPreference
             android:key="transit_to_name"
             android:title="@string/pref_title_transit_to"
             android:summary="@string/pref_summary_transit_to"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_search_from"
             android:title="@string/pref_title_transit_search_from"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_search_to"
             android:title="@string/pref_title_transit_search_to"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_watched_add"
             android:title="@string/pref_title_transit_watched_stations"
-            android:summary="@string/pref_summary_transit_watched_stations_action" />
+            android:summary="@string/pref_summary_transit_watched_stations_action"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_watched_clear"
             android:title="@string/pref_title_transit_watched_clear"
-            android:summary="" />
+            android:summary=""
+            app:dependency="transit_enabled" />
 
     </PreferenceCategory>
 
@@ -78,23 +104,27 @@
             android:key="transit_conn2_from_name"
             android:title="@string/pref_title_transit_from"
             android:summary="@string/pref_summary_transit_from"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <EditTextPreference
             android:key="transit_conn2_to_name"
             android:title="@string/pref_title_transit_to"
             android:summary="@string/pref_summary_transit_to"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_conn2_search_from"
             android:title="@string/pref_title_transit_search_from"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_conn2_search_to"
             android:title="@string/pref_title_transit_search_to"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
     </PreferenceCategory>
 
@@ -105,23 +135,27 @@
             android:key="transit_conn3_from_name"
             android:title="@string/pref_title_transit_from"
             android:summary="@string/pref_summary_transit_from"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <EditTextPreference
             android:key="transit_conn3_to_name"
             android:title="@string/pref_title_transit_to"
             android:summary="@string/pref_summary_transit_to"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_conn3_search_from"
             android:title="@string/pref_title_transit_search_from"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_conn3_search_to"
             android:title="@string/pref_title_transit_search_to"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
     </PreferenceCategory>
 
@@ -132,23 +166,27 @@
             android:key="transit_conn4_from_name"
             android:title="@string/pref_title_transit_from"
             android:summary="@string/pref_summary_transit_from"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <EditTextPreference
             android:key="transit_conn4_to_name"
             android:title="@string/pref_title_transit_to"
             android:summary="@string/pref_summary_transit_to"
-            android:persistent="true" />
+            android:persistent="true"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_conn4_search_from"
             android:title="@string/pref_title_transit_search_from"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
         <Preference
             android:key="action_transit_conn4_search_to"
             android:title="@string/pref_title_transit_search_to"
-            android:summary="@string/pref_summary_transit_search" />
+            android:summary="@string/pref_summary_transit_search"
+            app:dependency="transit_enabled" />
 
     </PreferenceCategory>
 

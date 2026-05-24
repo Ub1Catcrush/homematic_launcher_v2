@@ -140,11 +140,19 @@ object PreferenceKeys {
     const val TRANSIT_TO_NAME   = "transit_to_name"
 
     /**
+     * Selected provider for public transit.
+     * Values: "db", "vrn", "bvg", "vbb", "hvv", "oebb", "custom"
+     */
+    const val TRANSIT_PROVIDER           = "transit_provider"
+
+    /**
      * Comma-separated list of station name substrings (case-insensitive) that
      * should be shown as transfer info in Spalte 4.
      * Example: "Hamburg Hbf, Bremen Hbf"
      */
     const val TRANSIT_BASE_URL           = "transit_base_url"
+    /** API token for providers that require authentication (e.g. RMV OpenData). */
+    const val TRANSIT_API_TOKEN          = "transit_api_token"
     const val TRANSIT_WATCHED_STATIONS   = "transit_watched_stations"
 
     /**

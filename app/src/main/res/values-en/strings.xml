@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    English string overrides.
-    Android automatically uses this file on devices with English locale.
-    Only strings that differ from German (values/strings.xml) are listed here.
--->
 <resources>
     <string name="app_name">HomeMaticLauncher</string>
     <string name="action_settings">Settings</string>
@@ -408,7 +403,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="camera_mute_desc">Sound on/off</string>
 
     <!-- DB Transit panel -->
-    <string name="pref_category_transit">Departure board (DB)</string>
+    <string name="pref_category_transit">Departure board (Transit)</string>
     <string name="pref_title_transit_enabled">Enable departure board</string>
     <string name="pref_summary_transit_enabled">Show next connections above the camera</string>
     <string name="pref_title_transit_from">From (station name)</string>
@@ -452,6 +447,30 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_category_transit_conn3">Connection 3 (optional)</string>
     <string name="pref_category_transit_conn4">Connection 4 (optional)</string>
 
+    <string name="pref_title_transit_provider">Provider / Region</string>
+    <string-array name="pref_transit_provider_titles">
+        <item>Deutsche Bahn (DB) – incl. VRN/HVV</item>
+        <item>Berlin/Brandenburg (VBB)</item>
+        <item>Berlin (BVG)</item>
+        <item>Austria (ÖBB)</item>
+        <item>VRN – Rhine-Neckar (EFA)</item>
+        <item>RNN – Rhine-Nahe (EFA)</item>
+        <item>RMV – Rhine-Main (OpenData, Token)</item>
+        <item>Manual (Custom URL)</item>
+    </string-array>
+    <string-array name="pref_transit_provider_values">
+        <item>db</item>
+        <item>vbb</item>
+        <item>bvg</item>
+        <item>oebb</item>
+        <item>vrn</item>
+        <item>rnn</item>
+        <item>rmv</item>
+        <item>custom</item>
+    </string-array>
+    <string name="pref_title_transit_api_token">API Token</string>
+    <string name="pref_summary_transit_api_token">Access token for RMV OpenData (register for free at opendata.rmv.de)</string>
+
     <!-- Transit refresh -->
     <string name="pref_title_transit_refresh">Refresh interval</string>
     <string name="pref_summary_transit_refresh">How often the departure list is updated</string>
@@ -467,7 +486,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_summary_font_room_title">Default: 12 sp</string>
     <string name="pref_title_font_room_data">Room tile – data values</string>
     <string name="pref_summary_font_room_data">Default: 11.5 sp</string>
-    <string name="pref_title_font_transit">DB departure row</string>
+    <string name="pref_title_font_transit">Transit departure row</string>
     <string name="pref_summary_font_transit">Default: 11 sp</string>
 
     <!-- Appearance colours -->
@@ -475,7 +494,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_category_colors_light">Colours – Light mode</string>
     <string name="pref_title_color_bg_status">Status bar background</string>
     <string name="pref_title_color_bg_header">Header/toolbar background</string>
-    <string name="pref_title_color_bg_transit">DB panel background</string>
+    <string name="pref_title_color_bg_transit">Transit panel background</string>
     <string name="pref_title_color_bg_camera">Camera panel background</string>
     <string name="pref_title_color_border_room">Room tile border</string>
     <string name="pref_title_color_text_room">Room text / values</string>
@@ -528,8 +547,8 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="notif_fault">Device Error</string>
     <string name="room_tile_error">Error: %s</string>
 
-    <string name="pref_title_transit_base_url">API base URL</string>
-    <string name="pref_summary_transit_base_url">Base URL for DB transit API (default: https://v6.db.transport.rest)</string>
+    <string name="pref_title_transit_base_url">API Base URL (Manual)</string>
+    <string name="pref_summary_transit_base_url">Base URL for HAFAS API (e.g. https://v6.db.transport.rest). For VRN/HVV please use the DB endpoint (contains their data).</string>
 
     <string name="audio_playback_attribution">"This App uses Audio-Functions"</string>
 
@@ -671,7 +690,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="ha_tiles_manager_title">Manage HA Tiles</string>
     <string name="ha_tiles_summary_empty">No tiles yet — add one here</string>
     <string name="ha_tiles_summary_count">%1$d tile(s) configured</string>
-    <string name="ha_tiles_empty">No tiles yet</string>
+    <string name="ha_tiles_empty">No theater tiles yet</string>
     <string name="ha_tile_add">+ Add new tile</string>
     <string name="ha_tile_editor_title">Edit tile</string>
     <string name="ha_tile_title_label">Tile title</string>

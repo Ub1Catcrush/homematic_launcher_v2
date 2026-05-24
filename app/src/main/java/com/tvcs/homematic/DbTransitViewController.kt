@@ -24,9 +24,6 @@ import kotlinx.coroutines.*
  *   Col 3  wrap+minWidth  "✓" / "+5'" / "Ausfall"
  *   Col 4  weight=1       All transit stops: origin → transfers → destination
  *                         with arrival times  (no walking legs)
- *
- * The number of visible rows is configurable (TRANSIT_ROW_COUNT, default 3).
- * The panel height stays fixed; if more rows than visible, the list scrolls.
  */
 class DbTransitViewController(
     private val context:         Context,
@@ -91,7 +88,6 @@ class DbTransitViewController(
     private fun rebuildRowViews() {
         val count = rowCount()
 
-        // Always rebuild: remove old scroll container if present
         rowScrollView?.let { sv ->
             (sv.parent as? android.view.ViewGroup)?.removeView(sv)
         }
@@ -115,13 +111,10 @@ class DbTransitViewController(
         }
         rowScrollView = scroll
 
-        // Insert scroll after header (index 1 if no controlRow yet, 2 if controlRow present)
-        // Use errorLabel as anchor — insert right before it
         val errorIdx = panel.indexOfChild(errorLabel)
         val insertAt = if (errorIdx >= 0) errorIdx else panel.childCount
         panel.addView(scroll, insertAt)
 
-        // Create TransitRowViews
         repeat(count) {
             val row = TransitRowView(context)
             row.visibility = View.GONE
@@ -130,7 +123,6 @@ class DbTransitViewController(
         }
     }
 
-    /** Ensures rows exist and match current rowCount. Rebuilds if needed. */
     private fun ensureRowViews() {
         if (rowContainer == null || dynamicRows.size != rowCount()) rebuildRowViews()
     }
@@ -141,7 +133,6 @@ class DbTransitViewController(
         val dp     = context.resources.displayMetrics.density
         val isLand = context.resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        // Compact touch targets — 32dp is enough for a secondary toolbar control
         val touch  = (32 * dp).toInt()
         val iconSp = if (isLand) 13f else 15f
         val labSp  = if (isLand)  9f else 10f
@@ -204,7 +195,6 @@ class DbTransitViewController(
     }
     private fun ensureControlRow() {
         if (controlRow.parent == null) panel.addView(controlRow, 0)
-        // Tap the header label to force an immediate refresh
         headerLabel.isClickable = true
         headerLabel.isFocusable = true
         val ta = context.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
@@ -223,15 +213,37 @@ class DbTransitViewController(
         val fromName = if (isHinfahrt) conn.fromName else conn.toName
         val toName   = if (isHinfahrt) conn.toName   else conn.fromName
 
-        val rawUrl = prefs.getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
-        val baseUrl = rawUrl?.trimEnd('/')?.ifBlank { DbTransitRepository.DEFAULT_BASE }
-            ?: DbTransitRepository.DEFAULT_BASE
+        val provider = prefs.getString(PreferenceKeys.TRANSIT_PROVIDER, "db") ?: "db"
+        val baseUrl = if (provider == "custom") {
+            prefs.getString(PreferenceKeys.TRANSIT_BASE_URL, DbTransitRepository.DEFAULT_BASE)
+                ?.trimEnd('/')?.ifBlank { DbTransitRepository.DEFAULT_BASE }
+                ?: DbTransitRepository.DEFAULT_BASE
+        } else {
+            DbTransitRepository.PROVIDERS[provider] ?: DbTransitRepository.DEFAULT_BASE
+        }
+        val apiToken = prefs.getString(PreferenceKeys.TRANSIT_API_TOKEN, "") ?: ""
 
-        when (val r = DbTransitRepository.getDepartures(baseUrl, fromId, toId,
-            watchedStationNames = (prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: "")
-                .split(",").map { it.trim() }.filter { it.isNotEmpty() },
-            results = rowCount().coerceAtLeast(3) + 2   // fetch a couple extra in case some are stale
-        )) {
+        val isVrnProvider = provider in VrnTransitRepository.PROVIDERS.keys
+        val r = if (isVrnProvider) {
+            VrnTransitRepository.getDepartures(
+                providerKey         = provider,
+                baseUrl             = baseUrl,
+                fromId              = fromId,
+                toId                = toId,
+                watchedStationNames = (prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: "")
+                    .split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                results             = rowCount().coerceAtLeast(3) + 2,
+                token               = apiToken
+            )
+        } else {
+            DbTransitRepository.getDepartures(baseUrl, fromId, toId,
+                watchedStationNames = (prefs.getString(PreferenceKeys.TRANSIT_WATCHED_STATIONS, "") ?: "")
+                    .split(",").map { it.trim() }.filter { it.isNotEmpty() },
+                results = rowCount().coerceAtLeast(3) + 2
+            )
+        }
+
+        when (r) {
             is DbTransitRepository.Result.Success -> {
                 val deps = r.data
                 withContext(Dispatchers.Main) {
@@ -304,28 +316,17 @@ class DbTransitViewController(
 // TransitRowView
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Col 1  wrap+minWidth  Line name bold; line 2 "+X Umstiege" (no walks counted)
- * Col 2  wrap+minWidth  Time "HH:MM" only
- * Col 3  wrap+minWidth  "✓" / "+5'" / "Ausfall"
- * Col 4  weight=1       Origin → [transfer stops] → Final destination with times
- *                       INVISIBLE when not used so columns always align
- */
 class TransitRowView(context: Context) : LinearLayout(context) {
 
     private val dp     = resources.displayMetrics.density
     private val isLand get() = resources.configuration.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    // Col 1 — two-line: line name + optional "+X"
     private val colLine    = LinearLayout(context)
     private val tvLine     = TextView(context)
     private val tvXfer     = TextView(context)
-    // Col 2 — time only
     private val tvTime     = TextView(context)
-    // Col 3 — status
     private val tvStatus   = TextView(context)
-    // Col 4 — stop summary
     private val tvStops    = TextView(context)
 
     init {
@@ -341,7 +342,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         setPadding(hPad, vPad, hPad, vPad)
         gravity = Gravity.TOP
 
-        // Col 1: line name (bold) + transfer count below
         tvLine.apply {
             textSize = if (land) 11f else 12f
             setTypeface(typeface, Typeface.BOLD)
@@ -363,7 +363,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             addView(tvLine); addView(tvXfer)
         }
 
-        // Col 2: time
         tvTime.apply {
             textSize = if (land) 12f else 13f
             setTextColor(Color.WHITE)
@@ -374,7 +373,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             }
         }
 
-        // Col 3: status
         tvStatus.apply {
             textSize = if (land) 10f else 11f
             gravity = Gravity.TOP
@@ -384,7 +382,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             }
         }
 
-        // Col 4: stop summary fills rest
         tvStops.apply {
             textSize = if (land) 9f else 10f
             setTextColor(0xBBFFFFFF.toInt())
@@ -398,7 +395,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
     }
 
     fun bind(dep: DbTransitRepository.Departure) {
-        // Col 1
         tvLine.text = dep.line
         if (dep.transfers > 0) {
             tvXfer.text = "+${dep.transfers}"
@@ -408,7 +404,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             tvXfer.visibility = View.GONE
         }
 
-        // Col 2 + 3
         if (dep.cancelled) {
             tvTime.text = dep.plannedTime
             tvTime.setTextColor(0xFFFF4444.toInt())
@@ -426,20 +421,15 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             }
         }
 
-        // Col 4: build stop summary
-        // Show: origin (dep time) → transfer station (arr time) → … → final dest (arr time)
-        // Each transit leg contributes: its origin + (at transfers) its destination
         val legs = dep.legs
         if (legs.isNotEmpty()) {
             val sb = StringBuilder()
             legs.forEachIndexed { i, leg ->
                 if (i == 0) {
-                    // First leg: show origin with departure time
                     sb.append(leg.origin)
                     val t = leg.depRealtime ?: leg.depPlanned
                     if (t.isNotBlank()) sb.append(" $t")
                 }
-                // Every leg: show its destination with arrival time
                 sb.append("\n→ ${leg.destination}")
                 val t = leg.arrRealtime ?: leg.arrPlanned
                 if (t.isNotBlank()) sb.append(" $t")

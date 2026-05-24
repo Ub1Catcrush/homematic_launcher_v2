@@ -25,22 +25,32 @@ object DbTransitRepository {
     private const val MAX_RETRIES = 3
     private const val RETRY_DELAY = 1_500L
 
+    /**
+     * Preset HAFAS endpoints.
+     * Compatible public instances of the transport.rest / hafas-client ecosystem.
+     * Note: VRN and HVV are best covered by the DB endpoint in this ecosystem.
+     *
+     * VRN / RNN / RMV are handled by [VrnTransitRepository] (EFA / HAFAS REST).
+     * Their entries here serve as a fallback for PROVIDERS lookups; the actual
+     * base URLs live in [VrnTransitRepository.PROVIDERS].
+     */
+    val PROVIDERS = mapOf(
+        "db"    to "https://v6.db.transport.rest",
+        "vbb"   to "https://v6.vbb.transport.rest",
+        "bvg"   to "https://v6.bvg.transport.rest",
+        "oebb"  to "https://v6.oebb.transport.rest",
+        // VRN-ecosystem providers – routed via VrnTransitRepository
+        "vrn"   to VrnTransitRepository.VRN_BASE,
+        "rnn"   to VrnTransitRepository.RNN_BASE,
+        "rmv"   to VrnTransitRepository.RMV_BASE
+    )
+
     // ── Data classes ──────────────────────────────────────────────────────────
 
     data class TransitStop(val id: String, val name: String)
 
     /**
      * One real transit leg (train / bus / tram — NOT walking / transfer).
-     * Used both for Col-4 display and for the detail bottom sheet.
-     *
-     * [origin]      departure station name
-     * [destination] arrival station name
-     * [depPlanned]  planned departure  "HH:mm"
-     * [depRealtime] realtime departure "HH:mm", null if same as planned
-     * [arrPlanned]  planned arrival    "HH:mm"
-     * [arrRealtime] realtime arrival   "HH:mm", null if same as planned
-     * [depDelay]    departure delay in minutes, null if unknown
-     * [arrDelay]    arrival delay in minutes,   null if unknown
      */
     data class Leg(
         val lineName:    String,
@@ -52,20 +62,11 @@ object DbTransitRepository {
         val arrRealtime: String?,
         val depDelay:    Int?,
         val arrDelay:    Int?,
-        val cancelled:   Boolean
+        val cancelled:   Boolean,
+        val isWalk:      Boolean = false,
+        val walkMinutes: Int?    = null
     )
 
-    /**
-     * One journey (= one result row in the departure list).
-     *
-     * [line]        first leg line name
-     * [transfers]   number of real transit-leg transfers (walking excluded)
-     * [plannedTime] departure of first leg, planned
-     * [realtimeTime] departure of first leg, realtime (null if same)
-     * [delayMinutes] departure delay of first leg
-     * [cancelled]   first leg cancelled
-     * [legs]        all non-walking transit legs in order
-     */
     data class TransferInfo(
         val stationName:  String,
         val arrivalTime:  String,
@@ -82,10 +83,8 @@ object DbTransitRepository {
         val legs:         List<Leg>,
         val transferInfo: TransferInfo? = null
     ) {
-        /** Final destination name. */
-        val direction: String get() = legs.lastOrNull()?.destination ?: "?"
-        /** Origin name. */
-        val origin: String get() = legs.firstOrNull()?.origin ?: "?"
+        val direction: String get() = legs.lastOrNull { !it.isWalk }?.destination ?: "?"
+        val origin: String get() = legs.firstOrNull { !it.isWalk }?.origin ?: "?"
     }
 
     sealed class Result<out T> {
@@ -117,7 +116,7 @@ object DbTransitRepository {
         fromId: String,
         toId: String,
         watchedStationNames: List<String> = emptyList(),
-        results: Int = 5   // fetch more so we have room after filtering stale ones
+        results: Int = 5
     ): Result<List<Departure>> =
         withContext(Dispatchers.IO) {
             val url = "$baseUrl/journeys?from=${encodeParam(fromId)}&to=${encodeParam(toId)}" +
@@ -129,7 +128,6 @@ object DbTransitRepository {
                     val deps     = mutableListOf<Departure>()
                     for (i in 0 until journeys.length()) {
                         val legsJson = journeys.getJSONObject(i).optJSONArray("legs") ?: continue
-                        // Only keep real transit legs (exclude walking/transfer)
                         val transitLegs = parseTransitLegs(legsJson, fmt)
                         if (transitLegs.isEmpty()) continue
                         val first     = transitLegs.first()
@@ -145,8 +143,6 @@ object DbTransitRepository {
                             transferInfo = findWatchedTransfer(transitLegs, watchedStationNames)
                         )
                     }
-                    // Filter out departures whose realtime (or planned) departure
-                    // time has already passed, taking delay into account.
                     val now = LocalTime.now()
                     val fmtParse = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
                     val filtered = deps.filter { dep ->
@@ -154,7 +150,6 @@ object DbTransitRepository {
                         if (timeStr.isBlank()) return@filter true
                         try {
                             val depTime = LocalTime.parse(timeStr, fmtParse)
-                            // Handle midnight wrap: if dep is >6h behind now it's from yesterday
                             val minutesAgo = java.time.Duration.between(depTime, now).toMinutes()
                             minutesAgo < 0 || minutesAgo <= (dep.delayMinutes ?: 0)
                         } catch (_: Exception) { true }
@@ -175,7 +170,6 @@ object DbTransitRepository {
         for (li in 0 until legsJson.length()) {
             val leg  = legsJson.getJSONObject(li)
             val mode = leg.optString("mode", "")
-            // Skip pure walking/transfer legs
             if (mode == "walking" || mode == "transfer" || leg.optBoolean("walking", false)) continue
 
             val lineName    = leg.optJSONObject("line")?.optString("name")
@@ -215,7 +209,6 @@ object DbTransitRepository {
     private fun findWatchedTransfer(legs: List<Leg>, watchedNames: List<String>): TransferInfo? {
         if (watchedNames.isEmpty()) return null
         for (leg in legs) {
-            // Check origin and destination of each leg
             for (stationName in listOf(leg.origin, leg.destination)) {
                 if (watchedNames.any { stationName.contains(it.trim(), ignoreCase = true) }) {
                     val isOrigin = stationName == leg.origin
@@ -252,33 +245,14 @@ object DbTransitRepository {
         return RawResult.Err(lastError)
     }
 
-    /**
-     * Parses an ISO 8601 timestamp to "HH:mm" using a cascade of strategies.
-     *
-     * Why so many fallbacks? Android's desugared java.time (API < 26 compat layer,
-     * and some Android 10 builds) can produce wrong output from DateTimeFormatter
-     * even with an explicit ZoneId — e.g. outputting "2026-" instead of "14:32".
-     * SimpleDateFormat is the oldest API and is always reliable.
-     *
-     * Strategy order:
-     *   1. ZonedDateTime.ofInstant → DateTimeFormatter  (ideal path)
-     *   2. epoch millis → SimpleDateFormat              (reliable fallback)
-     *   3. Manual string extraction from ISO timestamp  (universal last resort)
-     */
     private fun parseTime(iso: String, @Suppress("UNUSED_PARAMETER") fmt: DateTimeFormatter): String {
         if (iso.isBlank()) return ""
-
-        // Strategy 1: ZonedDateTime → DateTimeFormatter
-        // Works on API 26+ native and most desugared builds
         try {
             val zdt    = ZonedDateTime.ofInstant(Instant.parse(iso), ZoneId.systemDefault())
             val result = zdt.hour.toString().padStart(2, '0') + ":" +
                          zdt.minute.toString().padStart(2, '0')
             if (result.matches(Regex("\\d{2}:\\d{2}"))) return result
         } catch (_: Exception) {}
-
-        // Strategy 2: epoch millis → SimpleDateFormat
-        // SimpleDateFormat is part of the original java.util API — always works
         try {
             val instant = Instant.parse(iso)
             val sdf     = SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
@@ -286,46 +260,13 @@ object DbTransitRepository {
             val result  = sdf.format(Date(instant.toEpochMilli()))
             if (result.matches(Regex("\\d{2}:\\d{2}"))) return result
         } catch (_: Exception) {}
-
-        // Strategy 3: extract time directly from the ISO string
-        // ISO 8601 format: "2026-05-09T14:32:00+02:00" or "2026-05-09T14:32:00Z"
-        // The time portion is always at index 11..15
         try {
             if (iso.length >= 16 && iso[10] == 'T') {
                 val hh = iso.substring(11, 13)
                 val mm = iso.substring(14, 16)
-                if (hh.all(Char::isDigit) && mm.all(Char::isDigit)) {
-                    // Adjust for local timezone offset if present
-                    val offsetSign = iso.indexOfFirst { it == '+' || it == '-' }.let {
-                        if (it > 10) iso[it] else null
-                    }
-                    val offsetStr  = if (offsetSign != null) {
-                        val offsetIdx = iso.indexOfLast { it == '+' || it == '-' }
-                        if (offsetIdx > 10) iso.substring(offsetIdx) else null
-                    } else null
-
-                    if (offsetStr != null && offsetStr.length >= 6) {
-                        // Apply offset to get local time
-                        try {
-                            val sign    = if (offsetStr[0] == '+') 1 else -1
-                            val offH    = offsetStr.substring(1, 3).toInt()
-                            val offM    = offsetStr.substring(4, 6).toInt()
-                            val localH  = (hh.toInt() + sign * offH).coerceIn(0, 23)
-                            val localM  = (mm.toInt() + sign * offM).coerceIn(0, 59)
-                            // Also apply device timezone offset
-                            val devOffsetMs = TimeZone.getDefault().getOffset(System.currentTimeMillis())
-                            val devOffsetH  = devOffsetMs / 3_600_000
-                            val finalH      = ((localH + devOffsetH) % 24 + 24) % 24
-                            return finalH.toString().padStart(2, '0') + ":" +
-                                   localM.toString().padStart(2, '0')
-                        } catch (_: Exception) {}
-                    }
-                    return "$hh:$mm"   // UTC time as last resort
-                }
+                if (hh.all(Char::isDigit) && mm.all(Char::isDigit)) return "$hh:$mm"
             }
         } catch (_: Exception) {}
-
-        // Final fallback: return whatever the API gave us, trimmed to 5 chars
         return iso.take(5)
     }
 

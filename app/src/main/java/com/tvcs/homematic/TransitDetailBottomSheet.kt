@@ -128,6 +128,30 @@ class TransitDetailBottomSheet : BottomSheetDialogFragment() {
                 })
             }
 
+            // ── Walk leg ──────────────────────────────────────────────────────
+            if (leg.isWalk) {
+                val mins = leg.walkMinutes
+                val durStr = if (mins != null && mins > 0) " · ${mins} Min." else ""
+                content.addView(LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(px(8), px(4), 0, px(4))
+                    addView(TextView(ctx).apply {
+                        text = "🚶"
+                        textSize = 13f
+                        gravity = Gravity.CENTER_VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(px(20), LinearLayout.LayoutParams.MATCH_PARENT)
+                    })
+                    addView(TextView(ctx).apply {
+                        text = "Fußweg${durStr}  ${leg.origin} → ${leg.destination}"
+                        textSize = 12f
+                        setTextColor(0x99FFFFFF.toInt())
+                        gravity = Gravity.CENTER_VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+                    })
+                })
+                return@forEachIndexed
+            }
+
             // ── Leg header: [Line pill] ───────────────────────────────────────
             content.addView(LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL
