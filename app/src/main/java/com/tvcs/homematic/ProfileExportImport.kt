@@ -89,6 +89,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
             PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL,
             PreferenceKeys.CAMERA_OVERLAY_ALPHA, PreferenceKeys.CAMERA_SCALE_TYPE,
             PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT, PreferenceKeys.CAMERA_PANEL_PCT_LAND,
+            PreferenceKeys.CAMERA_CONFIGS_JSON, PreferenceKeys.CAMERA_ROTATION_SEC,
             PreferenceKeys.TRANSIT_PANEL_PCT_PORTRAIT, PreferenceKeys.TRANSIT_PANEL_PCT_LAND
         )),
         Category("motion", R.string.export_cat_motion, listOf(

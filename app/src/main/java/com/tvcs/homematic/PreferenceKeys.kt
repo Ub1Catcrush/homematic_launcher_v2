@@ -97,6 +97,10 @@ object PreferenceKeys {
     const val CAMERA_RTSP_ENGINE        = "camera_rtsp_engine"
     const val CAMERA_SCALE_TYPE         = "camera_scale_type"         // default "center_crop"
 
+    // Multi-camera list (stored as JSON via CameraConfigStore)
+    const val CAMERA_CONFIGS_JSON       = "camera_configs_json"
+    const val CAMERA_ROTATION_SEC       = "camera_rotation_sec"
+
     // ── Motion detection & screen wake ────────────────────────────────────────
     // Source 1: Webcam (RTSP/Snapshot stream shown in launcher)
     const val MOTION_WEBCAM_ENABLED     = "motion_webcam_enabled"      // default false

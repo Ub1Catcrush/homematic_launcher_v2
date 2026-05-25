@@ -417,6 +417,14 @@ class SettingsActivity : AppCompatActivity(),
                     true
                 }
             }
+            findPreference<Preference>("action_manage_cameras")?.setOnPreferenceClickListener {
+                parentFragmentManager.beginTransaction()
+                    .replace(id, CameraListFragment(), "camera_list")
+                    .addToBackStack("camera_list")
+                    .commit()
+                true
+            }
+
             findPreference<Preference>("action_test_rtsp")?.setOnPreferenceClickListener { pref ->
                 val url = prefs.getString(PreferenceKeys.CAMERA_RTSP_URL, "") ?: ""
                 if (url.isBlank()) { pref.summary = getString(R.string.pref_summary_camera_test_no_url); return@setOnPreferenceClickListener true }

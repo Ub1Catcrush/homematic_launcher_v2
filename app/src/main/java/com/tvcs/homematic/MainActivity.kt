@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var permissionHelper:    PermissionHelper
-    private lateinit var cameraViewController:  CameraViewController
+    private lateinit var multiCameraController: MultiCameraController
     private lateinit var transitViewController: DbTransitViewController
     private lateinit var sharedPreferences:   SharedPreferences
     private lateinit var toolbar:             Toolbar
@@ -190,15 +190,15 @@ class MainActivity : AppCompatActivity() {
         gridView.adapter = mAdapter
 
         // ── Camera controller ─────────────────────────────────────────────────
-        cameraViewController = CameraViewController(
+        multiCameraController = MultiCameraController(
             context       = this,
-            playerView    = findViewById(R.id.camera_player_view),
-            vlcLayout     = findViewById(R.id.camera_vlc_view),
-            snapshotView  = findViewById(R.id.camera_snapshot_view),
+            cameraPanel   = cameraPanel,
             statusLabel   = findViewById(R.id.camera_status_label),
-            muteButton    = findViewById(R.id.camera_mute_button)
+            muteButton    = findViewById(R.id.camera_mute_button),
+            tapOverlay    = findViewById(R.id.camera_tap_overlay),
+            dotContainer  = findViewById(R.id.camera_dot_container)
         )
-        cameraViewController.attachToLifecycle(this)
+        multiCameraController.attachToLifecycle(this)
         applyCameraPanel()
 
         // ── Transit controller ────────────────────────────────────────────────
@@ -235,7 +235,7 @@ class MainActivity : AppCompatActivity() {
             timeoutMs  = (sharedPreferences.getString(
                 PreferenceKeys.MOTION_WAKE_TIMEOUT_SEC, "60")?.toLongOrNull() ?: 60L) * 1000L
         )
-        cameraViewController.onMotionDetected = {
+        multiCameraController.onMotionDetected = {
             if (!isFinishing && !isDestroyed) screenWakeController.onMotion()
         }
         applyLocalCameraMotion()
@@ -244,7 +244,7 @@ class MainActivity : AppCompatActivity() {
         // ── FAB: Settings (right) ─────────────────────────────────────────────
         // ── Camera mute button ────────────────────────────────────────────────
         findViewById<android.widget.ImageButton>(R.id.camera_mute_button)
-            ?.setOnClickListener { cameraViewController.toggleMute() }
+            ?.setOnClickListener { multiCameraController.toggleMute() }
 
         if (repo.isLoaded)
             mAdapter.updateRooms(repo.myRoomList?.rooms ?: emptyList())
@@ -267,7 +267,7 @@ class MainActivity : AppCompatActivity() {
     // ── Camera panel ─────────────────────────────────────────────────────────
 
     private fun applyCameraPanel() {
-        val enabled = cameraViewController.isEnabled()
+        val enabled = multiCameraController.isEnabled()
         cameraPanel.visibility = if (enabled) View.VISIBLE else View.GONE
         if (enabled) applyPanelHeights()
     }
@@ -311,15 +311,20 @@ class MainActivity : AppCompatActivity() {
         val camPx   = ((camPct.coerceIn(1, 50)   / 100f) * totalPx).toInt()
         val transPx = ((transPct.coerceIn(1, 50) / 100f) * totalPx).toInt()
 
-        // Camera player/snapshot views
-        listOf(R.id.camera_player_view, R.id.camera_vlc_container, R.id.camera_snapshot_view).forEach { id ->
-            findViewById<View>(id)?.let { v ->
-                v.layoutParams.height = camPx
-                v.requestLayout()
-            }
+        // Give camera_panel an explicit fixed height — not minimumHeight, which is a floor
+        // but still allows expansion to match_parent. With a fixed height the slot containers
+        // (MATCH_PARENT children) correctly resolve to camPx in both portrait and landscape.
+        findViewById<View>(R.id.camera_panel)?.let { panel ->
+            panel.layoutParams.height = camPx
+            panel.requestLayout()
+        }
+        // Tap overlay must match the panel height so taps cover the full video area.
+        findViewById<View>(R.id.camera_tap_overlay)?.let { v ->
+            v.layoutParams.height = camPx
+            v.requestLayout()
         }
 
-        // Transit panel: constrain its height directly like the camera panel
+        // Transit panel height
         findViewById<View>(R.id.transit_panel)?.let { tp ->
             tp.layoutParams.height = transPx
             tp.requestLayout()
@@ -502,8 +507,8 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.TRANSIT_PANEL_PCT_LAND,
                 PreferenceKeys.CAMERA_OVERLAY_ALPHA -> {
                     applyCameraPanel()
-                    cameraViewController.applyOverlayAlpha()
-                    cameraViewController.applyPrefsChange()
+                    multiCameraController.applyPrefsChange()
+                    multiCameraController.applyPrefsChange()
                 }
                 PreferenceKeys.MOTION_DETECT_ENABLED,
                 PreferenceKeys.MOTION_DETECT_SENSITIVITY,
@@ -516,7 +521,7 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.MOTION_ROI,
                 PreferenceKeys.MOTION_TIME_START,
                 PreferenceKeys.MOTION_TIME_END -> {
-                    cameraViewController.applyMotionPrefs()
+                    multiCameraController.applyMotionPrefs()
                     syncMotionService()
                 }
                 PreferenceKeys.MOTION_LOCAL_ENABLED,
@@ -537,12 +542,12 @@ class MainActivity : AppCompatActivity() {
                     if (::nightDimController.isInitialized) applyNightDimPrefs(nightDimController)
                 }
                 PreferenceKeys.CAMERA_SCALE_TYPE -> {
-                    cameraViewController.applyScaleType()
+                    multiCameraController.applyPrefsChange()
                 }
                 PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS,
                 PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL -> {
                     applyCameraPanel()
-                    cameraViewController.applyPrefsChange()
+                    multiCameraController.applyPrefsChange()
                 }
 
                 // Transit panel

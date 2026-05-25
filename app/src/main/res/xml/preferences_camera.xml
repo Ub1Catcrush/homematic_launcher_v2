@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ── Ein/Aus & Quelle ────────────────────────────────────────────────── -->
+    <!-- ── Ein/Aus & Kameraliste ──────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/pref_category_camera">
 
         <SwitchPreferenceCompat
@@ -9,6 +9,11 @@
             android:title="@string/pref_title_camera_enabled"
             android:defaultValue="false"
             android:persistent="true" />
+
+        <Preference
+            android:key="action_manage_cameras"
+            android:title="@string/pref_title_camera_list"
+            android:summary="@string/pref_summary_camera_list" />
 
         <ListPreference
             android:key="camera_rtsp_engine"
@@ -18,22 +23,6 @@
             android:entryValues="@array/camera_engine_values"
             android:defaultValue="auto"
             android:persistent="true" />
-
-        <EditTextPreference
-            android:key="camera_rtsp_url"
-            android:title="@string/pref_title_camera_rtsp_url"
-            android:summary="@string/pref_summary_camera_rtsp_url"
-            android:defaultValue=""
-            android:persistent="true"
-            android:inputType="textUri" />
-
-        <EditTextPreference
-            android:key="camera_snapshot_url"
-            android:title="@string/pref_title_camera_snapshot_url"
-            android:summary="@string/pref_summary_camera_snapshot_url"
-            android:defaultValue=""
-            android:persistent="true"
-            android:inputType="textUri" />
 
     </PreferenceCategory>
 

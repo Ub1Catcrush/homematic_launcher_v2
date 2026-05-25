@@ -55,91 +55,37 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         android:tag="main_content">
 
-        <!-- Transit panel — above camera panel -->
-        <LinearLayout
-            android:id="@+id/transit_panel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#CC001122"
-            android:visibility="gone"
-            app:layout_constraintBottom_toTopOf="@id/camera_panel"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
-            <TextView
-                android:id="@+id/transit_header"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="10sp"
-                android:textColor="#AAFFFFFF"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="3dp"
-                android:paddingBottom="1dp"
-                android:text="" />
-            <!-- Transit rows are added programmatically (scrollable, count configurable) -->
-
-            <TextView
-                android:id="@+id/transit_error"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="10sp"
-                android:textColor="#FFFF6666"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:visibility="gone"
-                android:text="" />
-
-        </LinearLayout>
-
-        <!-- Camera panel — FrameLayout so the status strip floats OVER the video -->
+        <!-- Camera panel — sticks to bottom of screen.
+             Height is set programmatically by applyPanelHeights() to a percentage of the
+             screen. Slot containers (MATCH_PARENT children) then resolve correctly.
+             0dp here is just a safe initial value before the first layout pass. -->
         <FrameLayout
             android:id="@+id/camera_panel"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="0dp"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- ExoPlayer surface for RTSP — full size of frame -->
-            <androidx.media3.ui.PlayerView
-                android:id="@+id/camera_player_view"
+            <!-- Transparent tap overlay — always on top of slot containers -->
+            <View
+                android:id="@+id/camera_tap_overlay"
                 android:layout_width="match_parent"
                 android:layout_height="180dp"
-                android:visibility="gone"
-                app:use_controller="false"
-                app:resize_mode="fixed_width" />
+                android:background="@android:color/transparent"
+                android:clickable="true"
+                android:focusable="true" />
 
-            <!-- libVLC surface for RTSP — Tier 2 engine.
-                 Wrapped in a fixed-height FrameLayout so that libVLC's internal
-                 MATCH_PARENT SurfaceView cannot expand beyond the camera panel. -->
-            <FrameLayout
-                android:id="@+id/camera_vlc_container"
-                android:layout_width="match_parent"
-                android:layout_height="180dp"
-                android:visibility="gone"
-                android:clipChildren="true">
-
-                <org.videolan.libvlc.util.VLCVideoLayout
-                    android:id="@+id/camera_vlc_view"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:layout_gravity="center" />
-
-            </FrameLayout>
-
-            <!-- ImageView for MJPEG snapshot fallback — full size of frame -->
-            <ImageView
-                android:id="@+id/camera_snapshot_view"
-                android:layout_width="match_parent"
-                android:layout_height="180dp"
-                android:scaleType="centerCrop"
-                android:visibility="gone"
-                android:contentDescription="@string/camera_snapshot_desc" />
+            <!-- Dot indicator row — floats at the BOTTOM, shows active camera -->
+            <LinearLayout
+                android:id="@+id/camera_dot_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:orientation="horizontal"
+                android:paddingBottom="6dp"
+                android:visibility="gone" />
 
             <!-- Status row: floats at the TOP of the frame, over the video -->
             <LinearLayout
@@ -179,7 +125,46 @@
 
         </FrameLayout>
 
-        <!-- Room grid — constrained above the camera panel when visible -->
+        <!-- Transit panel — above camera panel -->
+        <LinearLayout
+            android:id="@+id/transit_panel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#CC001122"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/camera_panel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:id="@+id/transit_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                android:textColor="#AAFFFFFF"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="1dp"
+                android:text="" />
+
+            <TextView
+                android:id="@+id/transit_error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                android:textColor="#FFFF6666"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:visibility="gone"
+                android:text="" />
+
+        </LinearLayout>
+
+        <!-- Room grid — fills space above the transit panel (which is above camera panel) -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/grid_view"
             android:layout_width="0dp"

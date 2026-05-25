@@ -25,8 +25,8 @@
 
         <TextView
             android:id="@+id/status_text"
-                    android:maxLines="1"
-                    android:ellipsize="end"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:layout_width="match_parent"
             android:layout_height="13dp"
             android:textSize="8sp"
@@ -127,45 +127,33 @@
 
             </LinearLayout>
 
-            <!-- Camera panel — FrameLayout so status strip floats OVER the video -->
+            <!-- Camera panel — slot containers added at index 0 by MultiCameraController.
+                 Height is set programmatically; 0dp is the safe initial value. -->
             <FrameLayout
                 android:id="@+id/camera_panel"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="0dp"
                 android:layout_weight="1"
                 android:visibility="gone">
 
-                <androidx.media3.ui.PlayerView
-                    android:id="@+id/camera_player_view"
+                <!-- Transparent tap overlay — always on top of slot containers -->
+                <View
+                    android:id="@+id/camera_tap_overlay"
                     android:layout_width="match_parent"
                     android:layout_height="120dp"
-                    android:visibility="gone"
-                    app:use_controller="false"
-                    app:resize_mode="fixed_width" />
+                    android:background="@android:color/transparent"
+                    android:clickable="true"
+                    android:focusable="true" />
 
-                <!-- VLC wrapper: fixed height clips VLC's MATCH_PARENT internal surface -->
-                <FrameLayout
-                    android:id="@+id/camera_vlc_container"
-                    android:layout_width="match_parent"
-                    android:layout_height="120dp"
-                    android:visibility="gone"
-                    android:clipChildren="true">
-
-                    <org.videolan.libvlc.util.VLCVideoLayout
-                        android:id="@+id/camera_vlc_view"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_gravity="center" />
-
-                </FrameLayout>
-
-                <ImageView
-                    android:id="@+id/camera_snapshot_view"
-                    android:layout_width="match_parent"
-                    android:layout_height="120dp"
-                    android:scaleType="centerCrop"
-                    android:visibility="gone"
-                    android:contentDescription="@string/camera_snapshot_desc" />
+                <!-- Dot indicator row -->
+                <LinearLayout
+                    android:id="@+id/camera_dot_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:orientation="horizontal"
+                    android:paddingBottom="6dp"
+                    android:visibility="gone" />
 
                 <!-- Status strip: floats at top of frame, over the video -->
                 <LinearLayout

@@ -774,6 +774,22 @@ No tracking · No ads · Open source</string>
 
     <string name="camera_status_connecting_vlc">⏳ libVLC connecting…</string>
     <string name="camera_status_live_vlc">▶ Live (libVLC)</string>
+    <string name="camera_status_retrying">↻ Reconnecting (%1$d/%2$d)…</string>
+    <string name="camera_status_tap_to_reload">⚠ %1$s  ·  Tap to reload</string>
+
+    <!-- Multi-camera -->
+    <string name="pref_category_camera_rotation">Camera rotation</string>
+    <string name="camera_rotation_off">Rotation disabled (show one camera)</string>
+    <string name="camera_rotation_every">Switch every %1$d seconds  ·  Tap to switch manually</string>
+    <string name="camera_list_add">+ Add camera</string>
+    <string name="camera_list_empty">No cameras configured yet.</string>
+    <string name="camera_edit_title">Edit camera</string>
+    <string name="camera_delete_title">Delete camera</string>
+    <string name="camera_delete_msg">Really remove "%1$s"?</string>
+    <string name="camera_field_name">Name</string>
+    <string name="camera_field_name_hint">e.g. Front door, Garden …</string>
+    <string name="pref_title_camera_list">Manage cameras</string>
+    <string name="pref_summary_camera_list">Configure multiple cameras, set order and rotation interval</string>
     <string name="pref_title_camera_engine">RTSP engine</string>
     <string name="pref_summary_camera_engine">Auto: ExoPlayer → libVLC → Snapshot. Manual override if one engine should always be used.</string>
 
