@@ -153,7 +153,6 @@ class MultiCameraController(
 
     private fun showSlot(idx: Int) {
         if (slots.isEmpty()) return
-        val prevIdx = activeIdx
         activeIdx = idx.coerceIn(0, slots.lastIndex)
 
         slots.forEachIndexed { i, slot ->
@@ -168,11 +167,10 @@ class MultiCameraController(
                 // Restore correct view visibility and status label
                 slot.vc.refreshStatus()
             } else {
-                // Keep container INVISIBLE — surface stays attached for background VLC/Exo
-                // but we stop streaming to save connections and CPU
-                if (i == prevIdx && prevIdx != activeIdx) {
-                    slot.vc.stop()
-                }
+                // Keep container INVISIBLE — surface stays attached so ExoPlayer / VLC
+                // can continue buffering in the background. The stream is NOT stopped here.
+                // Stopping only happens in onStop() (lifecycle) or applyPrefsChange()
+                // (explicit reload) — never on a simple camera switch.
                 (slot.playerView.parent as? View)?.visibility = View.INVISIBLE
                 slot.playerView.visibility = View.INVISIBLE
                 slot.vlcLayout.visibility  = View.INVISIBLE

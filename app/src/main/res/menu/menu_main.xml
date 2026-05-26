@@ -3,6 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/action_extra_app"
+        android:icon="@drawable/ic_open_in_new"
+        android:orderInCategory="70"
+        android:title="@string/extra_app_button_desc"
+        android:visible="false"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_launcher_switch"
         android:icon="@drawable/ic_launcher_switch"
         android:orderInCategory="80"

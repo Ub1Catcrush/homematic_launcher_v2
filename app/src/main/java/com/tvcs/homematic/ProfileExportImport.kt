@@ -123,6 +123,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
         )),
         Category("launcher", R.string.export_cat_launcher, listOf(
             PreferenceKeys.ALT_LAUNCHER_ENABLED, PreferenceKeys.ALT_LAUNCHER_PACKAGE,
+            PreferenceKeys.EXTRA_APP_ENABLED,    PreferenceKeys.EXTRA_APP_PACKAGE,
             PreferenceKeys.TEST_MODE
         )),
         Category("notifications", R.string.export_cat_notifications, listOf(

@@ -35,6 +35,9 @@ class VlcRtspEngine(
         private const val TAG = "VlcEngine"
 
         /** libVLC options — optimised for low-latency live camera streams. */
+        /** After VLC reports Playing, wait this long for a real decoded frame. */
+        private const val BLACKFRAME_TIMEOUT_MS = 6_000L
+
         private val VLC_OPTIONS = arrayListOf(
             "--no-drop-late-frames",
             "--no-skip-frames",
@@ -71,21 +74,60 @@ class VlcRtspEngine(
             mp.attachViews(vlcLayout, null, false, false)
             mp.volume = if (muted) 0 else 100
 
-            // VLCVideoLayout is inside a fixed-height FrameLayout container — size is constrained by the container
+            // ── Video-output watchdog ─────────────────────────────────────────
+            // VLC fires Event.Playing when the demuxer opens, NOT when a decoded
+            // frame reaches the surface. ACodec errors (setPortMode -1010) or
+            // network issues can leave VLC in Playing state with a black screen.
+            //
+            // Reliable signal: MediaPlayer.Event.Vout fires when VLC hands the
+            // first decoded frame to the video output. We wait BLACKFRAME_TIMEOUT_MS
+            // after Playing for a Vout event. If none arrives → error → retry.
+            var voutReceived     = false
+            var watchdogRunnable: Runnable? = null
+            fun cancelWatchdog() {
+                watchdogRunnable?.let { handler.removeCallbacks(it) }
+                watchdogRunnable = null
+            }
 
             // Wire VLC event listener
             mp.setEventListener { event ->
                 when (event.type) {
                     MediaPlayer.Event.Playing -> {
-                        Log.i(TAG, "VLC playing")
-                        handler.post { listener.onPlaying() }
+                        // Event.Playing fires when the demuxer opens — NOT when a decoded
+                        // frame reaches the surface. Do NOT call onPlaying() here yet.
+                        // Instead, arm the black-frame watchdog and wait for Vout.
+                        Log.i(TAG, "VLC playing — waiting for Vout (video-output) event")
+                        handler.post {
+                            if (!voutReceived) {
+                                watchdogRunnable = Runnable {
+                                    watchdogRunnable = null
+                                    if (!voutReceived) {
+                                        Log.w(TAG, "VLC Vout watchdog: no video frame after ${BLACKFRAME_TIMEOUT_MS}ms — black screen, reporting error")
+                                        listener.onError("VLC no video output (black screen)", unrecoverable = false)
+                                    }
+                                }.also { handler.postDelayed(it, BLACKFRAME_TIMEOUT_MS) }
+                            }
+                        }
+                    }
+                    MediaPlayer.Event.Vout -> {
+                        // First real decoded frame delivered to surface.
+                        // Only NOW is it safe to cancel the CameraViewController's RTSP
+                        // timeout watchdog and declare the stream as live.
+                        if (!voutReceived) {
+                            voutReceived = true
+                            cancelWatchdog()
+                            Log.i(TAG, "VLC Vout: first video frame confirmed — cancelling watchdog")
+                            handler.post { listener.onPlaying() }
+                        }
                     }
                     MediaPlayer.Event.EncounteredError -> {
+                        cancelWatchdog()
                         val msg = "VLC playback error"
                         Log.w(TAG, msg)
                         handler.post { listener.onError(msg, unrecoverable = false) }
                     }
                     MediaPlayer.Event.EndReached -> {
+                        cancelWatchdog()
                         Log.i(TAG, "VLC stream ended")
                         handler.post { listener.onEnded() }
                     }

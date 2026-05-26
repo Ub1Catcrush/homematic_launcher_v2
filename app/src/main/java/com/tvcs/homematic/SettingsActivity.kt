@@ -704,6 +704,24 @@ class SettingsActivity : AppCompatActivity(),
                     .setNegativeButton(android.R.string.cancel, null).show()
                 true
             }
+
+            findPreference<Preference>("action_detect_extra_apps")?.setOnPreferenceClickListener { pref ->
+                val apps = ExtraAppHelper.getInstalledApps(requireContext())
+                if (apps.isEmpty()) { pref.summary = getString(R.string.pref_summary_no_extra_apps_found); return@setOnPreferenceClickListener true }
+                val labels = apps.map { it.second }.toTypedArray()
+                val pkgs   = apps.map { it.first }.toTypedArray()
+                if (!isResumed) return@setOnPreferenceClickListener true
+                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle(getString(R.string.dialog_select_extra_app_title))
+                    .setItems(labels) { _, i ->
+                        val chosen = pkgs[i]
+                        PreferenceManager.getDefaultSharedPreferences(requireContext()).edit().putString(PreferenceKeys.EXTRA_APP_PACKAGE, chosen).apply()
+                        findPreference<EditTextPreference>(PreferenceKeys.EXTRA_APP_PACKAGE)?.apply { text = chosen; summary = chosen }
+                        pref.summary = getString(R.string.pref_summary_extra_app_selected, labels[i])
+                    }
+                    .setNegativeButton(android.R.string.cancel, null).show()
+                true
+            }
         applyLongSummaryHandling()
         }
     }

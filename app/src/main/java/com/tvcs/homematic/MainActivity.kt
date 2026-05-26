@@ -567,6 +567,10 @@ class MainActivity : AppCompatActivity() {
                 PreferenceKeys.ALT_LAUNCHER_ENABLED,
                 PreferenceKeys.ALT_LAUNCHER_PACKAGE ->
                     applyLauncherSwitchFab()
+                // Extra app button
+                PreferenceKeys.EXTRA_APP_ENABLED,
+                PreferenceKeys.EXTRA_APP_PACKAGE ->
+                    invalidateOptionsMenu()
 
                 PreferenceKeys.GRID_COLUMNS_PORTRAIT,
                 PreferenceKeys.GRID_COLUMNS_LANDSCAPE -> {
@@ -655,6 +659,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ── CCU load ──────────────────────────────────────────────────────────────
+
+    /**
+     * Full reload: HM/CCU data, HA tiles, ÖPNV and all camera streams.
+     * Called by the toolbar refresh button.
+     */
+    private fun reloadAll() {
+        showToast(getString(R.string.toast_loading))
+        loadCcuData()
+        transitViewController.applyPrefsChange()
+        multiCameraController.applyPrefsChange()
+        refreshHaTilesInAdapter()
+    }
 
     private fun loadCcuData() {
         if (loadJob?.isActive == true) return
@@ -997,7 +1013,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
-        listOf(R.id.action_settings, R.id.action_refresh, R.id.action_launcher_switch).forEach { id ->
+        listOf(R.id.action_settings, R.id.action_refresh, R.id.action_launcher_switch, R.id.action_extra_app).forEach { id ->
             menu.findItem(id)?.icon?.mutate()?.let { icon ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                     icon.colorFilter = BlendModeColorFilter(Color.WHITE, BlendMode.SRC_ATOP)
@@ -1006,12 +1022,18 @@ class MainActivity : AppCompatActivity() {
         }
         // Show launcher switch only when enabled
         menu.findItem(R.id.action_launcher_switch)?.isVisible = LauncherSwitchHelper.isEnabled(this)
+        menu.findItem(R.id.action_extra_app)?.isVisible       = ExtraAppHelper.isEnabled(this)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
         R.id.action_settings       -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
-        R.id.action_refresh        -> { loadCcuData(); showToast(getString(R.string.toast_loading)); true }
+        R.id.action_refresh        -> { reloadAll(); true }
+        R.id.action_extra_app -> {
+            if (!ExtraAppHelper.launch(this))
+                showSnackbar(getString(R.string.extra_app_launch_failed), Snackbar.LENGTH_LONG)
+            true
+        }
         R.id.action_launcher_switch -> {
             if (!LauncherSwitchHelper.switchToAltLauncher(this))
                 showSnackbar(getString(R.string.launcher_switch_failed), Snackbar.LENGTH_LONG)

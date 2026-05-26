@@ -46,6 +46,31 @@
 
     </PreferenceCategory>
 
+    <!-- ========== EXTRA APP BUTTON ========== -->
+    <PreferenceCategory android:title="@string/pref_category_extra_app">
+
+        <SwitchPreferenceCompat
+            android:key="extra_app_enabled"
+            android:title="@string/pref_title_extra_app_enabled"
+            android:summary="@string/pref_summary_extra_app_enabled"
+            android:defaultValue="false"
+            android:persistent="true" />
+
+        <EditTextPreference
+            android:key="extra_app_package"
+            android:title="@string/pref_title_extra_app_package"
+            android:summary="@string/pref_summary_extra_app_package"
+            android:defaultValue=""
+            android:persistent="true"
+            android:inputType="text" />
+
+        <Preference
+            android:key="action_detect_extra_apps"
+            android:title="@string/pref_title_detect_extra_apps"
+            android:summary="@string/pref_summary_detect_extra_apps" />
+
+    </PreferenceCategory>
+
     <!-- ========== ENTWICKLER / TEST ========== -->
     <PreferenceCategory android:title="@string/pref_category_developer">
 

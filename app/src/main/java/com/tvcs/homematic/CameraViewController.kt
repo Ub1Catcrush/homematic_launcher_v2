@@ -75,16 +75,6 @@ class CameraViewController(
         /** Base delay for exponential back-off: 5 s, 10 s, 20 s. */
         private const val RETRY_BASE_MS = 5_000L
 
-        /**
-         * Keywords that indicate a structural SDP/codec incompatibility.
-         * Only these trigger rtspPermanentlyFailed — NOT generic network errors.
-         */
-        private val UNRECOVERABLE_HINTS = listOf(
-            "missing attribute fmtp",
-            "missing attribute",
-            "unsupported sdp",
-            "no supported track"
-        )
     }
 
     private val prefs       = PreferenceManager.getDefaultSharedPreferences(context)
@@ -118,10 +108,11 @@ class CameraViewController(
     private var retryCount            = 0
 
     /**
-     * Set to true only for hard structural SDP failures that will always fail.
-     * NOT set for transient network errors.
+     * Incremented every time a new engine is started.
+     * Callbacks capture their generation at creation time and ignore events
+     * from a previous engine — prevents stale EXO timeouts from killing VLC.
      */
-    private var rtspPermanentlyFailed = false
+    private var engineGeneration      = 0
 
     private enum class EngineChoice { EXO, VLC, SNAPSHOT }
     private var nextEngine      = EngineChoice.EXO
@@ -163,7 +154,7 @@ class CameraViewController(
         nextEngine = when (cfgEngine()) {
             "vlc"      -> EngineChoice.VLC
             "snapshot" -> EngineChoice.SNAPSHOT
-            else       -> if (rtspPermanentlyFailed) EngineChoice.VLC else EngineChoice.EXO
+            else       -> EngineChoice.EXO
         }
         startWithEngine(nextEngine)
         installTapReload()
@@ -172,6 +163,7 @@ class CameraViewController(
     @MainThread
     fun stop() {
         started = false
+        engineGeneration++   // invalidate all in-flight callbacks
         cancelRtspTimeout()
         cancelRetry()
         stopSnapshotLoop()
@@ -183,7 +175,6 @@ class CameraViewController(
 
     fun applyPrefsChange() {
         if (!started) return
-        rtspPermanentlyFailed = false
         retryCount = 0
         stop()
         start()
@@ -274,7 +265,9 @@ class CameraViewController(
             pass = cfgPassword(),
             at   = true)
 
-        Log.i(TAG, "Starting ExoPlayer RTSP (retry=$retryCount): ${sanitiseUrl(rtspUrl)}")
+        cancelRtspTimeout()          // cancel any leftover timeout from a previous engine
+        val myGen = ++engineGeneration
+        Log.i(TAG, "Starting ExoPlayer RTSP gen=$myGen (retry=$retryCount): ${sanitiseUrl(rtspUrl)}")
         setStatus(context.getString(R.string.camera_status_connecting))
         releasePlayer()
 
@@ -296,8 +289,11 @@ class CameraViewController(
             .setForceUseRtpTcp(true)
             .createMediaSource(MediaItem.fromUri(rtspUrl.toUri()))
 
+        val listenerGen = myGen
         player.addListener(object : Player.Listener {
+            private fun stale() = engineGeneration != listenerGen
             override fun onPlaybackStateChanged(state: Int) {
+                if (stale()) return
                 when (state) {
                     Player.STATE_READY    -> {
                         // onRenderedFirstFrame fires earlier for first-frame confirmation
@@ -315,6 +311,7 @@ class CameraViewController(
             }
 
             override fun onRenderedFirstFrame() {
+                if (stale()) return
                 cancelRtspTimeout()
                 retryCount = 0   // successful connection resets the counter
                 playerView.visibility = View.VISIBLE
@@ -324,29 +321,16 @@ class CameraViewController(
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                if (stale()) return
                 val cause = error.cause
                 val msg   = error.message ?: cause?.message ?: "RTSP error"
                 Log.w(TAG, "ExoPlayer error: $msg", error)
-
-                // Only hard SDP/codec incompatibilities are unrecoverable
-                val isUnrecoverable = isStructuralError(cause?.message, cause?.cause?.message)
-                if (isUnrecoverable) {
-                    Log.e(TAG, "Unrecoverable SDP error — skipping ExoPlayer for this session")
-                    rtspPermanentlyFailed = true
-                }
-
+                // All errors — including fmtp — are treated as transient and retried.
+                // fmtp errors occur intermittently even on working cameras.
                 mainHandler.post {
                     if (!started || inSnapshotMode) return@post
                     rtspFailReason = msg
-                    if (isUnrecoverable) {
-                        // Hard codec failure → go straight to VLC, no retry
-                        nextEngine = EngineChoice.VLC
-                        try { startWithEngine(EngineChoice.VLC) }
-                        catch (t: Throwable) { fallbackToSnapshot(msg) }
-                    } else {
-                        // Transient error → retry with back-off, escalate to VLC after MAX_RETRIES
-                        scheduleRetry(msg, EngineChoice.EXO)
-                    }
+                    scheduleRetry(msg, EngineChoice.EXO)
                 }
             }
         })
@@ -360,8 +344,10 @@ class CameraViewController(
         updateMuteButton()
 
         val timeoutMs = cfgTimeoutMs()
+        val exoGen    = myGen
         rtspTimeoutJob = Runnable {
-            Log.w(TAG, "ExoPlayer timeout after ${timeoutMs}ms")
+            if (engineGeneration != exoGen) return@Runnable  // stale — a newer engine is running
+            Log.w(TAG, "ExoPlayer timeout after ${timeoutMs}ms (gen=$exoGen)")
             rtspFailReason = context.getString(R.string.camera_status_rtsp_timeout)
             if (started && !inSnapshotMode) scheduleRetry(rtspFailReason!!, EngineChoice.VLC)
         }
@@ -379,7 +365,9 @@ class CameraViewController(
             pass = cfgPassword(),
             at   = true)
 
-        Log.i(TAG, "Starting libVLC RTSP (retry=$retryCount): ${sanitiseUrl(url)}")
+        cancelRtspTimeout()          // cancel any leftover timeout from EXO or previous VLC
+        val myVlcGen = ++engineGeneration
+        Log.i(TAG, "Starting libVLC RTSP gen=$myVlcGen (retry=$retryCount): ${sanitiseUrl(url)}")
         setStatus(context.getString(R.string.camera_status_connecting_vlc))
         releasePlayer()
 
@@ -391,15 +379,20 @@ class CameraViewController(
         activeVlcEngine = vlcEngine
 
         val timeoutMs = cfgTimeoutMs()
+        val vlcGen    = myVlcGen
         rtspTimeoutJob = Runnable {
-            Log.w(TAG, "VLC timeout — scheduling retry")
+            if (engineGeneration != vlcGen) return@Runnable  // stale
+            Log.w(TAG, "VLC timeout after ${timeoutMs}ms (gen=$vlcGen)")
             if (started && !inSnapshotMode)
-                scheduleRetry(rtspFailReason ?: "VLC timeout", EngineChoice.VLC)
+                scheduleRetry("VLC timeout after ${timeoutMs}ms", EngineChoice.VLC)
         }
         mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
 
+        val vlcListenerGen = myVlcGen
         vlcEngine.start(url, isMuted, object : RtspEngine.Listener {
+            private fun stale() = engineGeneration != vlcListenerGen
             override fun onPlaying() {
+                if (stale()) return
                 cancelRtspTimeout()
                 retryCount = 0
                 setStatus(context.getString(R.string.camera_status_live_vlc))
@@ -408,6 +401,7 @@ class CameraViewController(
                 startVlcMotionSamplerIfEnabled()
             }
             override fun onError(message: String, unrecoverable: Boolean) {
+                if (stale()) return
                 Log.w(TAG, "VLC error: $message")
                 cancelRtspTimeout()
                 rtspFailReason = message
@@ -415,6 +409,7 @@ class CameraViewController(
                     mainHandler.post { scheduleRetry(message, EngineChoice.VLC) }
             }
             override fun onEnded() {
+                if (stale()) return
                 // Camera closed connection — retry before snapshot
                 mainHandler.post {
                     if (started && !inSnapshotMode)
@@ -439,8 +434,12 @@ class CameraViewController(
         if (retryCount > MAX_RETRIES) {
             Log.w(TAG, "Max retries ($MAX_RETRIES) exceeded for $currentEngine — escalating")
             retryCount = 0
+            // After exhausting VLC retries, try EXO again unless it's permanently broken.
+            // This handles the case where VLC gets stuck (black frame) but the stream
+            // is actually fine — EXO may succeed on a fresh attempt.
             val nextEsc = when (currentEngine) {
                 EngineChoice.EXO -> EngineChoice.VLC
+                EngineChoice.VLC -> EngineChoice.EXO
                 else             -> EngineChoice.SNAPSHOT
             }
             if (nextEsc == EngineChoice.SNAPSHOT) {
@@ -740,15 +739,6 @@ class CameraViewController(
     private fun cfgIntervalSec() = cameraConfig?.snapshotIntervalSec
                                     ?: prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL, "")?.toIntOrNull()
                                     ?: DEFAULT_SNAPSHOT_INTERVAL
-
-    /**
-     * Returns true only for hard structural SDP/codec errors that will always
-     * fail regardless of network conditions.
-     */
-    private fun isStructuralError(vararg messages: String?): Boolean {
-        val combined = messages.filterNotNull().joinToString(" ").lowercase()
-        return UNRECOVERABLE_HINTS.any { combined.contains(it) }
-    }
 
     private fun injectCredentials(url: String, user: String, pass: String, at: Boolean): String {
         if (user.isBlank()) return url

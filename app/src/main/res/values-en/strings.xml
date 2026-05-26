@@ -802,4 +802,17 @@ No tracking · No ads · Open source</string>
     <string name="notif_battery_opt_warning">Battery management may limit detection</string>
     <string name="battery_opt_warning">⚠ Battery optimization active — motion detection may be frozen. Disable optimization for this app?</string>
     <string name="battery_opt_action">Disable</string>
+    <!-- Extra App Button -->
+    <string name="pref_category_extra_app">Second App (Quick Launch)</string>
+    <string name="pref_title_extra_app_enabled">Show second app button</string>
+    <string name="pref_summary_extra_app_enabled">Shows an additional toolbar button to launch a second app</string>
+    <string name="pref_title_extra_app_package">App (package name)</string>
+    <string name="pref_summary_extra_app_package">e.g. com.android.chrome</string>
+    <string name="pref_title_detect_extra_apps">Show installed apps</string>
+    <string name="pref_summary_detect_extra_apps">Browse all installed apps and select one</string>
+    <string name="dialog_select_extra_app_title">Select app</string>
+    <string name="extra_app_button_desc">Launch second app</string>
+    <string name="extra_app_launch_failed">App not found. Check package name in settings.</string>
+    <string name="pref_summary_extra_app_selected">Selected: %1$s</string>
+    <string name="pref_summary_no_extra_apps_found">No apps found</string>
 </resources>

@@ -171,6 +171,10 @@ object PreferenceKeys {
     const val ALT_LAUNCHER_PACKAGE      = "alt_launcher_package"
     const val ALT_LAUNCHER_ENABLED      = "alt_launcher_enabled"
 
+    // ── Extra app button ──────────────────────────────────────────────────────
+    const val EXTRA_APP_PACKAGE         = "extra_app_package"
+    const val EXTRA_APP_ENABLED         = "extra_app_enabled"
+
     // ── DB Transit refresh interval ───────────────────────────────────────────
     /** Refresh interval in seconds (default 120). */
     const val TRANSIT_REFRESH_INTERVAL   = "transit_refresh_interval"
