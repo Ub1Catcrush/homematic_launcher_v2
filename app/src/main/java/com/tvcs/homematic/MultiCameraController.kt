@@ -153,38 +153,40 @@ class MultiCameraController(
 
     private fun showSlot(idx: Int) {
         if (slots.isEmpty()) return
-        activeIdx = idx.coerceIn(0, slots.lastIndex)
+        val prevIdx   = activeIdx
+        activeIdx     = idx.coerceIn(0, slots.lastIndex)
 
         slots.forEachIndexed { i, slot ->
             val isActive = (i == activeIdx)
             slot.vc.isActiveSlot = isActive
 
             if (isActive) {
-                // Make container visible
                 (slot.playerView.parent as? View)?.visibility = View.VISIBLE
-                // Start the slot if it hasn't been started yet (lazy start)
-                if (!slot.vc.isStarted() && started) slot.vc.start()
-                // Restore correct view visibility and status label
-                slot.vc.refreshStatus()
+
+                if (!slot.vc.isStarted() && started) {
+                    // First time this slot becomes visible — start it
+                    slot.vc.start()
+                } else if (slot.vc.isVlcActive()) {
+                    // VLC loses its Surface connection when the container goes INVISIBLE.
+                    // Ensure vlcLayout itself is also VISIBLE before restarting.
+                    slot.vlcLayout.visibility = View.VISIBLE
+                    Log.d(TAG, "Slot $i has active VLC — restarting to recover Surface")
+                    slot.vc.restartVlcSurface()
+                } else {
+                    slot.vc.refreshStatus()
+                }
             } else {
-                // Keep container INVISIBLE — surface stays attached so ExoPlayer / VLC
-                // can continue buffering in the background. The stream is NOT stopped here.
-                // Stopping only happens in onStop() (lifecycle) or applyPrefsChange()
-                // (explicit reload) — never on a simple camera switch.
+                // Hide the outer container — but do NOT touch individual view visibilities
+                // inside the slot. CameraViewController manages playerView / vlcLayout /
+                // snapshotView visibility itself; overriding them here de-syncs its state
+                // and causes VLC to appear blank on the next slot switch.
                 (slot.playerView.parent as? View)?.visibility = View.INVISIBLE
-                slot.playerView.visibility = View.INVISIBLE
-                slot.vlcLayout.visibility  = View.INVISIBLE
-                slot.snapshot.visibility   = View.INVISIBLE
             }
         }
         updateDots()
         // Prefix camera name in multi-cam mode
         if (slots.size > 1) {
-            val name = slots[activeIdx].config.name
-            val cur  = statusLabel.text.toString()
-            if (!cur.startsWith(name)) {
-                statusLabel.text = if (cur.isNotBlank()) "$name · $cur" else name
-            }
+            statusLabel.text = slots[activeIdx].config.name
         }
     }
 

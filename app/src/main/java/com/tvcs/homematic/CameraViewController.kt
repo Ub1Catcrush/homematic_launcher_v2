@@ -75,6 +75,18 @@ class CameraViewController(
         /** Base delay for exponential back-off: 5 s, 10 s, 20 s. */
         private const val RETRY_BASE_MS = 5_000L
 
+        /**
+         * Error substrings that indicate ExoPlayer cannot handle this camera's
+         * RTSP/SDP — skip straight to VLC for the rest of the session.
+         * These are NOT permanent across restarts; forced reload (applyPrefsChange)
+         * always resets and retries EXO first.
+         */
+        private val EXO_SESSION_SKIP_HINTS = listOf(
+            "missing attribute fmtp",
+            "missing attribute",
+            "unsupported sdp media type",
+            "no supported track"
+        )
     }
 
     private val prefs       = PreferenceManager.getDefaultSharedPreferences(context)
@@ -106,6 +118,13 @@ class CameraViewController(
     private var rtspFailReason:String? = null
     private var isMuted               = false
     private var retryCount            = 0
+
+    /**
+     * True when ExoPlayer has failed with a structural SDP error this session
+     * (e.g. "missing attribute fmtp"). VLC is used directly until the next
+     * forced reload (applyPrefsChange resets this).
+     */
+    private var exoSkippedForSession  = false
 
     /**
      * Incremented every time a new engine is started.
@@ -154,7 +173,7 @@ class CameraViewController(
         nextEngine = when (cfgEngine()) {
             "vlc"      -> EngineChoice.VLC
             "snapshot" -> EngineChoice.SNAPSHOT
-            else       -> EngineChoice.EXO
+            else       -> if (exoSkippedForSession) EngineChoice.VLC else EngineChoice.EXO
         }
         startWithEngine(nextEngine)
         installTapReload()
@@ -175,6 +194,7 @@ class CameraViewController(
 
     fun applyPrefsChange() {
         if (!started) return
+        exoSkippedForSession = false   // forced reload always retries EXO
         retryCount = 0
         stop()
         start()
@@ -322,15 +342,32 @@ class CameraViewController(
 
             override fun onPlayerError(error: PlaybackException) {
                 if (stale()) return
-                val cause = error.cause
-                val msg   = error.message ?: cause?.message ?: "RTSP error"
-                Log.w(TAG, "ExoPlayer error: $msg", error)
-                // All errors — including fmtp — are treated as transient and retried.
-                // fmtp errors occur intermittently even on working cameras.
+                val cause    = error.cause
+                val msg      = error.message ?: cause?.message ?: "RTSP error"
+                val combined = listOfNotNull(msg, cause?.message, cause?.cause?.message)
+                    .joinToString(" ").lowercase()
+                val isSessionSkip = EXO_SESSION_SKIP_HINTS.any { combined.contains(it) }
+                Log.w(TAG, "ExoPlayer error (sessionSkip=$isSessionSkip): $msg")
+
+                if (isSessionSkip) {
+                    // Structural SDP mismatch — EXO will keep failing; skip to VLC this session.
+                    // Forced reload (applyPrefsChange) will reset and retry EXO.
+                    exoSkippedForSession = true
+                    Log.i(TAG, "EXO_SESSION_SKIP: switching to VLC for this session")
+                }
+
                 mainHandler.post {
                     if (!started || inSnapshotMode) return@post
                     rtspFailReason = msg
-                    scheduleRetry(msg, EngineChoice.EXO)
+                    if (isSessionSkip) {
+                        // Go straight to VLC — no delay, no EXO retries
+                        cancelRtspTimeout()
+                        cancelRetry()
+                        releasePlayer()
+                        startWithEngine(EngineChoice.VLC)
+                    } else {
+                        scheduleRetry(msg, EngineChoice.EXO)
+                    }
                 }
             }
         })
@@ -725,6 +762,27 @@ class CameraViewController(
 
     /** Returns true if this controller has been started and not yet stopped. */
     fun isStarted() = started
+
+    /** Returns true if libVLC is currently the active engine. */
+    fun isVlcActive() = started && !inSnapshotMode && activeVlcEngine != null
+
+    /**
+     * Restarts only the VLC engine without touching any other state.
+     * Called by MultiCameraController when a VLC slot becomes visible again
+     * after being INVISIBLE — VLC loses its Surface while hidden and must
+     * re-attach to get a live picture.
+     */
+    @MainThread
+    fun restartVlcSurface() {
+        if (!started || inSnapshotMode) return
+        Log.i(TAG, "restartVlcSurface: re-attaching VLC surface")
+        cancelRtspTimeout()
+        cancelRetry()
+        // Release current VLC engine; startVlc() will create a fresh one
+        activeVlcEngine?.release()
+        activeVlcEngine = null
+        startVlc()
+    }
 
     // ── Config helpers: prefer cameraConfig over prefs ────────────────────────
 

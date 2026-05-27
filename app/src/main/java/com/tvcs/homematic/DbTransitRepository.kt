@@ -10,7 +10,6 @@ import java.net.URL
 import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.time.Instant
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -143,14 +142,26 @@ object DbTransitRepository {
                             transferInfo = findWatchedTransfer(transitLegs, watchedStationNames)
                         )
                     }
-                    val now = LocalTime.now()
-                    val fmtParse = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+                    val nowZdt    = ZonedDateTime.now(ZoneId.systemDefault())
+                    val todayDate = nowZdt.toLocalDate()
+                    val fmtParse  = DateTimeFormatter.ofPattern("HH:mm")
                     val filtered = deps.filter { dep ->
                         val timeStr = dep.realtimeTime ?: dep.plannedTime
                         if (timeStr.isBlank()) return@filter true
                         try {
-                            val depTime = LocalTime.parse(timeStr, fmtParse)
-                            val minutesAgo = java.time.Duration.between(depTime, now).toMinutes()
+                            val depLocalTime = java.time.LocalTime.parse(timeStr, fmtParse)
+                            // Build a ZonedDateTime anchored to today so we get a correct
+                            // date-aware comparison. If the parsed time looks like it belongs
+                            // to yesterday (more than 12 h ahead of now), shift it back by one
+                            // day — this handles the midnight-wraparound case where LocalTime
+                            // alone would report a negative difference and keep stale entries.
+                            var depZdt = ZonedDateTime.of(todayDate, depLocalTime, nowZdt.zone)
+                            if (java.time.Duration.between(nowZdt, depZdt).toMinutes() > 12 * 60) {
+                                depZdt = depZdt.minusDays(1)
+                            }
+                            val minutesAgo = java.time.Duration.between(depZdt, nowZdt).toMinutes()
+                            // Keep if departure is in the future (minutesAgo < 0) or within the
+                            // realtime delay window (arrived but still boardable).
                             minutesAgo < 0 || minutesAgo <= (dep.delayMinutes ?: 0)
                         } catch (_: Exception) { true }
                     }.take(results)

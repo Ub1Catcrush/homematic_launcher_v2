@@ -132,8 +132,14 @@ class HaTileViewController(
     @Volatile private var tileView: LinearLayout? = null
     private var stateJob: Job? = null
 
-    fun isEnabled(): Boolean = prefs.getBoolean(PreferenceKeys.HA_TILE_ENABLED, false)
+    fun isEnabled(): Boolean {
+        // Per-tile instances (multi-tile mode): enabled as long as URL + token are
+        // present. The global HA_TILE_ENABLED toggle only controls the legacy
+        // single-tile mode — multi-tile presence in HA_TILES_CONFIG is the signal.
+        if (tileConfig != null) return wsUrl().isNotBlank() && token().isNotBlank()
+        return prefs.getBoolean(PreferenceKeys.HA_TILE_ENABLED, false)
             && wsUrl().isNotBlank() && token().isNotBlank()
+    }
 
     fun tileTitle(): String {
         val cfg = tileConfig
@@ -183,6 +189,9 @@ class HaTileViewController(
         stateJob?.cancel()
         try {
             if (isEnabled()) {
+                // Set entity filter before reconnect so the new connection uses it
+                val myIds = entities().map { it.entityId }.toSet()
+                if (myIds.isNotEmpty()) HaRepository.watchedEntityIds = HaRepository.watchedEntityIds + myIds
                 HaRepository.reconnect(wsUrl(), token())
                 startWatching()
             } else {
@@ -200,6 +209,13 @@ class HaTileViewController(
 
     private fun startWatching() {
         try {
+            // Tell HaRepository which entity IDs we care about so it can use
+            // subscribe_entities (filtered) instead of get_states (all entities).
+            // This prevents OOM on large HA installations.
+            val myEntityIds = entities().map { it.entityId }.toSet()
+            if (myEntityIds.isNotEmpty()) {
+                HaRepository.watchedEntityIds = HaRepository.watchedEntityIds + myEntityIds
+            }
             HaRepository.connect(wsUrl(), token())
         } catch (e: Exception) {
             Log.e(TAG, "connect() failed: ${e.message}", e)

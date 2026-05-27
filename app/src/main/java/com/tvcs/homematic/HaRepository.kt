@@ -31,6 +31,14 @@ object HaRepository {
 
     private const val TAG = "HaRepository"
 
+    /**
+     * Maximum byte length we will attempt to parse as JSON in handleMessage.
+     * HA's get_states response can be several MB on large installations.
+     * Messages exceeding this limit are dropped with a warning — the relevant
+     * data arrives via filtered subscribe_entities / subscribe_events anyway.
+     */
+    private const val MAX_MESSAGE_BYTES = 2 * 1024 * 1024   // 2 MB
+
     data class EntityState(
         val entityId: String,
         val state:    String,
@@ -63,6 +71,13 @@ object HaRepository {
     private var active:   Boolean    = false
     private var retryDelayMs: Long   = 2_000L
 
+    /**
+     * Entity IDs to watch. When non-empty, [connect] uses subscribe_entities
+     * (filtered) instead of get_states (all entities) to avoid OOM on large
+     * HA installations. Set this before calling connect().
+     */
+    var watchedEntityIds: Set<String> = emptySet()
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(0,  TimeUnit.SECONDS)   // no read timeout — persistent connection
@@ -73,8 +88,18 @@ object HaRepository {
 
     /** Start (or restart) the WebSocket connection. Safe to call multiple times. */
     fun connect(wsUrl: String, token: String) {
-        if (this.wsUrl == wsUrl && this.token == token && active &&
-            _connState.value is ConnState.Connected) return
+        // Already connected or in-flight with the same credentials → nothing to do.
+        // Checking Connecting/Authenticating prevents the three HaTileViewControllers
+        // from each opening their own simultaneous WebSocket to the same server.
+        val sameCredentials = this.wsUrl == wsUrl && this.token == token
+        if (sameCredentials && active) {
+            when (_connState.value) {
+                is ConnState.Connected,
+                is ConnState.Connecting,
+                is ConnState.Authenticating -> return
+                else -> { /* Disconnected or Error — fall through and reconnect */ }
+            }
+        }
 
         this.wsUrl = wsUrl
         this.token = token
@@ -102,6 +127,11 @@ object HaRepository {
 
     private fun doConnect() {
         if (!active) return
+        // Close any existing socket before opening a new one — prevents leaked
+        // connections when doConnect() is called while a previous attempt is still
+        // in-flight (e.g. scheduleReconnect firing after a manual reconnect).
+        socket?.let { try { it.close(1000, "reconnect") } catch (_: Exception) {} }
+        socket = null
         _connState.value = ConnState.Connecting
         Log.d(TAG, "Connecting to $wsUrl")
 
@@ -146,6 +176,20 @@ object HaRepository {
     }
 
     private fun handleMessage(ws: WebSocket, text: String) {
+        if (text.length > MAX_MESSAGE_BYTES) {
+            Log.w(TAG, "handleMessage: message too large (${text.length} bytes) — skipping to avoid OOM")
+            return
+        }
+        // ── Diagnostic raw-message logging (first 800 chars per message) ──────
+        // Remove this block once HA entity values are confirmed working.
+        try {
+            val preview = text.take(800)
+            val msgType = try { org.json.JSONObject(text).optString("type", "?") } catch (_: Exception) { "?" }
+            if (msgType !in setOf("auth_required", "auth_ok", "auth_invalid")) {
+                Log.d(TAG, "WS_RAW type=$msgType len=${text.length}: $preview")
+            }
+        } catch (_: Exception) {}
+        // ─────────────────────────────────────────────────────────────────────
         try {
             val json = JSONObject(text)
             when (json.optString("type")) {
@@ -162,9 +206,20 @@ object HaRepository {
                     Log.d(TAG, "Auth OK")
                     _connState.value = ConnState.Connected
                     retryDelayMs = 2_000L
-                    // Fetch all current states then subscribe to changes
-                    sendGetStates(ws)
-                    sendSubscribeStateChanged(ws)
+                    val ids = watchedEntityIds
+                    if (ids.isNotEmpty()) {
+                        // Use subscribe_entities with explicit filter — avoids loading
+                        // all entities into memory (OOM on large HA installations).
+                        Log.d(TAG, "subscribe_entities for ${ids.size} entity IDs")
+                        sendSubscribeEntities(ws, ids)
+                    } else {
+                        // Fallback: no filter configured — load all states.
+                        // Risk of OOM on large installations; prefer configuring
+                        // watchedEntityIds before connecting.
+                        Log.w(TAG, "watchedEntityIds empty — falling back to get_states (may OOM)")
+                        sendGetStates(ws)
+                        sendSubscribeStateChanged(ws)
+                    }
                 }
 
                 "auth_invalid" -> {
@@ -174,33 +229,104 @@ object HaRepository {
                     socket?.close(1000, null)
                 }
 
-                // ── Result of get_states ──────────────────────────────────────
+                // ── Result of get_states OR subscribe_entities initial snapshot ────
+                // get_states returns:         result: [ {entity_id, state, attributes}, … ]  (array)
+                // subscribe_entities returns: result: { "entity_id": {state, attributes}, … } (object)
+                // Both must populate _entityStates.
                 "result" -> {
                     if (json.optBoolean("success", false)) {
-                        val result = json.optJSONArray("result") ?: return
                         val map = (_entityStates.value).toMutableMap()
-                        for (i in 0 until result.length()) {
-                            val s = result.getJSONObject(i)
-                            val es = parseEntityState(s)
-                            map[es.entityId] = es
+                        val resultArr = json.optJSONArray("result")
+                        val resultObj = if (resultArr == null) json.optJSONObject("result") else null
+                        when {
+                            resultArr != null -> {
+                                // get_states array format
+                                for (i in 0 until resultArr.length()) {
+                                    val s  = resultArr.getJSONObject(i)
+                                    val es = parseEntityState(s)
+                                    map[es.entityId] = es
+                                }
+                            }
+                            resultObj != null -> {
+                                // subscribe_entities object format: keys are entity_ids
+                                resultObj.keys().forEach { eid ->
+                                    runCatching {
+                                        val s = resultObj.getJSONObject(eid)
+                                        if (!s.has("entity_id")) s.put("entity_id", eid)
+                                        map[eid] = parseEntityState(s)
+                                    }
+                                }
+                            }
+                            // result is null or neither — nothing to do
                         }
-                        _entityStates.value = map
+                        if (map.isNotEmpty()) _entityStates.value = map
                     }
                 }
 
-                // ── Real-time state_changed events ────────────────────────────
+                // ── Real-time events (state_changed + subscribe_entities updates) ────
                 "event" -> {
                     val event = json.optJSONObject("event") ?: return
-                    if (event.optString("event_type") != "state_changed") return
-                    val data     = event.optJSONObject("data") ?: return
-                    val newState = data.optJSONObject("new_state") ?: return
-                    val es       = parseEntityState(newState)
-                    _entityStates.value = _entityStates.value + (es.entityId to es)
+                    when (event.optString("event_type")) {
+                        "state_changed" -> {
+                            // Legacy subscribe_events — data.new_state
+                            val data     = event.optJSONObject("data") ?: return
+                            val newState = data.optJSONObject("new_state") ?: return
+                            val es = parseEntityState(newState)
+                            _entityStates.value = _entityStates.value + (es.entityId to es)
+                        }
+                        else -> {
+                            // subscribe_entities — a/c/r sit directly on event, NOT under "data"
+                            // {"event": {"a": {"sensor.x": {"s":"1","a":{...}}}, "c": {...}, "r": []}}
+                            val map = (_entityStates.value).toMutableMap()
+                            // Added (initial snapshot on first event, or new entities later)
+                            event.optJSONObject("a")?.let { added ->
+                                added.keys().forEach { eid ->
+                                    runCatching {
+                                        val s = added.getJSONObject(eid)
+                                        if (!s.has("entity_id")) s.put("entity_id", eid)
+                                        map[eid] = parseEntityState(s)
+                                    }
+                                }
+                            }
+                            // Changed — {entity_id: {"+": {"s": newState, "a": attrDelta}}}
+                            event.optJSONObject("c")?.let { changed ->
+                                changed.keys().forEach { eid ->
+                                    runCatching {
+                                        val diff = changed.getJSONObject(eid)
+                                            .optJSONObject("+") ?: return@forEach
+                                        val existing = map[eid]
+                                        val newState = diff.optString("s", "")
+                                            .ifBlank { diff.optString("state", "") }
+                                            .takeIf { it.isNotBlank() } ?: existing?.state ?: ""
+                                        val attrs = existing?.attributes?.toMutableMap() ?: mutableMapOf()
+                                        val attrDelta = diff.optJSONObject("a") ?: diff.optJSONObject("attributes")
+                                        attrDelta?.keys()?.forEach { k ->
+                                            attrs[k] = attrDelta.opt(k)?.toString() ?: ""
+                                        }
+                                        map[eid] = EntityState(eid, newState, attrs)
+                                    }
+                                }
+                            }
+                            // Removed
+                            event.optJSONArray("r")?.let { removed ->
+                                for (i in 0 until removed.length()) map.remove(removed.optString(i))
+                            }
+                            if (map.isNotEmpty()) _entityStates.value = map
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "handleMessage error: ${e.message}")
         }
+    }
+
+    private fun sendSubscribeEntities(ws: WebSocket, entityIds: Set<String>) {
+        ws.send(JSONObject().apply {
+            put("id",   msgId.getAndIncrement())
+            put("type", "subscribe_entities")
+            put("entity_ids", org.json.JSONArray(entityIds.toList()))
+        }.toString())
     }
 
     private fun sendGetStates(ws: WebSocket) {
@@ -220,8 +346,10 @@ object HaRepository {
 
     private fun parseEntityState(json: JSONObject): EntityState {
         val entityId = json.optString("entity_id", "")
-        val state    = json.optString("state", "")
-        val attrJson = json.optJSONObject("attributes")
+        // subscribe_entities uses compact keys: "s" = state, "a" = attributes
+        // get_states / state_changed use full keys: "state", "attributes"
+        val state    = json.optString("s", "").ifBlank { json.optString("state", "") }
+        val attrJson = json.optJSONObject("a") ?: json.optJSONObject("attributes")
         val attrs    = mutableMapOf<String, String>()
         attrJson?.keys()?.forEach { k ->
             attrs[k] = attrJson.opt(k)?.toString() ?: ""

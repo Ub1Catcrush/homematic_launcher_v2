@@ -164,7 +164,7 @@ object VrnTransitRepository {
                     transferInfo = findWatchedTransfer(legs, watchedStationNames)
                 )
             }
-            ok(deps)
+            ok(filterPastDepartures(deps))
         } catch (e: Exception) {
             Log.w(TAG, "EFA trip parse error", e)
             err("Parse-Fehler: ${e.message}")
@@ -317,7 +317,7 @@ object VrnTransitRepository {
                     transferInfo = findWatchedTransfer(legs, watchedStationNames)
                 )
             }
-            ok(deps)
+            ok(filterPastDepartures(deps))
         } catch (e: Exception) {
             Log.w(TAG, "RMV trip parse error", e)
             err("Parse-Fehler: ${e.message}")
@@ -372,6 +372,33 @@ object VrnTransitRepository {
 
     // ── Shared helpers ────────────────────────────────────────────────────────
 
+    /**
+     * Remove departures whose effective time (realtime ?? planned) lies in the past.
+     * Uses ZonedDateTime with today's date as anchor to handle midnight wraparound
+     * correctly — a LocalTime-only comparison wraps around and keeps yesterday's
+     * departures (e.g. 22:08 still shown at 05:45 next morning).
+     */
+    private fun filterPastDepartures(deps: List<Departure>): List<Departure> {
+        val nowZdt    = ZonedDateTime.now(ZoneId.systemDefault())
+        val todayDate = nowZdt.toLocalDate()
+        val fmt       = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+        return deps.filter { dep ->
+            val timeStr = dep.realtimeTime ?: dep.plannedTime
+            if (timeStr.isBlank()) return@filter true
+            try {
+                val depLocalTime = java.time.LocalTime.parse(timeStr, fmt)
+                var depZdt = ZonedDateTime.of(todayDate, depLocalTime, nowZdt.zone)
+                // If depZdt is more than 12 h ahead of now, it's yesterday's service —
+                // shift back by one day so the comparison stays accurate.
+                if (java.time.Duration.between(nowZdt, depZdt).toMinutes() > 12 * 60) {
+                    depZdt = depZdt.minusDays(1)
+                }
+                val minutesAgo = java.time.Duration.between(depZdt, nowZdt).toMinutes()
+                minutesAgo < 0 || minutesAgo <= (dep.delayMinutes ?: 0)
+            } catch (_: Exception) { true }
+        }
+    }
+
     private fun findWatchedTransfer(legs: List<Leg>, watchedNames: List<String>): TransferInfo? {
         if (watchedNames.isEmpty()) return null
         for (leg in legs) {
@@ -417,7 +444,11 @@ object VrnTransitRepository {
     } catch (_: Exception) { null }
 
     private fun todayStr(): String {
-        val c = java.util.Calendar.getInstance()
+        // Use the device's configured timezone. Calendar.getInstance() uses
+        // TimeZone.getDefault() which on Android always reflects the user-set
+        // timezone — even on emulators that may run their clock in UTC.
+        val tz = java.util.TimeZone.getDefault()
+        val c  = java.util.Calendar.getInstance(tz)
         return "%04d%02d%02d".format(
             c.get(java.util.Calendar.YEAR),
             c.get(java.util.Calendar.MONTH) + 1,
@@ -426,7 +457,8 @@ object VrnTransitRepository {
     }
 
     private fun nowTimeStr(): String {
-        val c = java.util.Calendar.getInstance()
+        val tz = java.util.TimeZone.getDefault()
+        val c  = java.util.Calendar.getInstance(tz)
         return "%02d%02d".format(
             c.get(java.util.Calendar.HOUR_OF_DAY),
             c.get(java.util.Calendar.MINUTE)

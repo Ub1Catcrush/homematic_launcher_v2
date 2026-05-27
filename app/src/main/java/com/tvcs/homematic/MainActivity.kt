@@ -874,6 +874,9 @@ class MainActivity : AppCompatActivity() {
     // ── HA multi-tile management ──────────────────────────────────────────────
 
     private fun rebuildHaTileControllers() {
+        // Stop all existing controllers before clearing — this cancels their
+        // stateJobs so they don't call onTileChanged() after being discarded.
+        haTileViewControllers.forEach { it.applyPrefsChange() /* triggers stop path if disabled */ }
         haTileViewControllers.clear()
         val tilesJson = sharedPreferences.getString(PreferenceKeys.HA_TILES_CONFIG, null)
         if (!tilesJson.isNullOrBlank()) {
