@@ -34,23 +34,41 @@ import android.view.PixelCopy
 import android.view.SurfaceView
 
 /**
- * CameraViewController — manages RTSP (ExoPlayer) + VLC + MJPEG-snapshot fallback.
+ * CameraViewController — manages RTSP (Media3/ExoPlayer) + VLC + MJPEG-snapshot fallback.
  *
- * ── Strategy ─────────────────────────────────────────────────────────────────
- * 1. Start ExoPlayer with the configured RTSP URL.
- * 2. If RTSP_TIMEOUT_MS elapses without a successful first frame, or if ExoPlayer
- *    fires a PlaybackException, try libVLC next.
- * 3. Transient errors (network blip, stream ended) trigger a reconnect with
- *    exponential backoff (up to MAX_RETRIES attempts) before falling back to snapshots.
- * 4. In snapshot mode: poll CAMERA_SNAPSHOT_URL every CAMERA_SNAPSHOT_INTERVAL
- *    seconds and display the JPEG in an ImageView.
- * 5. The camera area is tappable at all times — a tap resets the controller
- *    fully and retries from ExoPlayer (unless a hard engine override is set).
- * 6. On every new Activity start, try RTSP again (network may have recovered).
+ * ── Failover order ────────────────────────────────────────────────────────────
+ * 1. Media3 (ExoPlayer RTSP) — primary engine.
+ * 2. libVLC RTSP              — fallback if Media3 fails.
+ * 3. MJPEG snapshot polling   — last resort if both RTSP engines fail.
  *
- * ── Lifecycle ────────────────────────────────────────────────────────────────
- * Attach to the Activity's lifecycle via attachToLifecycle() so the controller
- * automatically pauses/resumes with the Activity.
+ * If a running engine fails (after previously being live), the sequence always
+ * restarts from Media3 (step 1), not from the engine that failed. This way a
+ * temporary network blip that drops VLC doesn't strand the stream on MJPEG
+ * when Media3 might now work fine.
+ *
+ * ── Background recovery probes ────────────────────────────────────────────────
+ * While the stream is running on a fallback engine, invisible background probes
+ * silently try to establish a better engine:
+ *
+ *   • On libVLC: probe Media3 every PROBE_MEDIA3_FROM_VLC_MS  (15 min).
+ *   • On MJPEG:  probe libVLC   every PROBE_VLC_FROM_MJPEG_MS  (1 min).
+ *                probe Media3   every PROBE_MEDIA3_FROM_MJPEG_MS (15 min).
+ *
+ * Probes are fully invisible — they create a detached (off-screen) engine
+ * instance and discard it unless the first frame arrives, in which case the
+ * controller seamlessly switches to it.
+ *
+ * ── Background buffering (multi-camera) ───────────────────────────────────────
+ * All camera slots are started immediately and kept streaming in the background
+ * even when not visible. Switching cameras is therefore instant — the background
+ * slot is already live. The slot is kept INVISIBLE (not GONE) so ExoPlayer /
+ * VLC can render to its Surface while hidden.
+ *
+ * ── Tap-to-reload ─────────────────────────────────────────────────────────────
+ * A tap on the camera area always does a full reset and retries from Media3.
+ *
+ * ── Lifecycle ─────────────────────────────────────────────────────────────────
+ * Attach to the Activity's lifecycle via attachToLifecycle().
  */
 @OptIn(UnstableApi::class)
 class CameraViewController(
@@ -69,17 +87,24 @@ class CameraViewController(
         private const val DEFAULT_RTSP_TIMEOUT_MS  = 8_000L
         private const val DEFAULT_SNAPSHOT_INTERVAL = 5
 
-        /** How many reconnect attempts before giving up and going to snapshot. */
+        /** How many reconnect attempts before escalating to the next engine. */
         private const val MAX_RETRIES = 3
 
         /** Base delay for exponential back-off: 5 s, 10 s, 20 s. */
         private const val RETRY_BASE_MS = 5_000L
 
+        // ── Background probe intervals ────────────────────────────────────────
+        /** While on VLC: try Media3 silently this often. */
+        private const val PROBE_MEDIA3_FROM_VLC_MS   = 15 * 60 * 1_000L   // 15 min
+        /** While on MJPEG: try VLC silently this often. */
+        private const val PROBE_VLC_FROM_MJPEG_MS    =      60 * 1_000L   // 1 min
+        /** While on MJPEG: try Media3 silently this often. */
+        private const val PROBE_MEDIA3_FROM_MJPEG_MS = 15 * 60 * 1_000L   // 15 min
+
         /**
          * Error substrings that indicate ExoPlayer cannot handle this camera's
          * RTSP/SDP — skip straight to VLC for the rest of the session.
-         * These are NOT permanent across restarts; forced reload (applyPrefsChange)
-         * always resets and retries EXO first.
+         * Forced reload (applyPrefsChange) always resets and retries EXO first.
          */
         private val EXO_SESSION_SKIP_HINTS = listOf(
             "missing attribute fmtp",
@@ -120,16 +145,14 @@ class CameraViewController(
     private var retryCount            = 0
 
     /**
-     * True when ExoPlayer has failed with a structural SDP error this session
-     * (e.g. "missing attribute fmtp"). VLC is used directly until the next
-     * forced reload (applyPrefsChange resets this).
+     * True when ExoPlayer has failed with a structural SDP error this session.
+     * VLC is used directly until the next forced reload.
      */
     private var exoSkippedForSession  = false
 
     /**
      * Incremented every time a new engine is started.
-     * Callbacks capture their generation at creation time and ignore events
-     * from a previous engine — prevents stale EXO timeouts from killing VLC.
+     * Callbacks capture their generation at creation time and ignore stale events.
      */
     private var engineGeneration      = 0
 
@@ -137,7 +160,15 @@ class CameraViewController(
     private var nextEngine      = EngineChoice.EXO
     private var activeVlcEngine: VlcRtspEngine? = null
 
-    // ── Mute ─────────────────────────────────────────────────────────────────
+    // ── Background probe state ────────────────────────────────────────────────
+
+    /** Probe engine running in background — discarded unless first frame arrives. */
+    private var probeExoPlayer:   ExoPlayer?     = null
+    private var probeVlcEngine:   VlcRtspEngine? = null
+    private var probeSchedule:    Runnable?      = null
+    private var probeVlcSchedule: Runnable?      = null
+
+    // ── Mute ──────────────────────────────────────────────────────────────────
 
     fun toggleMute() {
         isMuted = !isMuted
@@ -154,7 +185,7 @@ class CameraViewController(
         )
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ── Public API ─────────────────────────────────────────────────────────────
 
     fun attachToLifecycle(owner: LifecycleOwner) {
         owner.lifecycle.addObserver(this)
@@ -182,9 +213,10 @@ class CameraViewController(
     @MainThread
     fun stop() {
         started = false
-        engineGeneration++   // invalidate all in-flight callbacks
+        engineGeneration++
         cancelRtspTimeout()
         cancelRetry()
+        cancelAllProbes()
         stopSnapshotLoop()
         stopRtspMotionSampler()
         releasePlayer()
@@ -194,7 +226,7 @@ class CameraViewController(
 
     fun applyPrefsChange() {
         if (!started) return
-        exoSkippedForSession = false   // forced reload always retries EXO
+        exoSkippedForSession = false   // forced reload always retries EXO first
         retryCount = 0
         stop()
         start()
@@ -209,14 +241,12 @@ class CameraViewController(
     }
 
     /**
-     * Re-publishes the controller's current status string to the shared label,
-     * and restores the correct view visibility for this slot (in case it was an
-     * invisible background slot whose views were set to GONE while inactive).
+     * Re-publishes the controller's current status string to the shared label
+     * and restores correct view visibility for this slot when it becomes active.
      * Called by MultiCameraController when this slot becomes the active one.
      */
     fun refreshStatus() {
         if (!isActiveSlot) return
-        // Restore view visibility to match current state
         when {
             inSnapshotMode -> {
                 playerView.visibility                           = View.GONE
@@ -229,13 +259,11 @@ class CameraViewController(
                 snapshotView.visibility                        = View.GONE
             }
             else -> {
-                // ExoPlayer active or still connecting — show playerView
                 playerView.visibility                          = View.VISIBLE
                 (vlcLayout.parent as? View)?.visibility        = View.GONE
                 snapshotView.visibility                        = View.GONE
             }
         }
-        // Re-publish status text
         val msg = when {
             !started                                                               -> return
             inSnapshotMode && rtspFailReason != null ->
@@ -256,13 +284,13 @@ class CameraViewController(
         statusLabel.text = msg
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     override fun onStart(owner: LifecycleOwner) { if (isEnabled()) start() }
     override fun onStop(owner: LifecycleOwner)  { stop() }
     override fun onDestroy(owner: LifecycleOwner) { ioScope.cancel(); stop() }
 
-    // ── Engine dispatch ───────────────────────────────────────────────────────
+    // ── Engine dispatch ────────────────────────────────────────────────────────
 
     private fun startWithEngine(choice: EngineChoice) {
         if (!started) return
@@ -273,7 +301,7 @@ class CameraViewController(
         }
     }
 
-    // ── ExoPlayer RTSP ───────────────────────────────────────────────────────
+    // ── Media3 / ExoPlayer RTSP ────────────────────────────────────────────────
 
     @OptIn(UnstableApi::class)
     private fun startRtsp() {
@@ -285,9 +313,9 @@ class CameraViewController(
             pass = cfgPassword(),
             at   = true)
 
-        cancelRtspTimeout()          // cancel any leftover timeout from a previous engine
+        cancelRtspTimeout()
         val myGen = ++engineGeneration
-        Log.i(TAG, "Starting ExoPlayer RTSP gen=$myGen (retry=$retryCount): ${sanitiseUrl(rtspUrl)}")
+        Log.i(TAG, "Starting Media3 RTSP gen=$myGen (retry=$retryCount): ${sanitiseUrl(rtspUrl)}")
         setStatus(context.getString(R.string.camera_status_connecting))
         releasePlayer()
 
@@ -315,15 +343,12 @@ class CameraViewController(
             override fun onPlaybackStateChanged(state: Int) {
                 if (stale()) return
                 when (state) {
-                    Player.STATE_READY    -> {
-                        // onRenderedFirstFrame fires earlier for first-frame confirmation
-                    }
                     Player.STATE_BUFFERING ->
                         setStatus(context.getString(R.string.camera_status_buffering))
-                    Player.STATE_ENDED    ->
-                        // Stream ended cleanly (camera periodic reconnect) — retry before snapshot
+                    Player.STATE_ENDED ->
                         mainHandler.post {
                             if (started && !inSnapshotMode)
+                                // Stream ended cleanly — restart from Media3
                                 scheduleRetry("RTSP stream ended", EngineChoice.EXO)
                         }
                     else -> {}
@@ -333,10 +358,10 @@ class CameraViewController(
             override fun onRenderedFirstFrame() {
                 if (stale()) return
                 cancelRtspTimeout()
-                retryCount = 0   // successful connection resets the counter
+                retryCount = 0
                 playerView.visibility = View.VISIBLE
                 setStatus(context.getString(R.string.camera_status_live_rtsp))
-                Log.i(TAG, "ExoPlayer: first frame rendered")
+                Log.i(TAG, "Media3: first frame rendered")
                 startRtspMotionSampler()
             }
 
@@ -347,11 +372,9 @@ class CameraViewController(
                 val combined = listOfNotNull(msg, cause?.message, cause?.cause?.message)
                     .joinToString(" ").lowercase()
                 val isSessionSkip = EXO_SESSION_SKIP_HINTS.any { combined.contains(it) }
-                Log.w(TAG, "ExoPlayer error (sessionSkip=$isSessionSkip): $msg")
+                Log.w(TAG, "Media3 error (sessionSkip=$isSessionSkip): $msg")
 
                 if (isSessionSkip) {
-                    // Structural SDP mismatch — EXO will keep failing; skip to VLC this session.
-                    // Forced reload (applyPrefsChange) will reset and retry EXO.
                     exoSkippedForSession = true
                     Log.i(TAG, "EXO_SESSION_SKIP: switching to VLC for this session")
                 }
@@ -360,7 +383,6 @@ class CameraViewController(
                     if (!started || inSnapshotMode) return@post
                     rtspFailReason = msg
                     if (isSessionSkip) {
-                        // Go straight to VLC — no delay, no EXO retries
                         cancelRtspTimeout()
                         cancelRetry()
                         releasePlayer()
@@ -383,15 +405,15 @@ class CameraViewController(
         val timeoutMs = cfgTimeoutMs()
         val exoGen    = myGen
         rtspTimeoutJob = Runnable {
-            if (engineGeneration != exoGen) return@Runnable  // stale — a newer engine is running
-            Log.w(TAG, "ExoPlayer timeout after ${timeoutMs}ms (gen=$exoGen)")
+            if (engineGeneration != exoGen) return@Runnable
+            Log.w(TAG, "Media3 timeout after ${timeoutMs}ms (gen=$exoGen)")
             rtspFailReason = context.getString(R.string.camera_status_rtsp_timeout)
             if (started && !inSnapshotMode) scheduleRetry(rtspFailReason!!, EngineChoice.VLC)
         }
         mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
     }
 
-    // ── libVLC RTSP ───────────────────────────────────────────────────────────
+    // ── libVLC RTSP ────────────────────────────────────────────────────────────
 
     private fun startVlc() {
         if (!started) return
@@ -402,7 +424,7 @@ class CameraViewController(
             pass = cfgPassword(),
             at   = true)
 
-        cancelRtspTimeout()          // cancel any leftover timeout from EXO or previous VLC
+        cancelRtspTimeout()
         val myVlcGen = ++engineGeneration
         Log.i(TAG, "Starting libVLC RTSP gen=$myVlcGen (retry=$retryCount): ${sanitiseUrl(url)}")
         setStatus(context.getString(R.string.camera_status_connecting_vlc))
@@ -418,7 +440,7 @@ class CameraViewController(
         val timeoutMs = cfgTimeoutMs()
         val vlcGen    = myVlcGen
         rtspTimeoutJob = Runnable {
-            if (engineGeneration != vlcGen) return@Runnable  // stale
+            if (engineGeneration != vlcGen) return@Runnable
             Log.w(TAG, "VLC timeout after ${timeoutMs}ms (gen=$vlcGen)")
             if (started && !inSnapshotMode)
                 scheduleRetry("VLC timeout after ${timeoutMs}ms", EngineChoice.VLC)
@@ -436,31 +458,42 @@ class CameraViewController(
                 muteButton?.visibility = View.VISIBLE
                 updateMuteButton()
                 startVlcMotionSamplerIfEnabled()
+                // Schedule silent background probes trying to recover Media3
+                scheduleMedia3ProbeFromVlc()
             }
             override fun onError(message: String, unrecoverable: Boolean) {
                 if (stale()) return
                 Log.w(TAG, "VLC error: $message")
                 cancelRtspTimeout()
+                cancelAllProbes()
                 rtspFailReason = message
                 if (started && !inSnapshotMode)
-                    mainHandler.post { scheduleRetry(message, EngineChoice.VLC) }
+                    // VLC failed — restart the whole sequence from Media3
+                    mainHandler.post { scheduleRetry(message, EngineChoice.EXO) }
             }
             override fun onEnded() {
                 if (stale()) return
-                // Camera closed connection — retry before snapshot
+                cancelAllProbes()
+                // Camera closed connection — restart from Media3
                 mainHandler.post {
                     if (started && !inSnapshotMode)
-                        scheduleRetry("VLC stream ended", EngineChoice.VLC)
+                        scheduleRetry("VLC stream ended", EngineChoice.EXO)
                 }
             }
         })
     }
 
-    // ── Retry logic ───────────────────────────────────────────────────────────
+    // ── Retry logic ────────────────────────────────────────────────────────────
 
     /**
      * Schedule a reconnect attempt with exponential back-off.
-     * After [MAX_RETRIES] attempts the engine is escalated (EXO→VLC→SNAPSHOT).
+     *
+     * After [MAX_RETRIES] attempts the engine is escalated:
+     *   Media3 → libVLC → MJPEG
+     *
+     * If the previously *live* engine failed and the sequence has been exhausted,
+     * escalation always restarts from Media3 (not from the failed engine) so that
+     * a recovered network can re-establish the best available stream.
      */
     private fun scheduleRetry(reason: String, currentEngine: EngineChoice) {
         cancelRtspTimeout()
@@ -471,13 +504,10 @@ class CameraViewController(
         if (retryCount > MAX_RETRIES) {
             Log.w(TAG, "Max retries ($MAX_RETRIES) exceeded for $currentEngine — escalating")
             retryCount = 0
-            // After exhausting VLC retries, try EXO again unless it's permanently broken.
-            // This handles the case where VLC gets stuck (black frame) but the stream
-            // is actually fine — EXO may succeed on a fresh attempt.
-            val nextEsc = when (currentEngine) {
-                EngineChoice.EXO -> EngineChoice.VLC
-                EngineChoice.VLC -> EngineChoice.EXO
-                else             -> EngineChoice.SNAPSHOT
+            val nextEsc: EngineChoice = when (currentEngine) {
+                EngineChoice.EXO      -> EngineChoice.VLC
+                EngineChoice.VLC      -> EngineChoice.SNAPSHOT
+                EngineChoice.SNAPSHOT -> EngineChoice.SNAPSHOT
             }
             if (nextEsc == EngineChoice.SNAPSHOT) {
                 fallbackToSnapshot(reason)
@@ -488,7 +518,7 @@ class CameraViewController(
             return
         }
 
-        val delayMs = RETRY_BASE_MS * (1L shl (retryCount - 1))   // 5s, 10s, 20s
+        val delayMs = RETRY_BASE_MS * (1L shl (retryCount - 1))   // 5 s, 10 s, 20 s
         Log.i(TAG, "Retry $retryCount/$MAX_RETRIES for $currentEngine in ${delayMs}ms: $reason")
         setStatus(context.getString(R.string.camera_status_retrying, retryCount, MAX_RETRIES))
 
@@ -504,7 +534,353 @@ class CameraViewController(
         retryJob = null
     }
 
-    // ── Snapshot fallback ─────────────────────────────────────────────────────
+    // ── Background probe: try Media3 while on VLC ──────────────────────────────
+
+    /**
+     * While the stream is live on VLC, silently probe Media3 every 15 minutes.
+     * If the probe succeeds (first frame received), seamlessly switch to Media3
+     * and cancel VLC. The probe is invisible — it uses a detached PlayerView
+     * (visibility GONE) that is never shown to the user.
+     */
+    private fun scheduleMedia3ProbeFromVlc() {
+        cancelProbeMedia3()
+        probeSchedule = Runnable {
+            probeSchedule = null
+            if (!started || inSnapshotMode || activeVlcEngine == null) return@Runnable
+            Log.i(TAG, "Background probe: trying Media3 while on VLC")
+            launchMedia3Probe(
+                onSuccess = {
+                    Log.i(TAG, "Background probe: Media3 succeeded — switching from VLC")
+                    // Probe engine is already playing in probeExoPlayer.
+                    // Swap it in as the main engine.
+                    promoteProbeExoToMain()
+                },
+                onFailure = {
+                    Log.d(TAG, "Background probe: Media3 still failing — staying on VLC")
+                    releaseProbeExo()
+                    if (started && !inSnapshotMode && activeVlcEngine != null)
+                        scheduleMedia3ProbeFromVlc()   // try again next interval
+                }
+            )
+        }.also { mainHandler.postDelayed(it, PROBE_MEDIA3_FROM_VLC_MS) }
+    }
+
+    // ── Background probes: try VLC / Media3 while on MJPEG ────────────────────
+
+    private fun scheduleProbesFromMjpeg() {
+        cancelAllProbes()
+        // Probe 1: try VLC every minute
+        probeVlcSchedule = Runnable {
+            probeVlcSchedule = null
+            if (!started || !inSnapshotMode) return@Runnable
+            Log.i(TAG, "Background probe: trying VLC while on MJPEG")
+            launchVlcProbe(
+                onSuccess = {
+                    Log.i(TAG, "Background probe: VLC succeeded — switching from MJPEG")
+                    promoteProbeVlcToMain()
+                },
+                onFailure = {
+                    Log.d(TAG, "Background probe: VLC still failing — staying on MJPEG")
+                    releaseProbeVlc()
+                    if (started && inSnapshotMode) scheduleVlcProbeFromMjpeg()
+                }
+            )
+        }.also { mainHandler.postDelayed(it, PROBE_VLC_FROM_MJPEG_MS) }
+
+        // Probe 2: try Media3 every 15 minutes
+        probeSchedule = Runnable {
+            probeSchedule = null
+            if (!started || !inSnapshotMode) return@Runnable
+            Log.i(TAG, "Background probe: trying Media3 while on MJPEG")
+            launchMedia3Probe(
+                onSuccess = {
+                    Log.i(TAG, "Background probe: Media3 succeeded — switching from MJPEG")
+                    promoteProbeExoToMain()
+                },
+                onFailure = {
+                    Log.d(TAG, "Background probe: Media3 still failing — staying on MJPEG")
+                    releaseProbeExo()
+                    if (started && inSnapshotMode) scheduleMedia3ProbeFromMjpeg()
+                }
+            )
+        }.also { mainHandler.postDelayed(it, PROBE_MEDIA3_FROM_MJPEG_MS) }
+    }
+
+    private fun scheduleVlcProbeFromMjpeg() {
+        cancelProbeVlc()
+        probeVlcSchedule = Runnable {
+            probeVlcSchedule = null
+            if (!started || !inSnapshotMode) return@Runnable
+            launchVlcProbe(
+                onSuccess = {
+                    promoteProbeVlcToMain()
+                },
+                onFailure = {
+                    releaseProbeVlc()
+                    if (started && inSnapshotMode) scheduleVlcProbeFromMjpeg()
+                }
+            )
+        }.also { mainHandler.postDelayed(it, PROBE_VLC_FROM_MJPEG_MS) }
+    }
+
+    private fun scheduleMedia3ProbeFromMjpeg() {
+        cancelProbeMedia3()
+        probeSchedule = Runnable {
+            probeSchedule = null
+            if (!started || !inSnapshotMode) return@Runnable
+            launchMedia3Probe(
+                onSuccess = { promoteProbeExoToMain() },
+                onFailure = {
+                    releaseProbeExo()
+                    if (started && inSnapshotMode) scheduleMedia3ProbeFromMjpeg()
+                }
+            )
+        }.also { mainHandler.postDelayed(it, PROBE_MEDIA3_FROM_MJPEG_MS) }
+    }
+
+    // ── Probe engine launchers ─────────────────────────────────────────────────
+
+    /**
+     * Spin up a hidden Media3 player on the RTSP URL.
+     * The player renders to a detached SurfaceView (never added to the window),
+     * so the user sees nothing. If a first frame arrives, [onSuccess] is called
+     * on the main thread. Otherwise [onFailure].
+     */
+    @OptIn(UnstableApi::class)
+    private fun launchMedia3Probe(onSuccess: () -> Unit, onFailure: () -> Unit) {
+        releaseProbeExo()
+        val rawUrl = cfgRtspUrl()
+        if (rawUrl.isBlank()) { onFailure(); return }
+        val url = injectCredentials(rawUrl, cfgUsername(), cfgPassword(), true)
+
+        val probeGen = engineGeneration   // capture — probe must not interfere with live engine
+        val timeoutMs = cfgTimeoutMs() + 3_000L   // give probe a little extra margin
+
+        try {
+            val renderersFactory = DefaultRenderersFactory(context)
+                .setEnableDecoderFallback(true)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            val probePlayer = ExoPlayer.Builder(context)
+                .setRenderersFactory(renderersFactory)
+                .build()
+                .also { probeExoPlayer = it }
+
+            // Wire up a detached SurfaceView for rendering (never shown)
+            val hiddenSurface = SurfaceView(context)
+            probePlayer.setVideoSurfaceView(hiddenSurface)
+
+            var resolved = false
+            fun resolve(success: Boolean) {
+                if (resolved) return
+                resolved = true
+                if (success) {
+                    // Keep probePlayer alive; promoteProbeExoToMain() will take it over
+                    mainHandler.post { if (engineGeneration == probeGen || success) onSuccess() }
+                } else {
+                    mainHandler.post { onFailure() }
+                }
+            }
+
+            val timeoutRunnable = Runnable { resolve(false) }
+            mainHandler.postDelayed(timeoutRunnable, timeoutMs)
+
+            probePlayer.addListener(object : Player.Listener {
+                override fun onRenderedFirstFrame() {
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    resolve(true)
+                }
+                override fun onPlayerError(error: PlaybackException) {
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    resolve(false)
+                }
+            })
+
+            val source = RtspMediaSource.Factory()
+                .setForceUseRtpTcp(true)
+                .createMediaSource(MediaItem.fromUri(url.toUri()))
+            probePlayer.setMediaSource(source)
+            probePlayer.prepare()
+            probePlayer.playWhenReady = false   // don't play audio; just buffer/decode
+            probePlayer.volume = 0f
+        } catch (e: Exception) {
+            Log.w(TAG, "Probe Media3 launch failed: ${e.message}")
+            releaseProbeExo()
+            onFailure()
+        }
+    }
+
+    /**
+     * Spin up a hidden VLC player on the RTSP URL.
+     * Uses a detached VLCVideoLayout. Calls [onSuccess] on first Vout event.
+     */
+    private fun launchVlcProbe(onSuccess: () -> Unit, onFailure: () -> Unit) {
+        releaseProbeVlc()
+        val rawUrl = cfgRtspUrl()
+        if (rawUrl.isBlank()) { onFailure(); return }
+        val url = injectCredentials(rawUrl, cfgUsername(), cfgPassword(), true)
+        val timeoutMs = cfgTimeoutMs() + 3_000L
+
+        try {
+            // Create a VLCVideoLayout that is never added to the window
+            val hiddenVlcLayout = VLCVideoLayout(context)
+            val probeVlc = VlcRtspEngine(context, hiddenVlcLayout)
+                .also { probeVlcEngine = it }
+
+            var resolved = false
+            val timeoutRunnable = Runnable {
+                if (!resolved) { resolved = true; onFailure() }
+            }
+            mainHandler.postDelayed(timeoutRunnable, timeoutMs)
+
+            probeVlc.start(url, muted = true, listener = object : RtspEngine.Listener {
+                override fun onPlaying() {
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    if (!resolved) { resolved = true; mainHandler.post { onSuccess() } }
+                }
+                override fun onError(message: String, unrecoverable: Boolean) {
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    if (!resolved) { resolved = true; mainHandler.post { onFailure() } }
+                }
+                override fun onEnded() {
+                    mainHandler.removeCallbacks(timeoutRunnable)
+                    if (!resolved) { resolved = true; mainHandler.post { onFailure() } }
+                }
+            })
+        } catch (e: Exception) {
+            Log.w(TAG, "Probe VLC launch failed: ${e.message}")
+            releaseProbeVlc()
+            onFailure()
+        }
+    }
+
+    // ── Probe promotion ────────────────────────────────────────────────────────
+
+    /**
+     * A background Media3 probe succeeded. Release the current engine and
+     * promote the probe player to be the visible, active engine.
+     */
+    @OptIn(UnstableApi::class)
+    private fun promoteProbeExoToMain() {
+        if (!started) { releaseProbeExo(); return }
+        Log.i(TAG, "Promoting background Media3 probe to main engine")
+        cancelAllProbes()
+        cancelRtspTimeout()
+        cancelRetry()
+        stopSnapshotLoop()
+        stopRtspMotionSampler()
+        releasePlayer()   // releases current live engine (VLC or snapshot)
+
+        val promotedPlayer = probeExoPlayer ?: run {
+            // Probe was released before we got here — restart normally from Media3
+            probeExoPlayer = null
+            startRtsp(); return
+        }
+        probeExoPlayer = null
+
+        inSnapshotMode = false
+        rtspFailReason = null
+        retryCount     = 0
+        exoSkippedForSession = false
+
+        exoPlayer = promotedPlayer
+        promotedPlayer.volume = if (isMuted) 0f else 1f
+        promotedPlayer.playWhenReady = true   // now let it play with audio/video
+
+        // Re-attach to the visible PlayerView
+        playerView.player = promotedPlayer
+        playerView.visibility   = View.VISIBLE
+        (vlcLayout.parent as? View)?.visibility = View.GONE
+        snapshotView.visibility = View.GONE
+        muteButton?.visibility  = View.VISIBLE
+        updateMuteButton()
+        setStatus(context.getString(R.string.camera_status_live_rtsp))
+
+        engineGeneration++
+        val myGen = engineGeneration
+        // Re-attach listener on the now-promoted player
+        promotedPlayer.addListener(object : Player.Listener {
+            private fun stale() = engineGeneration != myGen
+            override fun onPlaybackStateChanged(state: Int) {
+                if (stale()) return
+                if (state == Player.STATE_ENDED && started && !inSnapshotMode)
+                    mainHandler.post { scheduleRetry("RTSP stream ended", EngineChoice.EXO) }
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                if (stale()) return
+                val msg = error.message ?: "RTSP error"
+                mainHandler.post {
+                    if (!started || inSnapshotMode) return@post
+                    rtspFailReason = msg
+                    scheduleRetry(msg, EngineChoice.EXO)
+                }
+            }
+        })
+
+        startRtspMotionSampler()
+    }
+
+    /**
+     * A background VLC probe succeeded while on MJPEG. Promote it to main.
+     */
+    private fun promoteProbeVlcToMain() {
+        if (!started) { releaseProbeVlc(); return }
+        Log.i(TAG, "Promoting background VLC probe to main engine")
+        cancelAllProbes()
+        cancelRtspTimeout()
+        cancelRetry()
+        stopSnapshotLoop()
+
+        val promotedVlc = probeVlcEngine ?: run { startVlc(); return }
+        probeVlcEngine = null
+
+        inSnapshotMode = false
+        rtspFailReason = null
+        retryCount     = 0
+
+        activeVlcEngine = promotedVlc
+        // VLC is already playing in its hiddenVlcLayout; we need to re-attach to our real vlcLayout.
+        // The cleanest approach: release the probe and spin up a fresh VLC on our real layout.
+        promotedVlc.release()
+        activeVlcEngine = null
+
+        playerView.visibility   = View.GONE
+        (vlcLayout.parent as? View)?.visibility = View.VISIBLE
+        snapshotView.visibility = View.GONE
+
+        // Start fresh VLC on the real layout (it will be live within ~1s since we know stream works)
+        startVlc()
+    }
+
+    // ── Probe cancellation / release ───────────────────────────────────────────
+
+    private fun cancelProbeMedia3() {
+        probeSchedule?.let { mainHandler.removeCallbacks(it) }
+        probeSchedule = null
+    }
+
+    private fun cancelProbeVlc() {
+        probeVlcSchedule?.let { mainHandler.removeCallbacks(it) }
+        probeVlcSchedule = null
+    }
+
+    private fun cancelAllProbes() {
+        cancelProbeMedia3()
+        cancelProbeVlc()
+        releaseProbeExo()
+        releaseProbeVlc()
+    }
+
+    private fun releaseProbeExo() {
+        probeExoPlayer?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
+        probeExoPlayer = null
+    }
+
+    private fun releaseProbeVlc() {
+        probeVlcEngine?.let { try { it.release() } catch (_: Exception) {} }
+        probeVlcEngine = null
+    }
+
+    // ── Snapshot fallback ──────────────────────────────────────────────────────
 
     @MainThread
     private fun fallbackToSnapshot(reason: String) {
@@ -531,9 +907,11 @@ class CameraViewController(
 
         val intervalSec = cfgIntervalSec()
         startSnapshotLoop(snapshotUrl, intervalSec)
+        // Start background probes to silently try better engines
+        scheduleProbesFromMjpeg()
     }
 
-    // ── Snapshot loop ─────────────────────────────────────────────────────────
+    // ── Snapshot loop ──────────────────────────────────────────────────────────
 
     private fun startSnapshotLoop(url: String, intervalSec: Int) {
         stopSnapshotLoop()
@@ -568,7 +946,6 @@ class CameraViewController(
                         else
                             context.getString(R.string.camera_status_snapshot_error,
                                 e.message ?: "?")
-                        // Show "tap to reload" hint after snapshot also fails
                         setStatus(context.getString(R.string.camera_status_tap_to_reload, errMsg))
                     }
                 }
@@ -577,15 +954,10 @@ class CameraViewController(
         }
     }
 
-    /**
-     * Fetch a JPEG snapshot from [url].
-     * Supports both query-param auth (?user=&password=) and HTTP Basic Auth header.
-     */
     private fun fetchSnapshot(url: String): Bitmap {
         val con = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 5_000
             readTimeout    = 8_000
-            // Fix 6: add Basic Auth header for cameras that require it
             val user = cfgUsername()
             val pass = cfgPassword()
             if (user.isNotBlank()) {
@@ -604,21 +976,17 @@ class CameraViewController(
         }
     }
 
-    // ── Tap-to-reload ─────────────────────────────────────────────────────────
+    // ── Tap-to-reload ──────────────────────────────────────────────────────────
 
-    /**
-     * Install a click listener on the camera container.
-     * A tap always does a full reset — useful when the stream silently died.
-     */
     private fun installTapReload() {
         val container = playerView.parent as? View ?: return
         container.setOnClickListener {
-            Log.i(TAG, "Camera area tapped — reloading")
+            Log.i(TAG, "Camera area tapped — reloading from Media3")
             applyPrefsChange()
         }
     }
 
-    // ── VLC motion sampler ────────────────────────────────────────────────────
+    // ── VLC motion sampler ─────────────────────────────────────────────────────
 
     private fun startVlcMotionSamplerIfEnabled() {
         if (!motionEngine.enabled) return
@@ -643,7 +1011,7 @@ class CameraViewController(
         }
     }
 
-    // ── RTSP motion sampler (PixelCopy) ───────────────────────────────────────
+    // ── RTSP motion sampler (PixelCopy) ────────────────────────────────────────
 
     private fun startRtspMotionSampler() {
         stopRtspMotionSampler()
@@ -691,7 +1059,7 @@ class CameraViewController(
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────────────────────
 
     private fun releasePlayer() {
         exoPlayer?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
@@ -760,31 +1128,45 @@ class CameraViewController(
 
     fun isEnabled() = cameraConfig != null || prefs.getBoolean(PreferenceKeys.CAMERA_ENABLED, false)
 
-    /** Returns true if this controller has been started and not yet stopped. */
     fun isStarted() = started
 
-    /** Returns true if libVLC is currently the active engine. */
     fun isVlcActive() = started && !inSnapshotMode && activeVlcEngine != null
 
     /**
-     * Restarts only the VLC engine without touching any other state.
-     * Called by MultiCameraController when a VLC slot becomes visible again
-     * after being INVISIBLE — VLC loses its Surface while hidden and must
-     * re-attach to get a live picture.
+     * Zero-cost surface re-bind for INVISIBLE → VISIBLE slot switches.
+     *
+     * VLC has been decoding continuously while the slot was INVISIBLE; the
+     * Surface was never destroyed.  This simply calls [VlcRtspEngine.reattachViews]
+     * so the window compositor resumes compositing — decoded frames appear
+     * immediately with no reconnect delay.
+     *
+     * Called by MultiCameraController.showSlot() on every normal camera switch.
+     */
+    @MainThread
+    fun reattachVlcViews() {
+        if (!started || inSnapshotMode) return
+        activeVlcEngine?.reattachViews()
+    }
+
+    /**
+     * Full VLC teardown + reconnect.  Only call this when the Surface was
+     * genuinely destroyed (e.g. the container was set to GONE, or Android
+     * destroyed the SurfaceHolder during an orientation change).
+     *
+     * For ordinary INVISIBLE → VISIBLE switches use [reattachVlcViews] instead.
      */
     @MainThread
     fun restartVlcSurface() {
         if (!started || inSnapshotMode) return
-        Log.i(TAG, "restartVlcSurface: re-attaching VLC surface")
+        Log.i(TAG, "restartVlcSurface: full VLC reconnect (surface was destroyed)")
         cancelRtspTimeout()
         cancelRetry()
-        // Release current VLC engine; startVlc() will create a fresh one
         activeVlcEngine?.release()
         activeVlcEngine = null
         startVlc()
     }
 
-    // ── Config helpers: prefer cameraConfig over prefs ────────────────────────
+    // ── Config helpers: prefer cameraConfig over prefs ─────────────────────────
 
     private fun cfgRtspUrl()     = cameraConfig?.rtspUrl       ?: prefs.getString(PreferenceKeys.CAMERA_RTSP_URL,          "") ?: ""
     private fun cfgSnapshotUrl() = cameraConfig?.snapshotUrl   ?: prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_URL,      "") ?: ""

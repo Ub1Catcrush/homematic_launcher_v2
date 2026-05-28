@@ -150,6 +150,29 @@ class VlcRtspEngine(
         }
     }
 
+    /**
+     * Re-bind the already-running MediaPlayer to its VLCVideoLayout after the
+     * container returns from INVISIBLE to VISIBLE.
+     *
+     * VLC keeps decoding into its internal buffer while the view is INVISIBLE;
+     * the Surface is never destroyed.  Calling attachViews() again is enough to
+     * make the output appear — no stop/reconnect required, so playback resumes
+     * instantly.
+     *
+     * Only call this if you have concrete evidence the Surface was actually
+     * destroyed (e.g. the container was briefly GONE).  For plain INVISIBLE→
+     * VISIBLE transitions this call is a no-op from VLC's perspective but still
+     * harmless.
+     */
+    fun reattachViews() {
+        try {
+            mediaPlayer?.attachViews(vlcLayout, null, false, false)
+            Log.i(TAG, "reattachViews: surface re-bound (no reconnect)")
+        } catch (e: Exception) {
+            Log.w(TAG, "reattachViews failed: ${e.message}")
+        }
+    }
+
     override fun release() {
         try { mediaPlayer?.stop(); mediaPlayer?.detachViews() } catch (_: Exception) {}
         try { mediaPlayer?.release() } catch (_: Exception) {}

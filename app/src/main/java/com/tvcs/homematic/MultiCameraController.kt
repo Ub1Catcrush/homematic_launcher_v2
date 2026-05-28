@@ -21,20 +21,31 @@ import org.videolan.libvlc.util.VLCVideoLayout
  * MultiCameraController
  *
  * Manages N CameraViewControllers simultaneously. Each controller owns its own
- * set of views (PlayerView + VLCVideoLayout + ImageView) that are all kept alive
- * and streaming in the background. Only one slot is VISIBLE at a time; the rest
- * are INVISIBLE (not GONE — they must remain attached to the window for
- * ExoPlayer / VLC surface rendering to work).
+ * set of views (PlayerView + VLCVideoLayout + ImageView) that are ALL started
+ * immediately and kept streaming in the background — even when not visible.
+ * Only one slot is VISIBLE at a time; the rest are INVISIBLE (not GONE — they
+ * must remain attached to the window for ExoPlayer / VLC surface rendering to
+ * continue while hidden).
  *
- * ── Rotation ─────────────────────────────────────────────────────────────────
+ * ── Background buffering ──────────────────────────────────────────────────────
+ * Because every slot runs continuously in the background, switching cameras is
+ * effectively instant — the target slot is already live and buffered. There is
+ * no reconnect delay when the user taps to the next camera.
+ *
+ * ── VLC surface handling ──────────────────────────────────────────────────────
+ * VLC can render into an INVISIBLE SurfaceView without issues (the Surface stays
+ * valid). However if the container was previously set to GONE (which destroys the
+ * Surface), VLC must be restarted when the slot becomes visible again. The
+ * controller avoids GONE for background slots to prevent this.
+ *
+ * ── Rotation ──────────────────────────────────────────────────────────────────
  * When rotationSec > 0 the controller automatically advances to the next slot
  * every [rotationSec] seconds. A tap on [tapOverlay] always advances manually
  * and resets the rotation timer.
  *
- * ── Single-camera mode ───────────────────────────────────────────────────────
- * When there is only one camera (or zero) the controller behaves identically to
- * the old CameraViewController: no indicator dots, no rotation, full tap-to-
- * reload as before.
+ * ── Single-camera mode ────────────────────────────────────────────────────────
+ * When there is only one camera the controller behaves identically to the old
+ * CameraViewController: no indicator dots, no rotation, tap-to-reload.
  */
 @OptIn(UnstableApi::class)
 class MultiCameraController(
@@ -57,6 +68,7 @@ class MultiCameraController(
 
     private data class Slot(
         val config:     CameraConfig,
+        val container:  FrameLayout,
         val playerView: PlayerView,
         val vlcLayout:  VLCVideoLayout,
         val snapshot:   ImageView,
@@ -90,7 +102,6 @@ class MultiCameraController(
         }
         cameraPanel.visibility = View.VISIBLE
 
-        // Build one slot per config
         configs.forEach { cfg ->
             val slot = buildSlot(cfg)
             slots.add(slot)
@@ -99,8 +110,8 @@ class MultiCameraController(
         buildDots()
         installTapOverlay()
 
+        showSlot(0, initial = true)
         if (started) startAllSlots()
-        showSlot(0)
         if (rotationSec > 0 && slots.size > 1) scheduleRotation()
     }
 
@@ -130,11 +141,8 @@ class MultiCameraController(
         started = true
         if (slots.isEmpty()) applyConfig()
         else {
-            // Only start the active slot — others start lazily on tap
-            slots.getOrNull(activeIdx)?.let { slot ->
-                slot.vc.isActiveSlot = true
-                slot.vc.start()
-            }
+            // Start ALL slots so background buffering is active immediately.
+            startAllSlots()
             if (rotationSec > 0 && slots.size > 1) scheduleRotation()
         }
     }
@@ -151,40 +159,53 @@ class MultiCameraController(
 
     // ── Slot switching ──────────────────────────────────────────────────────
 
-    private fun showSlot(idx: Int) {
+    /**
+     * Make slot [idx] the visible one. All other slots go INVISIBLE (never GONE)
+     * so their Surfaces remain valid and engines keep streaming.
+     *
+     * @param initial  true on first layout — skips VLC restart optimisation
+     *                 because no slot was previously visible.
+     */
+    private fun showSlot(idx: Int, initial: Boolean = false) {
         if (slots.isEmpty()) return
-        val prevIdx   = activeIdx
-        activeIdx     = idx.coerceIn(0, slots.lastIndex)
+        activeIdx = idx.coerceIn(0, slots.lastIndex)
 
         slots.forEachIndexed { i, slot ->
             val isActive = (i == activeIdx)
             slot.vc.isActiveSlot = isActive
 
             if (isActive) {
-                (slot.playerView.parent as? View)?.visibility = View.VISIBLE
+                // Make the active slot's container fully visible.
+                slot.container.visibility = View.VISIBLE
 
-                if (!slot.vc.isStarted() && started) {
-                    // First time this slot becomes visible — start it
-                    slot.vc.start()
-                } else if (slot.vc.isVlcActive()) {
-                    // VLC loses its Surface connection when the container goes INVISIBLE.
-                    // Ensure vlcLayout itself is also VISIBLE before restarting.
-                    slot.vlcLayout.visibility = View.VISIBLE
-                    Log.d(TAG, "Slot $i has active VLC — restarting to recover Surface")
-                    slot.vc.restartVlcSurface()
-                } else {
-                    slot.vc.refreshStatus()
+                when {
+                    !slot.vc.isStarted() && started -> {
+                        // Should only happen if start() raced with applyConfig().
+                        slot.vc.start()
+                    }
+                    !initial && slot.vc.isVlcActive() -> {
+                        // VLC has been streaming into its Surface the whole time the
+                        // slot was INVISIBLE — the Surface is never destroyed while
+                        // INVISIBLE, only while GONE.  Simply making the container
+                        // VISIBLE is enough; the already-decoded frames start
+                        // appearing immediately with zero reconnect delay.
+                        // reattachViews() is a no-cost safety call in case the
+                        // window compositor recycled the SurfaceHolder.
+                        Log.d(TAG, "Slot $i VLC active — revealing (no reconnect)")
+                        slot.vc.reattachVlcViews()
+                        slot.vc.refreshStatus()
+                    }
+                    else -> {
+                        slot.vc.refreshStatus()
+                    }
                 }
             } else {
-                // Hide the outer container — but do NOT touch individual view visibilities
-                // inside the slot. CameraViewController manages playerView / vlcLayout /
-                // snapshotView visibility itself; overriding them here de-syncs its state
-                // and causes VLC to appear blank on the next slot switch.
-                (slot.playerView.parent as? View)?.visibility = View.INVISIBLE
+                // Keep INVISIBLE — the Surface stays valid, engine keeps running.
+                slot.container.visibility = View.INVISIBLE
             }
         }
+
         updateDots()
-        // Prefix camera name in multi-cam mode
         if (slots.size > 1) {
             statusLabel.text = slots[activeIdx].config.name
         }
@@ -214,12 +235,13 @@ class MultiCameraController(
     // ── Slot construction ───────────────────────────────────────────────────
 
     private fun buildSlot(cfg: CameraConfig): Slot {
-        // Each slot gets its own FrameLayout child inside cameraPanel
         val container = FrameLayout(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+            // Start INVISIBLE — showSlot() will make the first slot VISIBLE.
+            visibility = View.INVISIBLE
         }
 
         val playerView = PlayerView(context).apply {
@@ -260,8 +282,6 @@ class MultiCameraController(
         container.addView(vlcContainer)
         container.addView(snapshotView)
 
-        // Status label and mute button are shared (belong to the panel overlay,
-        // not the slot containers). Only the active slot's VC updates them.
         val vc = CameraViewController(
             context      = context,
             playerView   = playerView,
@@ -273,28 +293,30 @@ class MultiCameraController(
         )
         vc.onMotionDetected = onMotionDetected
 
-        // Insert slot container at index 0 — below tap-overlay, dot-container and
-        // status-row which are declared first in the XML and thus have higher Z-order.
+        // Insert slot container at index 0 — below tap-overlay and dot-container.
         cameraPanel.addView(container, 0)
 
-        return Slot(cfg, playerView, vlcLayout, snapshotView, vc)
+        return Slot(cfg, container, playerView, vlcLayout, snapshotView, vc)
     }
 
     // ── Start / stop helpers ────────────────────────────────────────────────
 
-    /** Starts only the currently active slot. Other slots start lazily when shown. */
+    /**
+     * Starts ALL slots immediately. Background slots stream invisibly so that
+     * switching to any slot is instant with no reconnect delay.
+     */
     private fun startAllSlots() {
         slots.forEachIndexed { i, slot ->
             slot.vc.isActiveSlot = (i == activeIdx)
+            if (!slot.vc.isStarted()) slot.vc.start()
         }
-        slots.getOrNull(activeIdx)?.vc?.start()
     }
 
     private fun teardown() {
         cancelRotation()
         slots.forEach { slot ->
             slot.vc.stop()
-            cameraPanel.removeView(slot.playerView.parent as? View ?: slot.playerView)
+            cameraPanel.removeView(slot.container)
         }
         slots.clear()
         activeIdx = 0
@@ -334,10 +356,8 @@ class MultiCameraController(
     private fun installTapOverlay() {
         tapOverlay.setOnClickListener {
             if (slots.size > 1) {
-                // Multi-cam: advance to next camera
                 advance()
             } else {
-                // Single-cam: reload (same as before)
                 slots.firstOrNull()?.vc?.applyPrefsChange()
             }
         }
