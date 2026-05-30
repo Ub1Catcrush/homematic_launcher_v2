@@ -139,7 +139,7 @@ class CameraListFragment : Fragment() {
                         else e.uppercase()
                     }
                     textSize = 10f
-                    setTextColor(0x77FFFFFF.toInt())
+                    setTextColor(0x77FFFFFF)
                 })
             })
 
@@ -324,7 +324,7 @@ class CameraListFragment : Fragment() {
                         addView(TextView(ctx).apply {
                             text = "${ei + 1}. $label"
                             textSize = 12f
-                            setTextColor(if (disabled) 0x66FFFFFF.toInt() else 0xFFFFFFFF.toInt())
+                            setTextColor(if (disabled) 0x66FFFFFF else 0xFFFFFFFF.toInt())
                             setPadding(dp(6), 0, 0, 0)
                         })
                     })

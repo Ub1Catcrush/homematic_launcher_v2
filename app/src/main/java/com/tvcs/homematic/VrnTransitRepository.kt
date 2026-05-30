@@ -210,7 +210,7 @@ object VrnTransitRepository {
             }
 
             // Transit leg
-            val lineName = mode!!.optString("symbol").ifBlank { null }
+            val lineName = mode.optString("symbol").ifBlank { null }
                         ?: mode.optString("number").ifBlank { null }
                         ?: mode.optString("name").ifBlank { null }
                         ?: "?"
