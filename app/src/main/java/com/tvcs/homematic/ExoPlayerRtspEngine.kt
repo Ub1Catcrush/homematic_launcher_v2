@@ -42,7 +42,15 @@ class ExoPlayerRtspEngine(
             "IllegalArgumentException",
             "malformed",
             "unsupported sdp",
-            "no supported track"
+            "no supported track",
+            // Hardware decoder capacity exceeded — retrying will only crash the mediaserver
+            // again. Mark as unrecoverable so the cascade falls through to VLC immediately.
+            // This happens on the Lenovo TB-8705F (Mediatek Helio P22T) when the camera
+            // streams AVC 2560x1920 or HEVC 3840x2160 — both exceed the decoder's limits.
+            "no_exceeds_capabilities",
+            "format_supported=no",
+            "exceeds_capabilities",
+            "decoder failed: omx"
         )
     }
 
