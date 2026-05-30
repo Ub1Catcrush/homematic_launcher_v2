@@ -151,8 +151,22 @@ class VlcRtspEngine(
     }
 
     /**
+     * Detach VLC output from its VLCVideoLayout before the container goes GONE.
+     * VLC keeps its network connection and internal decoder running — no reconnect.
+     * Call reattachViews() when the container becomes VISIBLE again.
+     */
+    fun detachViews() {
+        try {
+            mediaPlayer?.detachViews()
+            Log.i(TAG, "detachViews: surface detached (still streaming internally)")
+        } catch (e: Exception) {
+            Log.w(TAG, "detachViews failed: ${e.message}")
+        }
+    }
+
+    /**
      * Re-bind the already-running MediaPlayer to its VLCVideoLayout after the
-     * container returns from INVISIBLE to VISIBLE.
+     * container returns from GONE to VISIBLE.
      *
      * VLC keeps decoding into its internal buffer while the view is INVISIBLE;
      * the Surface is never destroyed.  Calling attachViews() again is enough to

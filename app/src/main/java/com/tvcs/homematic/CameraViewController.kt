@@ -127,6 +127,14 @@ class CameraViewController(
 
     var onMotionDetected: (() -> Unit)? = null
 
+    /**
+     * Fired exactly once per [start] call, on the main thread, when this slot's
+     * engine renders its first frame (ExoPlayer: onRenderedFirstFrame; VLC: Vout event).
+     * MultiCameraController uses this to decide which slot to show first on startup.
+     */
+    var onFirstLive: (() -> Unit)? = null
+    private var firstLiveFired = false
+
     private val motionEngine = MotionDetectionEngine(
         sensitivityPct   = prefs.getString(PreferenceKeys.MOTION_DETECT_SENSITIVITY, "8")?.toIntOrNull() ?: 8,
         onMotionDetected = { mainHandler.post { onMotionDetected?.invoke() } }
@@ -196,23 +204,21 @@ class CameraViewController(
         if (!isEnabled()) { hide(); return }
         if (!ioScope.isActive) ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         show()
-        started        = true
-        inSnapshotMode = false
-        rtspFailReason = null
-        retryCount     = 0
+        started         = true
+        inSnapshotMode  = false
+        rtspFailReason  = null
+        retryCount      = 0
+        firstLiveFired  = false
         applyMotionPrefs()
-        nextEngine = when (cfgEngine()) {
-            "vlc"      -> EngineChoice.VLC
-            "snapshot" -> EngineChoice.SNAPSHOT
-            else       -> if (exoSkippedForSession) EngineChoice.VLC else EngineChoice.EXO
-        }
+        nextEngine = firstEnabledEngine()
         startWithEngine(nextEngine)
         installTapReload()
     }
 
     @MainThread
     fun stop() {
-        started = false
+        started              = false
+        exoSkippedForSession = false   // always retry EXO on next start
         engineGeneration++
         cancelRtspTimeout()
         cancelRetry()
@@ -226,10 +232,60 @@ class CameraViewController(
 
     fun applyPrefsChange() {
         if (!started) return
-        exoSkippedForSession = false   // forced reload always retries EXO first
+        exoSkippedForSession = false
         retryCount = 0
         stop()
         start()
+    }
+
+    /**
+     * Clears [exoSkippedForSession] so the engine stack restarts from the
+     * top on the next attempt. Call this from the dedicated "Reset player"
+     * button in the UI.
+     */
+    fun resetEngineSkip() {
+        exoSkippedForSession = false
+        if (started) applyPrefsChange()
+    }
+
+    /**
+     * Returns the first enabled engine from the configured stack, respecting
+     * [exoSkippedForSession] to skip EXO if it has failed with an SDP error.
+     */
+    private fun firstEnabledEngine(): EngineChoice {
+        val engines = cfgEnabledEngines()
+        val start = if (exoSkippedForSession)
+            engines.firstOrNull { it != "exo" } ?: engines.firstOrNull()
+        else
+            engines.firstOrNull()
+        return when (start) {
+            "vlc"      -> EngineChoice.VLC
+            "snapshot" -> EngineChoice.SNAPSHOT
+            "exo"      -> EngineChoice.EXO
+            else       -> EngineChoice.SNAPSHOT
+        }
+    }
+
+    /**
+     * Returns the next engine to try after [current] fails, according to the
+     * configured stack. Returns SNAPSHOT (i.e. last resort) if there is no
+     * further engine.
+     */
+    private fun nextEngineAfter(current: EngineChoice): EngineChoice {
+        val engines = cfgEnabledEngines()
+        val currentName = when (current) {
+            EngineChoice.EXO      -> "exo"
+            EngineChoice.VLC      -> "vlc"
+            EngineChoice.SNAPSHOT -> "snapshot"
+        }
+        val idx = engines.indexOf(currentName)
+        val next = if (idx >= 0 && idx + 1 < engines.size) engines[idx + 1] else null
+        return when (next) {
+            "vlc"      -> EngineChoice.VLC
+            "snapshot" -> EngineChoice.SNAPSHOT
+            "exo"      -> EngineChoice.EXO
+            else       -> EngineChoice.SNAPSHOT
+        }
     }
 
     fun applyMotionPrefs() {
@@ -303,6 +359,66 @@ class CameraViewController(
 
     // ── Media3 / ExoPlayer RTSP ────────────────────────────────────────────────
 
+    /** Dummy surface used while this slot's container is GONE (background decoding). */
+    private var dummySurfaceTexture: android.graphics.SurfaceTexture? = null
+    private var dummySurface:        android.view.Surface?            = null
+
+    /**
+     * Attach ExoPlayer to the real [playerView] when this slot becomes active.
+     * Also starts the connect-timeout if the player hasn't reached STATE_READY yet.
+     */
+    @MainThread
+    fun attachExoToPlayerView() {
+        val player = exoPlayer ?: return
+        releaseDummySurface()
+        playerView.player       = player
+        playerView.visibility   = View.VISIBLE
+        (vlcLayout.parent as? View)?.visibility = View.GONE
+        snapshotView.visibility = View.GONE
+        Log.d(TAG, "ExoPlayer attached to PlayerView")
+
+        // Start timeout now if not yet ready (STATE_READY or first frame not yet seen).
+        if (rtspTimeoutJob == null &&
+            player.playbackState != androidx.media3.common.Player.STATE_READY &&
+            player.playbackState != androidx.media3.common.Player.STATE_ENDED) {
+            val timeoutMs = cfgTimeoutMs()
+            val gen       = engineGeneration
+            rtspTimeoutJob = Runnable {
+                if (engineGeneration != gen) return@Runnable
+                Log.w(TAG, "Media3 timeout (on activate) after ${timeoutMs}ms gen=$gen")
+                rtspFailReason = context.getString(R.string.camera_status_rtsp_timeout)
+                if (started && !inSnapshotMode) scheduleRetry(rtspFailReason!!, EngineChoice.VLC)
+            }
+            mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
+        }
+    }
+
+    /**
+     * Detach ExoPlayer from [playerView] and redirect output to a dummy
+     * SurfaceTexture so the player can keep decoding while the container is GONE.
+     */
+    @MainThread
+    fun detachExoToBackground() {
+        val player = exoPlayer ?: return
+        playerView.player = null
+        releaseDummySurface()
+        try {
+            val st = android.graphics.SurfaceTexture(false).also { dummySurfaceTexture = it }
+            val s  = android.view.Surface(st).also { dummySurface = it }
+            player.setVideoSurface(s)
+            Log.d(TAG, "ExoPlayer detached to dummy surface (still decoding)")
+        } catch (e: Exception) {
+            Log.w(TAG, "detachExoToBackground: ${e.message}")
+        }
+    }
+
+    private fun releaseDummySurface() {
+        try { dummySurface?.release() }        catch (_: Exception) {}
+        try { dummySurfaceTexture?.release() } catch (_: Exception) {}
+        dummySurface        = null
+        dummySurfaceTexture = null
+    }
+
     @OptIn(UnstableApi::class)
     private fun startRtsp() {
         val rawUrl = cfgRtspUrl()
@@ -328,10 +444,25 @@ class CameraViewController(
             .build()
             .also { exoPlayer = it }
 
-        playerView.player = player
-        playerView.visibility  = View.VISIBLE
-        snapshotView.visibility = View.GONE
-        (vlcLayout.parent as? View)?.visibility = View.GONE
+        // If this slot is currently active (container VISIBLE), attach to the
+        // real PlayerView immediately. Otherwise decode into a dummy surface so
+        // the player buffers while the container stays GONE.
+        if (isActiveSlot) {
+            playerView.player = player
+            playerView.visibility   = View.VISIBLE
+            snapshotView.visibility = View.GONE
+            (vlcLayout.parent as? View)?.visibility = View.GONE
+        } else {
+            // Background slot — keep container GONE, decode into dummy surface.
+            try {
+                val st = android.graphics.SurfaceTexture(false).also { dummySurfaceTexture = it }
+                val s  = android.view.Surface(st).also { dummySurface = it }
+                player.setVideoSurface(s)
+            } catch (e: Exception) {
+                Log.w(TAG, "startRtsp: dummy surface failed, falling back to PlayerView: ${e.message}")
+                playerView.player = player
+            }
+        }
 
         val source = RtspMediaSource.Factory()
             .setForceUseRtpTcp(true)
@@ -345,10 +476,21 @@ class CameraViewController(
                 when (state) {
                     Player.STATE_BUFFERING ->
                         setStatus(context.getString(R.string.camera_status_buffering))
+                    Player.STATE_READY -> {
+                        // STATE_READY fires reliably even when decoding into a dummy
+                        // surface (background slot). Use it as the "connected" signal.
+                        if (!isActiveSlot) {
+                            // Background slot is ready — cancel timeout, signal first-live.
+                            cancelRtspTimeout()
+                            retryCount = 0
+                            Log.i(TAG, "Media3 STATE_READY (background slot) gen=$listenerGen")
+                            fireFirstLive()
+                        }
+                        // For active slots, wait for onRenderedFirstFrame (actual frame shown).
+                    }
                     Player.STATE_ENDED ->
                         mainHandler.post {
                             if (started && !inSnapshotMode)
-                                // Stream ended cleanly — restart from Media3
                                 scheduleRetry("RTSP stream ended", EngineChoice.EXO)
                         }
                     else -> {}
@@ -361,8 +503,9 @@ class CameraViewController(
                 retryCount = 0
                 playerView.visibility = View.VISIBLE
                 setStatus(context.getString(R.string.camera_status_live_rtsp))
-                Log.i(TAG, "Media3: first frame rendered")
+                Log.i(TAG, "Media3: first frame rendered gen=$listenerGen")
                 startRtspMotionSampler()
+                fireFirstLive()   // no-op if already fired via STATE_READY
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -402,15 +545,19 @@ class CameraViewController(
         muteButton?.visibility = View.VISIBLE
         updateMuteButton()
 
-        val timeoutMs = cfgTimeoutMs()
-        val exoGen    = myGen
-        rtspTimeoutJob = Runnable {
-            if (engineGeneration != exoGen) return@Runnable
-            Log.w(TAG, "Media3 timeout after ${timeoutMs}ms (gen=$exoGen)")
-            rtspFailReason = context.getString(R.string.camera_status_rtsp_timeout)
-            if (started && !inSnapshotMode) scheduleRetry(rtspFailReason!!, EngineChoice.VLC)
+        // Only run the connect-timeout when this slot is visible. Background slots
+        // use STATE_READY (fired without a display surface) as their ready signal.
+        if (isActiveSlot) {
+            val timeoutMs = cfgTimeoutMs()
+            val exoGen    = myGen
+            rtspTimeoutJob = Runnable {
+                if (engineGeneration != exoGen) return@Runnable
+                Log.w(TAG, "Media3 timeout after ${timeoutMs}ms (gen=$exoGen)")
+                rtspFailReason = context.getString(R.string.camera_status_rtsp_timeout)
+                if (started && !inSnapshotMode) scheduleRetry(rtspFailReason!!, EngineChoice.VLC)
+            }
+            mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
         }
-        mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
     }
 
     // ── libVLC RTSP ────────────────────────────────────────────────────────────
@@ -430,22 +577,31 @@ class CameraViewController(
         setStatus(context.getString(R.string.camera_status_connecting_vlc))
         releasePlayer()
 
-        playerView.visibility   = View.GONE
-        (vlcLayout.parent as? View)?.visibility = View.VISIBLE
-        snapshotView.visibility = View.GONE
+        // Only manipulate sub-view visibility when this slot is the active one.
+        // Background slots have their container GONE — touching sub-view visibility
+        // here would have no effect and confuses refreshStatus() later.
+        if (isActiveSlot) {
+            playerView.visibility                   = View.GONE
+            (vlcLayout.parent as? View)?.visibility = View.VISIBLE
+            snapshotView.visibility                 = View.GONE
+        }
 
         val vlcEngine = VlcRtspEngine(context, vlcLayout)
         activeVlcEngine = vlcEngine
 
-        val timeoutMs = cfgTimeoutMs()
-        val vlcGen    = myVlcGen
-        rtspTimeoutJob = Runnable {
-            if (engineGeneration != vlcGen) return@Runnable
-            Log.w(TAG, "VLC timeout after ${timeoutMs}ms (gen=$vlcGen)")
-            if (started && !inSnapshotMode)
-                scheduleRetry("VLC timeout after ${timeoutMs}ms", EngineChoice.VLC)
+        // Only start the connect-timeout when this slot is active.
+        // Background VLC slots use onPlaying() as their ready signal.
+        if (isActiveSlot) {
+            val timeoutMs = cfgTimeoutMs()
+            val vlcGen    = myVlcGen
+            rtspTimeoutJob = Runnable {
+                if (engineGeneration != vlcGen) return@Runnable
+                Log.w(TAG, "VLC timeout after ${timeoutMs}ms (gen=$vlcGen)")
+                if (started && !inSnapshotMode)
+                    scheduleRetry("VLC timeout after ${timeoutMs}ms", EngineChoice.VLC)
+            }
+            mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
         }
-        mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
 
         val vlcListenerGen = myVlcGen
         vlcEngine.start(url, isMuted, object : RtspEngine.Listener {
@@ -460,6 +616,7 @@ class CameraViewController(
                 startVlcMotionSamplerIfEnabled()
                 // Schedule silent background probes trying to recover Media3
                 scheduleMedia3ProbeFromVlc()
+                fireFirstLive()
             }
             override fun onError(message: String, unrecoverable: Boolean) {
                 if (stale()) return
@@ -504,12 +661,8 @@ class CameraViewController(
         if (retryCount > MAX_RETRIES) {
             Log.w(TAG, "Max retries ($MAX_RETRIES) exceeded for $currentEngine — escalating")
             retryCount = 0
-            val nextEsc: EngineChoice = when (currentEngine) {
-                EngineChoice.EXO      -> EngineChoice.VLC
-                EngineChoice.VLC      -> EngineChoice.SNAPSHOT
-                EngineChoice.SNAPSHOT -> EngineChoice.SNAPSHOT
-            }
-            if (nextEsc == EngineChoice.SNAPSHOT) {
+            val nextEsc = nextEngineAfter(currentEngine)
+            if (nextEsc == EngineChoice.SNAPSHOT || !cfgEnabledEngines().contains(nextEsc.name.lowercase())) {
                 fallbackToSnapshot(reason)
             } else {
                 nextEngine = nextEsc
@@ -893,10 +1046,20 @@ class CameraViewController(
         cancelRetry()
         stopRtspMotionSampler()
         releasePlayer()
-        playerView.visibility   = View.GONE
-        (vlcLayout.parent as? View)?.visibility = View.GONE
-        snapshotView.visibility = View.VISIBLE
-        muteButton?.visibility  = View.GONE
+
+        // Only manipulate sub-view visibility when slot container is visible.
+        // Background slots have container GONE — refreshStatus()/showSlot() will
+        // set the correct sub-views visible when this slot is activated.
+        if (isActiveSlot) {
+            playerView.visibility                   = View.GONE
+            (vlcLayout.parent as? View)?.visibility = View.GONE
+            snapshotView.visibility                 = View.VISIBLE
+            muteButton?.visibility                  = View.GONE
+        }
+
+        // Fire onFirstLive so MultiCameraController knows this slot has something
+        // to show (even if it's only snapshots).
+        fireFirstLive()
 
         val snapshotUrl = cfgSnapshotUrl()
         if (snapshotUrl.isBlank()) {
@@ -907,7 +1070,6 @@ class CameraViewController(
 
         val intervalSec = cfgIntervalSec()
         startSnapshotLoop(snapshotUrl, intervalSec)
-        // Start background probes to silently try better engines
         scheduleProbesFromMjpeg()
     }
 
@@ -1062,11 +1224,28 @@ class CameraViewController(
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     private fun releasePlayer() {
-        exoPlayer?.let { try { it.stop(); it.release() } catch (_: Exception) {} }
+        exoPlayer?.let {
+            try {
+                it.clearVideoSurface()   // must precede release() to avoid "resource failed to call end"
+                it.stop()
+                it.release()
+            } catch (_: Exception) {}
+        }
         exoPlayer = null
         playerView.player = null
+        releaseDummySurface()
         activeVlcEngine?.release()
         activeVlcEngine = null
+    }
+
+    /**
+     * Fires [onFirstLive] exactly once per [start] cycle (guarded by [firstLiveFired]).
+     * Always called on the main thread from within engine callbacks.
+     */
+    private fun fireFirstLive() {
+        if (firstLiveFired) return
+        firstLiveFired = true
+        onFirstLive?.invoke()
     }
 
     private fun stopSnapshotLoop() { snapshotJob?.cancel(); snapshotJob = null }
@@ -1082,8 +1261,12 @@ class CameraViewController(
     }
 
     private fun show() {
-        playerView.visibility   = View.VISIBLE
-        (vlcLayout.parent as? View)?.visibility = View.GONE
+        // In multi-camera mode, MultiCameraController owns the outer container
+        // visibility (VISIBLE vs INVISIBLE).  CameraViewController only manages
+        // the inner sub-views (playerView, vlcLayout, snapshotView).
+        // We don't force playerView VISIBLE here — startRtsp() / startVlc() do
+        // that themselves once an engine is chosen — to avoid the wrong sub-view
+        // flashing while a background slot is still connecting.
         snapshotView.visibility = View.GONE
         statusLabel.visibility  = View.VISIBLE
         applyOverlayAlpha()
@@ -1130,22 +1313,41 @@ class CameraViewController(
 
     fun isStarted() = started
 
-    fun isVlcActive() = started && !inSnapshotMode && activeVlcEngine != null
+    fun isVlcActive()  = started && !inSnapshotMode && activeVlcEngine != null
+    fun isExoActive()  = started && !inSnapshotMode && exoPlayer != null && activeVlcEngine == null
 
     /**
-     * Zero-cost surface re-bind for INVISIBLE → VISIBLE slot switches.
-     *
-     * VLC has been decoding continuously while the slot was INVISIBLE; the
-     * Surface was never destroyed.  This simply calls [VlcRtspEngine.reattachViews]
-     * so the window compositor resumes compositing — decoded frames appear
-     * immediately with no reconnect delay.
-     *
-     * Called by MultiCameraController.showSlot() on every normal camera switch.
+     * Zero-cost surface re-bind for GONE → VISIBLE slot switches.
+     * VLC keeps decoding internally while detached; frames appear immediately.
+     * Also starts the connect-timeout if VLC hasn't called onPlaying() yet.
      */
     @MainThread
     fun reattachVlcViews() {
         if (!started || inSnapshotMode) return
         activeVlcEngine?.reattachViews()
+
+        if (rtspTimeoutJob == null) {
+            val timeoutMs = cfgTimeoutMs()
+            val gen       = engineGeneration
+            rtspTimeoutJob = Runnable {
+                if (engineGeneration != gen) return@Runnable
+                Log.w(TAG, "VLC timeout (on activate) after ${timeoutMs}ms gen=$gen")
+                if (started && !inSnapshotMode)
+                    scheduleRetry("VLC timeout after ${timeoutMs}ms", EngineChoice.VLC)
+            }
+            mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
+        }
+    }
+
+    /**
+     * Detach VLC from its SurfaceView before the container goes GONE.
+     * VLC continues streaming and decoding internally — no network reconnect.
+     * Call reattachVlcViews() when the container becomes VISIBLE again.
+     */
+    @MainThread
+    fun detachVlcViews() {
+        if (!started || inSnapshotMode) return
+        activeVlcEngine?.detachViews()
     }
 
     /**
@@ -1168,11 +1370,28 @@ class CameraViewController(
 
     // ── Config helpers: prefer cameraConfig over prefs ─────────────────────────
 
-    private fun cfgRtspUrl()     = cameraConfig?.rtspUrl       ?: prefs.getString(PreferenceKeys.CAMERA_RTSP_URL,          "") ?: ""
-    private fun cfgSnapshotUrl() = cameraConfig?.snapshotUrl   ?: prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_URL,      "") ?: ""
-    private fun cfgUsername()    = cameraConfig?.username      ?: prefs.getString(PreferenceKeys.CAMERA_USERNAME,          "") ?: ""
-    private fun cfgPassword()    = cameraConfig?.password      ?: prefs.getString(PreferenceKeys.CAMERA_PASSWORD,          "") ?: ""
-    private fun cfgEngine()      = cameraConfig?.rtspEngine    ?: prefs.getString(PreferenceKeys.CAMERA_RTSP_ENGINE,    "auto") ?: "auto"
+    private fun cfgRtspUrl()     = cameraConfig?.rtspUrl
+                                    ?: prefs.getString(PreferenceKeys.CAMERA_RTSP_URL, "") ?: ""
+    private fun cfgSnapshotUrl() = cameraConfig?.snapshotUrl
+                                    ?: prefs.getString(PreferenceKeys.CAMERA_SNAPSHOT_URL, "") ?: ""
+    private fun cfgUsername()    = cameraConfig?.username
+                                    ?: prefs.getString(PreferenceKeys.CAMERA_USERNAME, "") ?: ""
+    private fun cfgPassword()    = cameraConfig?.password
+                                    ?: prefs.getString(PreferenceKeys.CAMERA_PASSWORD, "") ?: ""
+
+    /**
+     * Returns the ordered list of enabled engine names from the camera config.
+     * Falls back to the legacy single-engine pref if no CameraConfig is set.
+     */
+    private fun cfgEnabledEngines(): List<String> {
+        cameraConfig?.let { return it.enabledEngines.ifEmpty { listOf("exo", "vlc", "snapshot") } }
+        return when (prefs.getString(PreferenceKeys.CAMERA_RTSP_ENGINE, "auto") ?: "auto") {
+            "vlc"      -> listOf("vlc", "snapshot")
+            "snapshot" -> listOf("snapshot")
+            else       -> listOf("exo", "vlc", "snapshot")
+        }
+    }
+
     private fun cfgTimeoutMs()   = cameraConfig?.rtspTimeoutMs
                                     ?: prefs.getString(PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, "")?.toLongOrNull()
                                     ?: DEFAULT_RTSP_TIMEOUT_MS

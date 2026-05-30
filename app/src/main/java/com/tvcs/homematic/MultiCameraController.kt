@@ -61,6 +61,8 @@ class MultiCameraController(
 
     companion object {
         private const val TAG = "MultiCamCtrl"
+        /** SharedPrefs key — remembers which slot was last visible across restarts / wakeups. */
+        private const val KEY_LAST_ACTIVE_IDX = "multi_cam_last_active_idx"
     }
 
     private val prefs       = PreferenceManager.getDefaultSharedPreferences(context)
@@ -81,6 +83,13 @@ class MultiCameraController(
     private var rotateJob: Runnable? = null
     private var started    = false
 
+    /**
+     * True once at least one slot has shown its first live frame.
+     * Until then all slot containers stay INVISIBLE so the user never sees a
+     * partial / wrong camera flash up on startup.
+     */
+    private var firstSlotShown = false
+
     // ── Public API ─────────────────────────────────────────────────────────
 
     fun attachToLifecycle(owner: LifecycleOwner) {
@@ -93,14 +102,20 @@ class MultiCameraController(
      */
     fun applyConfig() {
         teardown()
-        val configs = CameraConfigStore.load(prefs)
-        rotationSec = CameraConfigStore.loadRotationSec(prefs)
+        val configs     = CameraConfigStore.load(prefs)
+        rotationSec     = CameraConfigStore.loadRotationSec(prefs)
+        firstSlotShown  = false
+        fastestReadySlot = -1
 
         if (configs.isEmpty()) {
             cameraPanel.visibility = View.GONE
             return
         }
         cameraPanel.visibility = View.VISIBLE
+
+        // Restore last-used slot index (clamped to current config size).
+        val savedIdx  = prefs.getInt(KEY_LAST_ACTIVE_IDX, 0)
+        activeIdx     = savedIdx.coerceIn(0, configs.lastIndex)
 
         configs.forEach { cfg ->
             val slot = buildSlot(cfg)
@@ -110,13 +125,57 @@ class MultiCameraController(
         buildDots()
         installTapOverlay()
 
-        showSlot(0, initial = true)
+        // Register a first-live callback on every slot.
+        // The FIRST slot that reports "live" (first frame from any engine) will
+        // be presented — preferring the saved active index if it wins the race.
+        // This avoids flashing WebCam2 before WebCam1's VLC has connected.
+        slots.forEachIndexed { i, slot ->
+            slot.vc.onFirstLive = { onSlotFirstLive(i) }
+        }
+
+        // All containers start GONE — onSlotFirstLive decides when to show.
+        slots.forEach { it.container.visibility = View.GONE }
+        updateDots()
+
         if (started) startAllSlots()
         if (rotationSec > 0 && slots.size > 1) scheduleRotation()
     }
 
     fun applyPrefsChange() {
         applyConfig()
+    }
+
+    /**
+     * Clears the engine-skip state on all slots and restarts them from
+     * the top of their engine stack. Called when the user taps the
+     * "Reset player" button in the camera settings.
+     *
+     * Pass [cameraId] to reset only a specific camera, or null to reset all.
+     */
+    fun resetEngineSkip(cameraId: String? = null) {
+        slots.forEach { slot ->
+            if (cameraId == null || slot.config.id == cameraId) {
+                slot.vc.resetEngineSkip()
+            }
+        }
+    }
+
+    /**
+     * Check SharedPrefs for a pending reset request written by
+     * CameraListFragment and apply it.  Call from MainActivity.onResume().
+     */
+    fun checkAndApplyPendingReset() {
+        val key = "camera_reset_engine_skip_id"
+        val tsKey = "camera_reset_engine_skip_ts"
+        val id = prefs.getString(key, null) ?: return
+        val ts = prefs.getLong(tsKey, 0L)
+        // Only act on requests from the last 60 seconds
+        if (System.currentTimeMillis() - ts > 60_000L) {
+            prefs.edit().remove(key).remove(tsKey).apply()
+            return
+        }
+        prefs.edit().remove(key).remove(tsKey).apply()
+        resetEngineSkip(id.ifBlank { null })
     }
 
     fun isEnabled(): Boolean {
@@ -149,6 +208,10 @@ class MultiCameraController(
 
     override fun onStop(owner: LifecycleOwner) {
         cancelRotation()
+        preferredSlotWaitJob?.let { mainHandler.removeCallbacks(it) }
+        preferredSlotWaitJob = null
+        firstSlotShown   = false
+        fastestReadySlot = -1
         slots.forEach { it.vc.stop() }
         started = false
     }
@@ -157,58 +220,135 @@ class MultiCameraController(
         teardown()
     }
 
+    // ── First-live arbitration ──────────────────────────────────────────────
+
+    /**
+     * Hard timeout before giving up on the preferred slot and showing
+     * whichever slot is already live.  Should be longer than the slowest
+     * expected engine startup (VLC RTSP ≈ 5–8 s on a local network).
+     */
+    private val PREFERRED_SLOT_TIMEOUT_MS = 30_000L
+    private var preferredSlotWaitJob: Runnable? = null
+
+    /**
+     * Index of the fastest non-preferred slot that reported live during the
+     * grace period.  Used as fallback if the preferred slot times out.
+     */
+    private var fastestReadySlot: Int = -1
+
+    /**
+     * Called by vc.onFirstLive the first time a slot's engine renders a frame.
+     *
+     * Rules:
+     *  • Preferred slot live  → show immediately, cancel any pending timeout.
+     *  • Other slot live first → remember it as fallback, start the timeout
+     *    once (idempotent), but DO NOT show it yet.  The screen stays dark
+     *    rather than flash the wrong camera.
+     *  • Timeout fires        → show the remembered fastest slot.
+     *
+     * This guarantees zero visible flash: either the preferred slot appears
+     * directly, or the screen is blank until we are certain it won't connect.
+     */
+    private fun onSlotFirstLive(slotIdx: Int) {
+        if (!started) return
+        if (firstSlotShown) {
+            // Already showing — if the preferred slot just came live after we
+            // had already fallen back to another slot, switch to it silently.
+            if (slotIdx == activeIdx) {
+                Log.i(TAG, "Preferred slot $slotIdx live after fallback — switching back")
+                preferredSlotWaitJob?.let { mainHandler.removeCallbacks(it) }
+                preferredSlotWaitJob = null
+                showSlot(slotIdx)
+            }
+            return
+        }
+
+        if (slotIdx == activeIdx) {
+            // Preferred slot is live — show it immediately.
+            preferredSlotWaitJob?.let { mainHandler.removeCallbacks(it) }
+            preferredSlotWaitJob = null
+            firstSlotShown = true
+            showSlot(activeIdx)
+            return
+        }
+
+        // A non-preferred slot is ready. Remember the fastest one as fallback
+        // but do NOT show it — keep the screen dark and wait for the preferred slot.
+        if (fastestReadySlot < 0) {
+            fastestReadySlot = slotIdx
+            Log.i(TAG, "Slot $slotIdx live first — waiting up to ${PREFERRED_SLOT_TIMEOUT_MS}ms for preferred slot $activeIdx")
+        }
+
+        // Start the timeout once.
+        if (preferredSlotWaitJob == null) {
+            preferredSlotWaitJob = Runnable {
+                preferredSlotWaitJob = null
+                if (!firstSlotShown && started && fastestReadySlot >= 0) {
+                    Log.i(TAG, "Preferred slot $activeIdx timed out — showing fastest slot $fastestReadySlot")
+                    firstSlotShown = true
+                    showSlot(fastestReadySlot)
+                }
+            }
+            mainHandler.postDelayed(preferredSlotWaitJob!!, PREFERRED_SLOT_TIMEOUT_MS)
+        }
+    }
+
     // ── Slot switching ──────────────────────────────────────────────────────
 
     /**
-     * Make slot [idx] the visible one. All other slots go INVISIBLE (never GONE)
-     * so their Surfaces remain valid and engines keep streaming.
+     * Make slot [idx] the visible one.
      *
-     * @param initial  true on first layout — skips VLC restart optimisation
-     *                 because no slot was previously visible.
+     * Background slots are set to GONE (not INVISIBLE) to prevent SurfaceView
+     * compositor bleed-through: a SurfaceView renders on its own hardware layer
+     * and ignores parent INVISIBLE — it stays visible to the compositor regardless.
+     * GONE removes the Surface entirely, which is safe because:
+     *   • ExoPlayer buffers internally and reconnects to a new Surface instantly.
+     *   • VLC is kept alive via detachViews() while GONE and reattached with
+     *     attachViews() when shown — no network reconnect required.
      */
-    private fun showSlot(idx: Int, initial: Boolean = false) {
+    private fun showSlot(idx: Int) {
         if (slots.isEmpty()) return
         activeIdx = idx.coerceIn(0, slots.lastIndex)
+        prefs.edit().putInt(KEY_LAST_ACTIVE_IDX, activeIdx).apply()
 
         slots.forEachIndexed { i, slot ->
             val isActive = (i == activeIdx)
             slot.vc.isActiveSlot = isActive
 
             if (isActive) {
-                // Make the active slot's container fully visible.
                 slot.container.visibility = View.VISIBLE
-
                 when {
-                    !slot.vc.isStarted() && started -> {
-                        // Should only happen if start() raced with applyConfig().
-                        slot.vc.start()
-                    }
-                    !initial && slot.vc.isVlcActive() -> {
-                        // VLC has been streaming into its Surface the whole time the
-                        // slot was INVISIBLE — the Surface is never destroyed while
-                        // INVISIBLE, only while GONE.  Simply making the container
-                        // VISIBLE is enough; the already-decoded frames start
-                        // appearing immediately with zero reconnect delay.
-                        // reattachViews() is a no-cost safety call in case the
-                        // window compositor recycled the SurfaceHolder.
-                        Log.d(TAG, "Slot $i VLC active — revealing (no reconnect)")
+                    !slot.vc.isStarted() && started -> slot.vc.start()
+                    slot.vc.isVlcActive() -> {
+                        Log.d(TAG, "Slot $i: VLC reattach on show")
                         slot.vc.reattachVlcViews()
                         slot.vc.refreshStatus()
                     }
-                    else -> {
+                    slot.vc.isExoActive() -> {
+                        // Switch ExoPlayer from dummy surface to the real PlayerView.
+                        // The player has been buffering/decoding all along — first frame
+                        // appears immediately.
+                        Log.d(TAG, "Slot $i: ExoPlayer attach to PlayerView")
+                        slot.vc.attachExoToPlayerView()
                         slot.vc.refreshStatus()
                     }
+                    else -> slot.vc.refreshStatus()
                 }
             } else {
-                // Keep INVISIBLE — the Surface stays valid, engine keeps running.
-                slot.container.visibility = View.INVISIBLE
+                if (slot.vc.isVlcActive()) {
+                    Log.d(TAG, "Slot $i: VLC detach before GONE")
+                    slot.vc.detachVlcViews()
+                } else if (slot.vc.isExoActive()) {
+                    // Redirect ExoPlayer to dummy surface so it keeps decoding while GONE.
+                    Log.d(TAG, "Slot $i: ExoPlayer detach to background")
+                    slot.vc.detachExoToBackground()
+                }
+                slot.container.visibility = View.GONE
             }
         }
 
         updateDots()
-        if (slots.size > 1) {
-            statusLabel.text = slots[activeIdx].config.name
-        }
+        if (slots.size > 1) statusLabel.text = slots[activeIdx].config.name
     }
 
     private fun advance() {
@@ -240,8 +380,9 @@ class MultiCameraController(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
-            // Start INVISIBLE — showSlot() will make the first slot VISIBLE.
-            visibility = View.INVISIBLE
+            // Start GONE — showSlot() makes the active slot VISIBLE.
+            // GONE is required (not INVISIBLE) to prevent SurfaceView bleed-through.
+            visibility = View.GONE
         }
 
         val playerView = PlayerView(context).apply {
@@ -314,6 +455,10 @@ class MultiCameraController(
 
     private fun teardown() {
         cancelRotation()
+        preferredSlotWaitJob?.let { mainHandler.removeCallbacks(it) }
+        preferredSlotWaitJob = null
+        firstSlotShown = false
+        fastestReadySlot = -1
         slots.forEach { slot ->
             slot.vc.stop()
             cameraPanel.removeView(slot.container)
