@@ -88,6 +88,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
             PreferenceKeys.CAMERA_PASSWORD, PreferenceKeys.CAMERA_VIEW_HEIGHT_DP,
             PreferenceKeys.CAMERA_RTSP_TIMEOUT_MS, PreferenceKeys.CAMERA_SNAPSHOT_INTERVAL,
             PreferenceKeys.CAMERA_OVERLAY_ALPHA, PreferenceKeys.CAMERA_SCALE_TYPE,
+            PreferenceKeys.CAMERA_RTSP_ENGINE,
             PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT, PreferenceKeys.CAMERA_PANEL_PCT_LAND,
             PreferenceKeys.CAMERA_CONFIGS_JSON, PreferenceKeys.CAMERA_ROTATION_SEC,
             PreferenceKeys.TRANSIT_PANEL_PCT_PORTRAIT, PreferenceKeys.TRANSIT_PANEL_PCT_LAND
@@ -112,10 +113,14 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
         Category("weather", R.string.export_cat_weather, listOf(
             PreferenceKeys.WEATHER_ENABLED, PreferenceKeys.WEATHER_CITY,
             PreferenceKeys.WEATHER_LAT, PreferenceKeys.WEATHER_LON,
-            PreferenceKeys.WEATHER_DISPLAY_MODE, PreferenceKeys.WEATHER_REFRESH_MIN
+            PreferenceKeys.WEATHER_DISPLAY_MODE, PreferenceKeys.WEATHER_REFRESH_MIN,
+            PreferenceKeys.WEATHER_SLIDE_DURATION_SEC,
+            PreferenceKeys.WEATHER_SHOW_1H, PreferenceKeys.WEATHER_SHOW_3H,
+            PreferenceKeys.WEATHER_SHOW_6H, PreferenceKeys.WEATHER_SHOW_DAILY
         )),
         Category("transit", R.string.export_cat_transit, listOf(
-            PreferenceKeys.TRANSIT_ENABLED, PreferenceKeys.TRANSIT_BASE_URL,
+            PreferenceKeys.TRANSIT_ENABLED, PreferenceKeys.TRANSIT_PROVIDER,
+            PreferenceKeys.TRANSIT_BASE_URL, PreferenceKeys.TRANSIT_API_TOKEN,
             PreferenceKeys.TRANSIT_FROM_ID, PreferenceKeys.TRANSIT_FROM_NAME,
             PreferenceKeys.TRANSIT_TO_ID, PreferenceKeys.TRANSIT_TO_NAME,
             PreferenceKeys.TRANSIT_ROW_COUNT, PreferenceKeys.TRANSIT_EXTRA_CONNECTIONS,
@@ -296,7 +301,7 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
 
         for (cat in selected) {
             if (version == 1) {
-                // Legacy v1: flat JSON — all keys at root level
+                // Legacy v1: flat JSON — all keys at root level, always stored as String
                 for (key in cat.keys) {
                     if (json.has(key)) { editor.putString(key, json.getString(key)); applied++ }
                 }
@@ -305,21 +310,30 @@ class ProfileExportImport(private val activity: AppCompatActivity) {
                 val keys = obj.keys()
                 while (keys.hasNext()) {
                     val key = keys.next()
-                    // Retrieve value as generic Object to determine its type
                     when (val value = obj.get(key)) {
-                        is String -> editor.putString(key, value)
-                        is Int -> editor.putInt(key, value)
+                        is String  -> editor.putString(key, value)
                         is Boolean -> editor.putBoolean(key, value)
-                        is Float -> editor.putFloat(key, value)
-                        is Long -> editor.putLong(key, value)
-                        is Double -> editor.putFloat(key, value.toFloat()) // SP doesn't support Double, so cast to Float
-                        // Handle nulls or unexpected types if necessary
+                        is Int     -> editor.putInt(key, value)
+                        is Long    -> editor.putLong(key, value)
+                        is Float   -> editor.putFloat(key, value)
+                        // JSON has no Float — Doubles from JSONObject must become Float for SharedPreferences
+                        is Double  -> editor.putFloat(key, value.toFloat())
+                        // StringSet was serialised as a JSONArray — restore as LinkedHashSet
+                        is org.json.JSONArray -> {
+                            val set = LinkedHashSet<String>(value.length())
+                            for (i in 0 until value.length()) set.add(value.optString(i))
+                            editor.putStringSet(key, set)
+                        }
+                        // null / unexpected — skip silently
                     }
                     applied++
                 }
             }
         }
-        editor.apply()
+        // commit() is synchronous: ensures the data is actually persisted before
+        // the caller shows "X settings imported" — apply() would be async and the
+        // toast could fire before the write completes.
+        editor.commit()
         Log.i(TAG, "Imported $applied keys from ${selected.size} categories (v$version)")
         return applied
     }
