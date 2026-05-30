@@ -198,12 +198,25 @@ class MultiCameraController(
 
     override fun onStart(owner: LifecycleOwner) {
         started = true
-        if (slots.isEmpty()) applyConfig()
-        else {
-            // Start ALL slots so background buffering is active immediately.
-            startAllSlots()
-            if (rotationSec > 0 && slots.size > 1) scheduleRotation()
+        if (slots.isEmpty()) {
+            applyConfig()
+            return
         }
+        if (streamsSuspended) {
+            // Streams kept alive across screen-off — just re-attach views.
+            // showSlot() handles attachExoToPlayerView() / reattachVlcViews() internally.
+            streamsSuspended = false
+            slots.forEachIndexed { i, slot ->
+                slot.vc.isActiveSlot = (i == activeIdx)
+            }
+            showSlot(activeIdx)
+            firstSlotShown = true
+            Log.i(TAG, "onStart: streams were suspended — instant re-attach, no reconnect")
+        } else {
+            // Normal start (first launch or streams were fully stopped)
+            startAllSlots()
+        }
+        if (rotationSec > 0 && slots.size > 1) scheduleRotation()
     }
 
     override fun onStop(owner: LifecycleOwner) {
@@ -212,7 +225,25 @@ class MultiCameraController(
         preferredSlotWaitJob = null
         firstSlotShown   = false
         fastestReadySlot = -1
-        slots.forEach { it.vc.stop() }
+
+        // Keep streams alive for instant wakeup when at least one slot is live.
+        // Only detach views; network connections and decoders stay running.
+        val anyLive = slots.any { it.vc.isExoActive() || it.vc.isVlcActive() }
+        if (anyLive) {
+            slots.forEach { slot ->
+                slot.vc.isActiveSlot = false
+                when {
+                    slot.vc.isExoActive() -> slot.vc.detachExoToBackground()
+                    slot.vc.isVlcActive() -> slot.vc.detachVlcViews()
+                }
+                slot.container.visibility = View.GONE
+            }
+            streamsSuspended = true
+            Log.i(TAG, "onStop: streams detached (still alive) — ready for instant wake")
+        } else {
+            slots.forEach { it.vc.stop() }
+            streamsSuspended = false
+        }
         started = false
     }
 
@@ -227,7 +258,7 @@ class MultiCameraController(
      * whichever slot is already live.  Should be longer than the slowest
      * expected engine startup (VLC RTSP ≈ 5–8 s on a local network).
      */
-    private val PREFERRED_SLOT_TIMEOUT_MS = 30_000L
+    private val PREFERRED_SLOT_TIMEOUT_MS = 8_000L   // LAN: schnelles Failover (war 30 000)
     private var preferredSlotWaitJob: Runnable? = null
 
     /**
@@ -235,6 +266,13 @@ class MultiCameraController(
      * grace period.  Used as fallback if the preferred slot times out.
      */
     private var fastestReadySlot: Int = -1
+
+    /**
+     * True when [onStop] kept streams alive (detached but not stopped) so that
+     * the next [onStart] (screen-on / app-resume) can show frames instantly
+     * without reconnecting.
+     */
+    private var streamsSuspended = false
 
     /**
      * Called by vc.onFirstLive the first time a slot's engine renders a frame.
@@ -459,6 +497,7 @@ class MultiCameraController(
         preferredSlotWaitJob = null
         firstSlotShown = false
         fastestReadySlot = -1
+        streamsSuspended = false   // ensure clean state for next applyConfig()
         slots.forEach { slot ->
             slot.vc.stop()
             cameraPanel.removeView(slot.container)

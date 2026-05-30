@@ -36,14 +36,15 @@ class VlcRtspEngine(
 
         /** libVLC options — optimised for low-latency live camera streams. */
         /** After VLC reports Playing, wait this long for a real decoded frame. */
-        private const val BLACKFRAME_TIMEOUT_MS = 6_000L
+        private const val BLACKFRAME_TIMEOUT_MS = 3_000L   // LAN: Vout kommt in <2 s (war 6_000)
 
         private val VLC_OPTIONS = arrayListOf(
             "--no-drop-late-frames",
             "--no-skip-frames",
             "--rtsp-tcp",               // TCP transport — avoids UDP packet-loss on local nets
-            "--network-caching=150",    // 150 ms buffer — good balance for LAN cameras
-            "--live-caching=150",
+            "--network-caching=50",     // 50 ms — LAN hat keinen Jitter (war 150)
+            "--live-caching=50",        // 50 ms (war 150)
+            "--file-caching=50",        // explizit niedrig setzen
             "--clock-jitter=0",
             "--clock-synchro=0",
             "--no-audio",               // disable audio by default; re-enabled via setMuted(false)
@@ -136,8 +137,7 @@ class VlcRtspEngine(
             }
 
             val media = Media(vlc, android.net.Uri.parse(url))
-            // Additional per-stream options
-            media.addOption(":network-caching=150")
+            // Per-stream: enforce TCP (redundant with global option but harmless as override)
             media.addOption(":rtsp-tcp")
             mp.media = media
             media.release()   // MediaPlayer holds its own reference

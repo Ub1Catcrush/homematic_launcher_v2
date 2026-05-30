@@ -27,6 +27,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Base64
 import androidx.core.net.toUri
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import org.videolan.libvlc.util.VLCVideoLayout
 import android.os.Build
@@ -84,7 +85,7 @@ class CameraViewController(
 
     companion object {
         private const val TAG = "CameraVC"
-        private const val DEFAULT_RTSP_TIMEOUT_MS  = 8_000L
+        private const val DEFAULT_RTSP_TIMEOUT_MS  = 3_000L   // LAN-optimised (war 8_000)
         private const val DEFAULT_SNAPSHOT_INTERVAL = 5
 
         /** How many reconnect attempts before escalating to the next engine. */
@@ -439,8 +440,19 @@ class CameraViewController(
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
+        // LAN-optimised buffer: short min/max to reduce initial buffering time
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                500,    // minBufferMs      (default: 50 000)
+                2_000,  // maxBufferMs      (default: 50 000)
+                200,    // bufferForPlaybackMs
+                500     // bufferForPlaybackAfterRebufferMs
+            )
+            .build()
+
         val player = ExoPlayer.Builder(context)
             .setRenderersFactory(renderersFactory)
+            .setLoadControl(loadControl)
             .build()
             .also { exoPlayer = it }
 
@@ -813,8 +825,12 @@ class CameraViewController(
             val renderersFactory = DefaultRenderersFactory(context)
                 .setEnableDecoderFallback(true)
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            val probeLoadControl = DefaultLoadControl.Builder()
+                .setBufferDurationsMs(500, 2_000, 200, 500)
+                .build()
             val probePlayer = ExoPlayer.Builder(context)
                 .setRenderersFactory(renderersFactory)
+                .setLoadControl(probeLoadControl)
                 .build()
                 .also { probeExoPlayer = it }
 
