@@ -85,7 +85,7 @@ class CameraViewController(
 
     companion object {
         private const val TAG = "CameraVC"
-        private const val DEFAULT_RTSP_TIMEOUT_MS  = 3_000L   // LAN-optimised (war 8_000)
+        private const val DEFAULT_RTSP_TIMEOUT_MS  = 8_000L   // restored from 3_000 — cameras need time
         private const val DEFAULT_SNAPSHOT_INTERVAL = 5
 
         /** How many reconnect attempts before escalating to the next engine. */
@@ -440,13 +440,17 @@ class CameraViewController(
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
-        // LAN-optimised buffer: short min/max to reduce initial buffering time
+        // Buffer tuning for LAN RTSP cameras.
+        // 500ms min was too aggressive — cameras like Reolink need 2-4s to deliver the
+        // first keyframe over RTSP/TCP, and a 500ms floor causes constant rebuffering.
+        // Old stable version used ExoPlayer defaults (50s) which is too much for a live
+        // stream but 2s min / 5s max is a good LAN balance: fast start, no stutter.
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                500,    // minBufferMs      (default: 50 000)
-                2_000,  // maxBufferMs      (default: 50 000)
-                200,    // bufferForPlaybackMs
-                500     // bufferForPlaybackAfterRebufferMs
+                2_000,  // minBufferMs      — wait at least 2s before stalling
+                8_000,  // maxBufferMs      — hold up to 8s ahead
+                1_000,  // bufferForPlaybackMs
+                2_000   // bufferForPlaybackAfterRebufferMs
             )
             .build()
 
@@ -543,7 +547,15 @@ class CameraViewController(
                         releasePlayer()
                         startWithEngine(EngineChoice.VLC)
                     } else {
-                        scheduleRetry(msg, EngineChoice.EXO)
+                        // For decode/codec errors switch to VLC immediately — the old
+                        // stable version did this and it's the right behaviour since
+                        // the same error will repeat immediately on retry anyway.
+                        // scheduleRetry() is only appropriate for transient network
+                        // blips (timeout path), not for decoder failures.
+                        cancelRtspTimeout()
+                        cancelRetry()
+                        releasePlayer()
+                        startWithEngine(EngineChoice.VLC)
                     }
                 }
             }
@@ -566,7 +578,11 @@ class CameraViewController(
                 if (engineGeneration != exoGen) return@Runnable
                 Log.w(TAG, "Media3 timeout after ${timeoutMs}ms (gen=$exoGen)")
                 rtspFailReason = context.getString(R.string.camera_status_rtsp_timeout)
-                if (started && !inSnapshotMode) scheduleRetry(rtspFailReason!!, EngineChoice.VLC)
+                if (started && !inSnapshotMode) {
+                    cancelRetry()
+                    releasePlayer()
+                    startWithEngine(EngineChoice.VLC)
+                }
             }
             mainHandler.postDelayed(rtspTimeoutJob!!, timeoutMs)
         }
