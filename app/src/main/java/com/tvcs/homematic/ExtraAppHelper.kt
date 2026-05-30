@@ -45,28 +45,60 @@ object ExtraAppHelper {
     }
 
     /**
-     * Gibt alle installierten Apps zurück (außer dieser App selbst),
-     * sortiert nach Anzeigename. Jeder Eintrag: Pair(packageName, appLabel).
+     * Alle Apps mit HOME-Kategorie (echte Launcher wie Apex, Nova, …).
+     * Wird für den Launcher-Button-Picker verwendet.
      */
-    fun getInstalledApps(context: Context): List<Pair<String, String>> {
+    fun getLauncherApps(context: Context): List<Pair<String, String>> {
         val pm = context.packageManager
-        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-
+        val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
         val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
         } else {
             @Suppress("DEPRECATION")
             pm.queryIntentActivities(intent, 0)
         }
-
         return resolveInfos
             .asSequence()
             .mapNotNull { ri ->
                 val pkg = ri.activityInfo.packageName
                 if (pkg == context.packageName) return@mapNotNull null
-                val label = ri.loadLabel(pm).toString()
-                Pair(pkg, label)
+                Pair(pkg, ri.loadLabel(pm).toString())
             }
+            .distinctBy { it.first }
+            .sortedBy { it.second.lowercase() }
+            .toList()
+    }
+
+    /**
+     * ALLE installierten Apps (außer dieser App selbst) mit einem startbaren
+     * Launcher-Intent. Benötigt QUERY_ALL_PACKAGES (im Manifest deklariert).
+     * Wird für den 2. App Button Picker verwendet.
+     */
+    fun getInstalledApps(context: Context): List<Pair<String, String>> {
+        val pm = context.packageManager
+
+        // 1. Hole die Paketliste passend zur Android-Version (Behebt die SDK-Warnungen)
+        val packages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(0L))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstalledPackages(0)
+        }
+
+        // 2. Filter- und Transformations-Pipeline
+        return packages
+            .asSequence()
+            .filter { it.packageName != context.packageName }
+            .filter { pm.getLaunchIntentForPackage(it.packageName) != null }
+            .mapNotNull { info ->
+                val appInfo = info.applicationInfo ?: return@mapNotNull null
+                runCatching {
+                    // Tauscht die Reihenfolge passend zu Pair(packageName, applicationLabel)
+                    Pair(info.packageName, pm.getApplicationLabel(appInfo).toString())
+                }.getOrNull()
+            }
+            // distinctBy ist nach dem Filtern auf Launch-Intents meist redundant,
+            // bleibt aber zur Sicherheit für eindeutige Paketnamen aktiv
             .distinctBy { it.first }
             .sortedBy { it.second.lowercase() }
             .toList()

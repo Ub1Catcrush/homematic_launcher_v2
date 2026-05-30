@@ -15,12 +15,20 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Required by WorkManager on some devices -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Für die 2. App Auswahl: alle installierten Apps anzeigen (Android 11+) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <queries>
         <!-- Erlaubt die Abfrage von Apps, die als Launcher fungieren -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
+        </intent>
+        <!-- Erlaubt die Abfrage ALLER installierten Apps mit Launcher-Icon
+             (benötigt für die 2. App Auswahl in den Einstellungen) -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
         </intent>
     </queries>
 
