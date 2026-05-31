@@ -491,10 +491,10 @@ class CameraViewController(
         // stream but 2s min / 5s max is a good LAN balance: fast start, no stutter.
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                2_000,  // minBufferMs      — wait at least 2s before stalling
-                8_000,  // maxBufferMs      — hold up to 8s ahead
-                1_000,  // bufferForPlaybackMs
-                2_000   // bufferForPlaybackAfterRebufferMs
+                3_500,  // minBufferMs      — wait at least 2s before stalling
+                10_000,  // maxBufferMs      — hold up to 8s ahead
+                1_500,  // bufferForPlaybackMs
+                3_000   // bufferForPlaybackAfterRebufferMs
             )
             .build()
 
