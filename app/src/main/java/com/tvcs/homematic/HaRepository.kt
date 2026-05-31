@@ -357,6 +357,41 @@ object HaRepository {
         return EntityState(entityId, state, attrs)
     }
 
+    /**
+     * Lädt einmalig ALLE Entity-States via REST GET /api/states.
+     * Wird nur für Autocomplete im Settings-Dialog verwendet — nicht dauerhaft abonniert.
+     * Gibt eine sortierte Liste von Pairs (entity_id, friendly_name) zurück.
+     */
+    suspend fun fetchAllEntitiesOnce(haBaseUrl: String, token: String): List<Pair<String, String>> {
+        return try {
+            val restUrl = haBaseUrl
+                .trimEnd('/')
+                .replace(Regex("^ws(s?)://"), "http$1://")
+                .replace(Regex("/api/websocket$"), "")
+                .plus("/api/states")
+
+            val request = Request.Builder()
+                .url(restUrl)
+                .header("Authorization", "Bearer $token")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val body = response.body.string()
+            val arr = org.json.JSONArray(body)
+            (0 until arr.length()).mapNotNull { i ->
+                val obj = arr.getJSONObject(i)
+                val id = obj.optString("entity_id", "").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val name = obj.optJSONObject("attributes")
+                    ?.optString("friendly_name", "")
+                    ?.takeIf { it.isNotBlank() } ?: id
+                id to name
+            }.sortedWith(compareBy({ it.first.substringBefore(".") }, { it.first }))
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchAllEntitiesOnce failed: ${e.message}")
+            emptyList()
+        }
+    }
+
     private fun scheduleReconnect() {
         if (!active) return
         val delay = retryDelayMs

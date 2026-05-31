@@ -1199,12 +1199,12 @@ class SettingsActivity : AppCompatActivity(),
             root.addView(scrollView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (200*dp).toInt()))
 
-            val knownEntities = HaRepository.entityStates.value.entries
+            val knownEntities: MutableList<Pair<String, String>> = HaRepository.entityStates.value.entries
                 .sortedWith(compareBy({ it.key.substringBefore(".") }, { it.key }))
                 .map { (id, state) ->
                     val name = state.attributes["friendly_name"]?.takeIf { it.isNotBlank() } ?: id
                     id to name
-                }
+                }.toMutableList()
 
             fun rebuildEntityList() {
                 listContainer.removeAllViews()
@@ -1348,6 +1348,28 @@ class SettingsActivity : AppCompatActivity(),
             addSection.addView(btnAdd)
             root.addView(addSection)
 
+            // Lade alle HA-Entities im Hintergrund und aktualisiere den Autocomplete-Adapter
+            val tileEditorPrefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            val tileEditorWsUrl = tileEditorPrefs.getString(PreferenceKeys.HA_WS_URL, "") ?: ""
+            val tileEditorToken = tileEditorPrefs.getString(PreferenceKeys.HA_TOKEN, "") ?: ""
+            if (tileEditorWsUrl.isNotBlank() && tileEditorToken.isNotBlank()) {
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    val allEntities = HaRepository.fetchAllEntitiesOnce(tileEditorWsUrl, tileEditorToken)
+                    if (allEntities.isNotEmpty()) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            knownEntities.clear()
+                            knownEntities.addAll(allEntities)
+                            val newItems = allEntities.map { (id, name) ->
+                                if (name == id) id else "$id  —  $name"
+                            }.toTypedArray()
+                            acEntityId.setAdapter(
+                                android.widget.ArrayAdapter(ctx, android.R.layout.simple_dropdown_item_1line, newItems)
+                            )
+                        }
+                    }
+                }
+            }
+
             AlertDialog.Builder(requireContext())
                 .setTitle(getString(R.string.ha_tile_editor_title))
                 .setView(root)
@@ -1377,13 +1399,13 @@ class SettingsActivity : AppCompatActivity(),
 
             // ── Snapshot of known entities from live HA connection ─────────────
             // Map: entity_id → friendly_name (or entity_id if no name)
-            val knownEntities: List<Pair<String, String>> = HaRepository.entityStates.value
+            val knownEntities: MutableList<Pair<String, String>> = HaRepository.entityStates.value
                 .entries
                 .sortedWith(compareBy({ it.key.substringBefore(".") }, { it.key }))
                 .map { (id, state) ->
                     val name = state.attributes["friendly_name"]?.takeIf { it.isNotBlank() } ?: id
                     id to name
-                }
+                }.toMutableList()
 
             // ── Root layout ───────────────────────────────────────────────────
             val root = LinearLayout(ctx).apply {
@@ -1595,6 +1617,27 @@ class SettingsActivity : AppCompatActivity(),
             searchHint.addView(btnAdd)
             root.addView(searchHint)
 
+            // Lade alle HA-Entities im Hintergrund und aktualisiere den Autocomplete-Adapter
+            val entDialogWsUrl = prefs.getString(PreferenceKeys.HA_WS_URL, "") ?: ""
+            val entDialogToken = prefs.getString(PreferenceKeys.HA_TOKEN, "") ?: ""
+            if (entDialogWsUrl.isNotBlank() && entDialogToken.isNotBlank()) {
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    val allEntities = HaRepository.fetchAllEntitiesOnce(entDialogWsUrl, entDialogToken)
+                    if (allEntities.isNotEmpty()) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            knownEntities.clear()
+                            knownEntities.addAll(allEntities)
+                            val newItems = allEntities.map { (id, name) ->
+                                if (name == id) id else "$id  —  $name"
+                            }.toTypedArray()
+                            acEntityId.setAdapter(
+                                android.widget.ArrayAdapter(ctx, android.R.layout.simple_dropdown_item_1line, newItems)
+                            )
+                        }
+                    }
+                }
+            }
+
             AlertDialog.Builder(requireContext())
                 .setTitle(getString(R.string.pref_title_ha_entities))
                 .setView(root)
@@ -1626,12 +1669,12 @@ class SettingsActivity : AppCompatActivity(),
             onSave: (HaTileViewController.EntityRow) -> Unit
         ) {
             if (!isResumed) return
-            val knownEntities = HaRepository.entityStates.value.entries
+            val knownEntities: MutableList<Pair<String, String>> = HaRepository.entityStates.value.entries
                 .sortedBy { it.key }
                 .map { (id, state) ->
                     val name = state.attributes["friendly_name"]?.takeIf { it.isNotBlank() } ?: id
                     id to name
-                }
+                }.toMutableList()
 
             val root = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
@@ -1688,6 +1731,28 @@ class SettingsActivity : AppCompatActivity(),
 
             root.addView(acEntityId); root.addView(etLabel)
             root.addView(etIcon);     root.addView(etUnit)
+
+            // Lade alle HA-Entities im Hintergrund und aktualisiere den Autocomplete-Adapter
+            val entityEditorPrefs = PreferenceManager.getDefaultSharedPreferences(ctx)
+            val entityEditorWsUrl = entityEditorPrefs.getString(PreferenceKeys.HA_WS_URL, "") ?: ""
+            val entityEditorToken = entityEditorPrefs.getString(PreferenceKeys.HA_TOKEN, "") ?: ""
+            if (entityEditorWsUrl.isNotBlank() && entityEditorToken.isNotBlank()) {
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    val allEntities = HaRepository.fetchAllEntitiesOnce(entityEditorWsUrl, entityEditorToken)
+                    if (allEntities.isNotEmpty()) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            knownEntities.clear()
+                            knownEntities.addAll(allEntities)
+                            val newItems = allEntities.map { (id, name) ->
+                                if (name == id) id else "$id  —  $name"
+                            }.toTypedArray()
+                            acEntityId.setAdapter(
+                                android.widget.ArrayAdapter(ctx, android.R.layout.simple_dropdown_item_1line, newItems)
+                            )
+                        }
+                    }
+                }
+            }
 
             AlertDialog.Builder(ctx)
                 .setTitle(ctx.getString(R.string.ha_edit_entity))
