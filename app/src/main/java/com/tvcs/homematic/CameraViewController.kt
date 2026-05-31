@@ -31,6 +31,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import org.videolan.libvlc.util.VLCVideoLayout
 import android.os.Build
+import android.os.PowerManager
 import android.view.PixelCopy
 import android.view.SurfaceView
 
@@ -365,6 +366,43 @@ class CameraViewController(
     private var dummySurface:        android.view.Surface?            = null
 
     /**
+     * PARTIAL_WAKE_LOCK held while ExoPlayer is decoding into the dummy surface
+     * (screen off / background slot). Without it the CPU can enter Doze-mode and
+     * freeze the decoder, causing a multi-second stall when the screen turns on.
+     * Released as soon as the player is re-attached to the real PlayerView.
+     */
+    private var backgroundWakeLock: PowerManager.WakeLock? = null
+
+    private fun acquireBackgroundWakeLock() {
+        if (backgroundWakeLock?.isHeld == true) return
+        try {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            backgroundWakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "HML:CameraVCBackground"
+            ).also {
+                it.setReferenceCounted(false)
+                it.acquire(30 * 60 * 1_000L)   // max 30 min safety cap
+            }
+            Log.d(TAG, "WakeLock acquired for background ExoPlayer")
+        } catch (e: Exception) {
+            Log.w(TAG, "WakeLock acquire failed: ${e.message}")
+        }
+    }
+
+    private fun releaseBackgroundWakeLock() {
+        try {
+            if (backgroundWakeLock?.isHeld == true) {
+                backgroundWakeLock?.release()
+                Log.d(TAG, "WakeLock released")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "WakeLock release failed: ${e.message}")
+        }
+        backgroundWakeLock = null
+    }
+
+    /**
      * Attach ExoPlayer to the real [playerView] when this slot becomes active.
      * Also starts the connect-timeout if the player hasn't reached STATE_READY yet.
      */
@@ -372,15 +410,19 @@ class CameraViewController(
     fun attachExoToPlayerView() {
         val player = exoPlayer ?: return
         releaseDummySurface()
+        releaseBackgroundWakeLock()
         playerView.player       = player
         playerView.visibility   = View.VISIBLE
         (vlcLayout.parent as? View)?.visibility = View.GONE
         snapshotView.visibility = View.GONE
         Log.d(TAG, "ExoPlayer attached to PlayerView")
 
-        // Start timeout now if not yet ready (STATE_READY or first frame not yet seen).
-        if (rtspTimeoutJob == null &&
-            player.playbackState != androidx.media3.common.Player.STATE_READY &&
+        // Start timeout now only if the player hasn't reached STATE_READY yet AND
+        // has not already shown its first live frame. If firstLiveFired is true the
+        // stream was already live while in the background — no timeout needed.
+        val alreadyLive = firstLiveFired ||
+            player.playbackState == androidx.media3.common.Player.STATE_READY
+        if (!alreadyLive && rtspTimeoutJob == null &&
             player.playbackState != androidx.media3.common.Player.STATE_ENDED) {
             val timeoutMs = cfgTimeoutMs()
             val gen       = engineGeneration
@@ -397,6 +439,7 @@ class CameraViewController(
     /**
      * Detach ExoPlayer from [playerView] and redirect output to a dummy
      * SurfaceTexture so the player can keep decoding while the container is GONE.
+     * Acquires a PARTIAL_WAKE_LOCK to prevent CPU Doze from freezing the decoder.
      */
     @MainThread
     fun detachExoToBackground() {
@@ -407,7 +450,8 @@ class CameraViewController(
             val st = android.graphics.SurfaceTexture(false).also { dummySurfaceTexture = it }
             val s  = android.view.Surface(st).also { dummySurface = it }
             player.setVideoSurface(s)
-            Log.d(TAG, "ExoPlayer detached to dummy surface (still decoding)")
+            acquireBackgroundWakeLock()
+            Log.d(TAG, "ExoPlayer detached to dummy surface (still decoding, WakeLock held)")
         } catch (e: Exception) {
             Log.w(TAG, "detachExoToBackground: ${e.message}")
         }
@@ -1266,6 +1310,7 @@ class CameraViewController(
         exoPlayer = null
         playerView.player = null
         releaseDummySurface()
+        releaseBackgroundWakeLock()
         activeVlcEngine?.release()
         activeVlcEngine = null
     }
@@ -1358,7 +1403,14 @@ class CameraViewController(
         if (!started || inSnapshotMode) return
         activeVlcEngine?.reattachViews()
 
-        if (rtspTimeoutJob == null) {
+        // Only arm the connect-timeout if VLC has NOT yet reported onPlaying().
+        // After onPlaying() the retryCount is 0 and rtspTimeoutJob was already
+        // cancelled — if we started a new timer here we would falsely trigger a
+        // reconnect on an already-live stream (Bug: screen-off → screen-on fires
+        // a spurious 8-second timeout → VLC restart → several-second black screen).
+        val vlcAlreadyLive = (retryCount == 0 && retryJob == null && rtspTimeoutJob == null
+            && activeVlcEngine != null && firstLiveFired)
+        if (!vlcAlreadyLive && rtspTimeoutJob == null) {
             val timeoutMs = cfgTimeoutMs()
             val gen       = engineGeneration
             rtspTimeoutJob = Runnable {

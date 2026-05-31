@@ -223,8 +223,6 @@ class MultiCameraController(
         cancelRotation()
         preferredSlotWaitJob?.let { mainHandler.removeCallbacks(it) }
         preferredSlotWaitJob = null
-        firstSlotShown   = false
-        fastestReadySlot = -1
 
         // Keep streams alive for instant wakeup when at least one slot is live.
         // Only detach views; network connections and decoders stay running.
@@ -239,8 +237,12 @@ class MultiCameraController(
                 slot.container.visibility = View.GONE
             }
             streamsSuspended = true
+            // Keep firstSlotShown = true so that onStart's re-attach path skips
+            // the cold-start arbitration (PREFERRED_SLOT_TIMEOUT_MS wait) entirely.
             Log.i(TAG, "onStop: streams detached (still alive) — ready for instant wake")
         } else {
+            firstSlotShown   = false
+            fastestReadySlot = -1
             slots.forEach { it.vc.stop() }
             streamsSuspended = false
         }
