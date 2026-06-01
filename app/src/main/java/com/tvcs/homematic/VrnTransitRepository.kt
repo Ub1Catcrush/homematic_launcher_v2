@@ -43,13 +43,6 @@ object VrnTransitRepository {
     /** Providers that require an API token. */
     val REQUIRES_TOKEN = setOf("rmv")
 
-    // ── Short aliases for internal use (values only, not nested classes) ──────
-
-    private typealias Stop         = DbTransitRepository.TransitStop
-    private typealias Leg          = DbTransitRepository.Leg
-    private typealias Departure    = DbTransitRepository.Departure
-    private typealias TransferInfo = DbTransitRepository.TransferInfo
-
     // Convenience wrappers so call-sites stay concise
     private fun <T> ok(v: T):    DbTransitRepository.Result<T> = DbTransitRepository.Result.Success(v)
     private fun <T> err(m: String): DbTransitRepository.Result<T> = DbTransitRepository.Result.Error(m)
@@ -61,7 +54,7 @@ object VrnTransitRepository {
         baseUrl: String,
         query: String,
         token: String = ""
-    ): DbTransitRepository.Result<List<Stop>> = withContext(Dispatchers.IO) {
+    ): DbTransitRepository.Result<List<DbTransitRepository.TransitStop>> = withContext(Dispatchers.IO) {
         when (providerKey) {
             "rmv" -> searchStopsRmv(baseUrl, query, token)
             else  -> searchStopsEfa(baseUrl, query)
@@ -76,7 +69,7 @@ object VrnTransitRepository {
         watchedStationNames: List<String> = emptyList(),
         results: Int = 5,
         token: String = ""
-    ): DbTransitRepository.Result<List<Departure>> = withContext(Dispatchers.IO) {
+    ): DbTransitRepository.Result<List<DbTransitRepository.Departure>> = withContext(Dispatchers.IO) {
         when (providerKey) {
             "rmv" -> getDeparturesRmv(baseUrl, fromId, toId, watchedStationNames, results, token)
             else  -> getDeparturesEfa(baseUrl, fromId, toId, watchedStationNames, results)
@@ -85,23 +78,22 @@ object VrnTransitRepository {
 
     // ── EFA (VRN / RNN) ───────────────────────────────────────────────────────
 
-    private fun searchStopsEfa(baseUrl: String, query: String): DbTransitRepository.Result<List<Stop>> {
+    private fun searchStopsEfa(baseUrl: String, query: String): DbTransitRepository.Result<List<DbTransitRepository.TransitStop>> {
+        // EFA location request
         val url = "$baseUrl/XML_STOPFINDER_REQUEST" +
                   "?outputFormat=JSON" +
+                  "&locationServerActive=1" +
                   "&type_sf=any" +
-                  "&name_sf=${enc(query)}" +
-                  "&coordOutputFormat=WGS84"
+                  "&name_sf=${enc(query)}"
         val raw = getOrErr(url) ?: return err("Netzwerkfehler bei Stationssuche")
         return try {
-            val root   = JSONObject(raw)
-            val sfRoot = root.optJSONObject("stopFinder")
-                         ?: return err("Unerwartetes API-Format (kein stopFinder)")
-            val points = sfRoot.opt("points")
-            val list   = mutableListOf<Stop>()
-            when (points) {
-                is JSONArray  -> for (i in 0 until points.length())
-                    parseEfaPoint(points.getJSONObject(i))?.let { list += it }
-                is JSONObject -> parseEfaPoint(points)?.let { list += it }
+            val root  = JSONObject(raw)
+            val dm    = root.optJSONObject("stopFinder") ?: return ok(emptyList())
+            val points = dm.optJSONArray("points") ?: JSONArray()
+            val list   = mutableListOf<DbTransitRepository.TransitStop>()
+            for (i in 0 until points.length()) {
+                val p = points.getJSONObject(i)
+                parseStop(p)?.let { list += it }
             }
             ok(list)
         } catch (e: Exception) {
@@ -110,17 +102,16 @@ object VrnTransitRepository {
         }
     }
 
-    private fun parseEfaPoint(p: JSONObject): Stop? {
-        // Exclude location/place results – only real transit stops are usable as trip endpoints
-        if (p.optString("anyType", "") == "loc") return null
+    private fun parseStop(p: JSONObject): DbTransitRepository.TransitStop? {
+        val type = p.optString("type", "")
+        if (type != "stop" && type != "station") return null
 
         val ref  = p.optJSONObject("ref") ?: p
-        // "-1" is a sentinel the EFA API uses for non-stop location hits; treat it as absent
         val rawId = ref.optString("id", "").let { if (it == "-1") "" else it }
         val id    = rawId.ifBlank { p.optString("stateless", "") }
         val name  = p.optString("name", "").ifBlank { p.optString("disassembledName", id) }
         if (id.isBlank()) return null
-        return Stop(id, name)
+        return DbTransitRepository.TransitStop(id, name)
     }
 
     private fun getDeparturesEfa(
@@ -129,7 +120,7 @@ object VrnTransitRepository {
         toId: String,
         watchedStationNames: List<String>,
         results: Int
-    ): DbTransitRepository.Result<List<Departure>> {
+    ): DbTransitRepository.Result<List<DbTransitRepository.Departure>> {
         val url = "$baseUrl/XML_TRIP_REQUEST2" +
                   "?outputFormat=JSON" +
                   "&language=de" +
@@ -146,14 +137,14 @@ object VrnTransitRepository {
         return try {
             val root  = JSONObject(raw)
             val trips = root.optJSONArray("trips") ?: JSONArray()
-            val deps  = mutableListOf<Departure>()
+            val deps  = mutableListOf<DbTransitRepository.Departure>()
             for (i in 0 until trips.length()) {
                 val legsJson = trips.getJSONObject(i).optJSONArray("legs") ?: continue
                 val legs = parseEfaLegs(legsJson)
                 if (legs.isEmpty()) continue
                 val first = legs.firstOrNull { !it.isWalk } ?: continue
                 val transitCount = legs.count { !it.isWalk }
-                deps += Departure(
+                deps += DbTransitRepository.Departure(
                     line         = first.lineName,
                     transfers    = (transitCount - 1).coerceAtLeast(0),
                     plannedTime  = first.depPlanned,
@@ -171,16 +162,12 @@ object VrnTransitRepository {
         }
     }
 
-    private fun parseEfaLegs(legsJson: JSONArray): List<Leg> {
-        val result = mutableListOf<Leg>()
+    private fun parseEfaLegs(legsJson: JSONArray): List<DbTransitRepository.Leg> {
+        val result = mutableListOf<DbTransitRepository.Leg>()
         for (i in 0 until legsJson.length()) {
             val leg  = legsJson.getJSONObject(i)
-
-            // EFA XML_TRIP_REQUEST2: legs with no "mode" or mode.type=="100" are footpaths.
             val mode     = leg.optJSONObject("mode")
             val isWalk   = mode == null || mode.optString("type") == "100"
-
-            // Points array: index 0 = departure stop, index 1 = arrival stop
             val pointsArr = leg.optJSONArray("points")
             val originObj = pointsArr?.optJSONObject(0)
             val destObj   = pointsArr?.optJSONObject(1)
@@ -188,11 +175,10 @@ object VrnTransitRepository {
             val destination = destObj?.optString("name")?.ifBlank { null }   ?: "?"
 
             if (isWalk) {
-                // Walking leg: read duration from footpath[0].duration (minutes)
                 val walkMins = leg.optJSONArray("footpath")
                     ?.optJSONObject(0)?.optString("duration")
                     ?.toIntOrNull()
-                result += Leg(
+                result += DbTransitRepository.Leg(
                     lineName    = "",
                     origin      = origin,
                     destination = destination,
@@ -209,15 +195,11 @@ object VrnTransitRepository {
                 continue
             }
 
-            // Transit leg
             val lineName = mode.optString("symbol").ifBlank { null }
                         ?: mode.optString("number").ifBlank { null }
                         ?: mode.optString("name").ifBlank { null }
                         ?: "?"
 
-            if (pointsArr == null || pointsArr.length() < 2) continue
-
-            // Times are already "HH:mm" inside dateTime.time / dateTime.rtTime
             val depDt       = originObj?.optJSONObject("dateTime")
             val depPlanned  = depDt?.optString("time") ?: ""
             val depRtRaw    = depDt?.optString("rtTime") ?: ""
@@ -228,13 +210,12 @@ object VrnTransitRepository {
             val arrRtRaw    = arrDt?.optString("rtTime") ?: ""
             val arrRealtime = if (arrRtRaw.isNotBlank() && arrRtRaw != arrPlanned) arrRtRaw else null
 
-            // Delays in seconds under points[x].ref.depDelay / arrDelay
             val depDelay = originObj?.optJSONObject("ref")?.optString("depDelay")
                                ?.toIntOrNull()?.takeIf { it != 0 }?.let { it / 60 }
             val arrDelay = destObj?.optJSONObject("ref")?.optString("arrDelay")
                                ?.toIntOrNull()?.takeIf { it != 0 }?.let { it / 60 }
 
-            result += Leg(
+            result += DbTransitRepository.Leg(
                 lineName    = lineName,
                 origin      = origin,
                 destination = destination,
@@ -252,7 +233,7 @@ object VrnTransitRepository {
 
     // ── RMV HAFAS REST ────────────────────────────────────────────────────────
 
-    private fun searchStopsRmv(baseUrl: String, query: String, token: String): DbTransitRepository.Result<List<Stop>> {
+    private fun searchStopsRmv(baseUrl: String, query: String, token: String): DbTransitRepository.Result<List<DbTransitRepository.TransitStop>> {
         if (token.isBlank()) return err("RMV API-Token fehlt. Bitte in den Einstellungen eintragen.")
         val url = "$baseUrl/location.name" +
                   "?accessId=${enc(token)}" +
@@ -263,13 +244,18 @@ object VrnTransitRepository {
         val raw = getOrErr(url) ?: return err("Netzwerkfehler bei RMV-Stationssuche")
         return try {
             val root  = JSONObject(raw)
-            val stops = root.optJSONArray("stopLocationOrCoordLocation") ?: JSONArray()
-            val list  = mutableListOf<Stop>()
+            val stopsField = root.opt("stopLocationOrCoordLocation")
+            val stops = when (stopsField) {
+                is JSONArray -> stopsField
+                is JSONObject -> JSONArray().put(stopsField)
+                else -> JSONArray()
+            }
+            val list  = mutableListOf<DbTransitRepository.TransitStop>()
             for (i in 0 until stops.length()) {
                 val sl = stops.getJSONObject(i).optJSONObject("StopLocation") ?: continue
                 val id = sl.optString("extId", sl.optString("id", ""))
                 val name = sl.optString("name", id)
-                if (id.isNotBlank()) list += Stop(id, name)
+                if (id.isNotBlank()) list += DbTransitRepository.TransitStop(id, name)
             }
             ok(list)
         } catch (e: Exception) {
@@ -285,34 +271,52 @@ object VrnTransitRepository {
         watchedStationNames: List<String>,
         results: Int,
         token: String
-    ): DbTransitRepository.Result<List<Departure>> {
+    ): DbTransitRepository.Result<List<DbTransitRepository.Departure>> {
         if (token.isBlank()) return err("RMV API-Token fehlt. Bitte in den Einstellungen eintragen.")
+        val numF = results.coerceIn(1, 6)
         val url = "$baseUrl/trip" +
                   "?accessId=${enc(token)}" +
-                  "&originExtId=${enc(fromId)}" +
-                  "&destExtId=${enc(toId)}" +
-                  "&numF=$results" +
+                  "&originId=${enc(fromId)}" +
+                  "&destId=${enc(toId)}" +
+                  "&numF=$numF" +
+                  "&date=${rmvDateStr()}" +
+                  "&time=${enc(rmvTimeStr())}" +
+                  "&rtMode=REALTIME" +
                   "&passlist=0" +
                   "&format=json"
         val raw = getOrErr(url) ?: return err("Netzwerkfehler bei RMV-Verbindungsanfrage")
         return try {
             val root  = JSONObject(raw)
-            val trips = root.optJSONArray("Trip") ?: JSONArray()
-            val deps  = mutableListOf<Departure>()
+            val tripsField = root.opt("Trip")
+            val trips = when (tripsField) {
+                is JSONArray -> tripsField
+                is JSONObject -> JSONArray().put(tripsField)
+                else -> JSONArray()
+            }
+            val deps  = mutableListOf<DbTransitRepository.Departure>()
             for (i in 0 until trips.length()) {
                 val trip     = trips.getJSONObject(i)
-                // LegList is an object containing a "Leg" array
-                val legsJson = trip.optJSONObject("LegList")?.optJSONArray("Leg") ?: continue
+                val legListObj = trip.optJSONObject("LegList") ?: continue
+                val legsField = legListObj.opt("Leg")
+                val legsJson = when (legsField) {
+                    is JSONArray -> legsField
+                    is JSONObject -> JSONArray().put(legsField)
+                    else -> null
+                } ?: continue
                 val legs = parseRmvLegs(legsJson)
                 if (legs.isEmpty()) continue
-                val first = legs.first()
-                deps += Departure(
-                    line         = first.lineName,
-                    transfers    = legs.size - 1,
-                    plannedTime  = first.depPlanned,
-                    realtimeTime = first.depRealtime,
-                    delayMinutes = first.depDelay,
-                    cancelled    = first.cancelled,
+                
+                val firstLeg = legs.first()
+                val firstTransit = legs.firstOrNull { !it.isWalk } ?: firstLeg
+                val transitCount = legs.count { !it.isWalk }
+
+                deps += DbTransitRepository.Departure(
+                    line         = firstTransit.lineName,
+                    transfers    = (transitCount - 1).coerceAtLeast(0),
+                    plannedTime  = firstLeg.depPlanned,
+                    realtimeTime = firstLeg.depRealtime,
+                    delayMinutes = firstTransit.depDelay,
+                    cancelled    = firstTransit.cancelled,
                     legs         = legs,
                     transferInfo = findWatchedTransfer(legs, watchedStationNames)
                 )
@@ -324,17 +328,24 @@ object VrnTransitRepository {
         }
     }
 
-    private fun parseRmvLegs(legsJson: JSONArray): List<Leg> {
-        val result = mutableListOf<Leg>()
+    private fun parseRmvLegs(legsJson: JSONArray): List<DbTransitRepository.Leg> {
+        val result = mutableListOf<DbTransitRepository.Leg>()
         for (i in 0 until legsJson.length()) {
             val leg  = legsJson.getJSONObject(i)
             val type = leg.optString("type", "")
-            if (type == "WALK" || type == "TRANSFER") continue
+            val isWalk = type == "WALK" || type == "TRANSFER"
 
-            val product  = leg.optJSONObject("Product")
+            val productField = leg.opt("Product")
+            val product = when (productField) {
+                is JSONArray -> productField.optJSONObject(0)
+                is JSONObject -> productField
+                else -> null
+            }
+
             val lineName = product?.optString("line")?.ifBlank { null }
                         ?: product?.optString("name")?.ifBlank { null }
-                        ?: "?"
+                        ?: leg.optString("name").ifBlank { null }
+                        ?: ""
 
             val originObj  = leg.optJSONObject("Origin")
             val destObj    = leg.optJSONObject("Destination")
@@ -342,18 +353,31 @@ object VrnTransitRepository {
             val origin      = originObj?.optString("name") ?: "?"
             val destination = destObj?.optString("name") ?: "?"
 
-            val depPlanned  = hafasHhmm(originObj?.optString("depTime"))
-            val depRealRaw  = hafasHhmm(originObj?.optString("rtDepTime"))
+            val depPlanned  = hafasHhmm(originObj?.optString("time")?.ifBlank { null } 
+                                     ?: originObj?.optString("depTime"))
+            val depRealRaw  = hafasHhmm(originObj?.optString("rtTime")?.ifBlank { null } 
+                                     ?: originObj?.optString("rtDepTime"))
             val depRealtime = if (depRealRaw.isNotBlank() && depRealRaw != depPlanned) depRealRaw else null
 
-            val arrPlanned  = hafasHhmm(destObj?.optString("arrTime"))
-            val arrRealRaw  = hafasHhmm(destObj?.optString("rtArrTime"))
+            val arrPlanned  = hafasHhmm(destObj?.optString("time")?.ifBlank { null } 
+                                     ?: destObj?.optString("arrTime"))
+            val arrRealRaw  = hafasHhmm(destObj?.optString("rtTime")?.ifBlank { null } 
+                                     ?: destObj?.optString("rtArrTime"))
             val arrRealtime = if (arrRealRaw.isNotBlank() && arrRealRaw != arrPlanned) arrRealRaw else null
 
             val depDelay = if (depRealtime != null) minutesDiff(depPlanned, depRealtime) else null
             val arrDelay = if (arrRealtime != null) minutesDiff(arrPlanned, arrRealtime) else null
 
-            result += Leg(
+            val durStr = leg.optString("duration", "")
+            val walkMins = if (durStr.startsWith("PT")) {
+                val mMatch = Regex("(\\d+)M").find(durStr)
+                val hMatch = Regex("(\\d+)H").find(durStr)
+                val h = hMatch?.groupValues?.get(1)?.toInt() ?: 0
+                val m = mMatch?.groupValues?.get(1)?.toInt() ?: 0
+                h * 60 + m
+            } else null
+
+            result += DbTransitRepository.Leg(
                 lineName    = lineName,
                 origin      = origin,
                 destination = destination,
@@ -365,6 +389,9 @@ object VrnTransitRepository {
                 arrDelay    = arrDelay,
                 cancelled   = leg.optBoolean("cancelled", false)
                            || originObj?.optBoolean("cancelled", false) == true
+                           || leg.optString("JourneyStatus") == "C",
+                isWalk      = isWalk,
+                walkMinutes = walkMins
             )
         }
         return result
@@ -372,13 +399,7 @@ object VrnTransitRepository {
 
     // ── Shared helpers ────────────────────────────────────────────────────────
 
-    /**
-     * Remove departures whose effective time (realtime ?? planned) lies in the past.
-     * Uses ZonedDateTime with today's date as anchor to handle midnight wraparound
-     * correctly — a LocalTime-only comparison wraps around and keeps yesterday's
-     * departures (e.g. 22:08 still shown at 05:45 next morning).
-     */
-    private fun filterPastDepartures(deps: List<Departure>): List<Departure> {
+    private fun filterPastDepartures(deps: List<DbTransitRepository.Departure>): List<DbTransitRepository.Departure> {
         val nowZdt    = ZonedDateTime.now(ZoneId.systemDefault())
         val todayDate = nowZdt.toLocalDate()
         val fmt       = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
@@ -388,8 +409,6 @@ object VrnTransitRepository {
             try {
                 val depLocalTime = java.time.LocalTime.parse(timeStr, fmt)
                 var depZdt = ZonedDateTime.of(todayDate, depLocalTime, nowZdt.zone)
-                // If depZdt is more than 12 h ahead of now, it's yesterday's service —
-                // shift back by one day so the comparison stays accurate.
                 if (java.time.Duration.between(nowZdt, depZdt).toMinutes() > 12 * 60) {
                     depZdt = depZdt.minusDays(1)
                 }
@@ -399,14 +418,14 @@ object VrnTransitRepository {
         }
     }
 
-    private fun findWatchedTransfer(legs: List<Leg>, watchedNames: List<String>): TransferInfo? {
+    private fun findWatchedTransfer(legs: List<DbTransitRepository.Leg>, watchedNames: List<String>): DbTransitRepository.TransferInfo? {
         if (watchedNames.isEmpty()) return null
         for (leg in legs) {
             if (leg.isWalk) continue
             for (stationName in listOf(leg.origin, leg.destination)) {
                 if (watchedNames.any { stationName.contains(it.trim(), ignoreCase = true) }) {
                     val isOrigin = stationName == leg.origin
-                    return TransferInfo(
+                    return DbTransitRepository.TransferInfo(
                         stationName  = stationName,
                         arrivalTime  = if (isOrigin) leg.depRealtime ?: leg.depPlanned
                                        else           leg.arrRealtime ?: leg.arrPlanned,
@@ -418,35 +437,7 @@ object VrnTransitRepository {
         return null
     }
 
-    /** ISO-8601 or EFA datetime string → "HH:mm". Returns "" on failure. */
-    private fun isoToHhmm(s: String?): String {
-        if (s.isNullOrBlank()) return ""
-        return try {
-            val zdt = ZonedDateTime.ofInstant(Instant.parse(s), ZoneId.systemDefault())
-            "%02d:%02d".format(zdt.hour, zdt.minute)
-        } catch (_: Exception) {
-            // EFA sometimes sends "HH:MM:SS" or "HH:MM"
-            if (s.length >= 5 && s[2] == ':') s.substring(0, 5) else ""
-        }
-    }
-
-    /** HAFAS time string "HH:MM:SS" → "HH:mm". Returns "" on failure. */
-    private fun hafasHhmm(s: String?): String {
-        if (s.isNullOrBlank()) return ""
-        return if (s.length >= 5) s.substring(0, 5) else s
-    }
-
-    /** Signed minute difference between two "HH:mm" strings (b − a). */
-    private fun minutesDiff(a: String, b: String): Int? = try {
-        val (ah, am) = a.split(":").map { it.toInt() }
-        val (bh, bm) = b.split(":").map { it.toInt() }
-        (bh * 60 + bm) - (ah * 60 + am)
-    } catch (_: Exception) { null }
-
     private fun todayStr(): String {
-        // Use the device's configured timezone. Calendar.getInstance() uses
-        // TimeZone.getDefault() which on Android always reflects the user-set
-        // timezone — even on emulators that may run their clock in UTC.
         val tz = java.util.TimeZone.getDefault()
         val c  = java.util.Calendar.getInstance(tz)
         return "%04d%02d%02d".format(
@@ -465,8 +456,38 @@ object VrnTransitRepository {
         )
     }
 
+    private fun rmvDateStr(): String {
+        val tz = java.util.TimeZone.getDefault()
+        val c  = java.util.Calendar.getInstance(tz)
+        return "%04d-%02d-%02d".format(
+            c.get(java.util.Calendar.YEAR),
+            c.get(java.util.Calendar.MONTH) + 1,
+            c.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    private fun rmvTimeStr(): String {
+        val tz = java.util.TimeZone.getDefault()
+        val c  = java.util.Calendar.getInstance(tz)
+        return "%02d:%02d".format(
+            c.get(java.util.Calendar.HOUR_OF_DAY),
+            c.get(java.util.Calendar.MINUTE)
+        )
+    }
+
     private fun enc(v: String): String =
         URLEncoder.encode(v, "UTF-8").replace("+", "%20")
+
+    private fun hafasHhmm(s: String?): String {
+        if (s.isNullOrBlank()) return ""
+        return if (s.length >= 5) s.substring(0, 5) else s
+    }
+
+    private fun minutesDiff(a: String, b: String): Int? = try {
+        val (ah, am) = a.split(":").map { it.toInt() }
+        val (bh, bm) = b.split(":").map { it.toInt() }
+        (bh * 60 + bm) - (ah * 60 + am)
+    } catch (_: Exception) { null }
 
     private fun getOrErr(url: String): String? {
         Log.d(TAG, "GET $url")
