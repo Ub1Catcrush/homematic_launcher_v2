@@ -27,10 +27,13 @@ on:
 #      - 'gradle/*'
 #  workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   apk:
     name: Upload APK in Releases
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6
@@ -158,10 +161,11 @@ jobs:
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v3
         env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.VERSION_TAG }}
           name: Release ${{ env.VERSION_TAG }}
+          generate_release_notes: true
           draft: false
           prerelease: false
           files: |
