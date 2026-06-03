@@ -322,12 +322,14 @@ class TransitRowView(context: Context) : LinearLayout(context) {
     private val isLand get() = resources.configuration.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    private val colLine    = LinearLayout(context)
-    private val tvLine     = TextView(context)
-    private val tvXfer     = TextView(context)
-    private val tvTime     = TextView(context)
-    private val tvStatus   = TextView(context)
-    private val tvStops    = TextView(context)
+    private val colLine      = LinearLayout(context)
+    private val tvLine       = TextView(context)
+    private val tvXfer       = TextView(context)
+    private val tvTime       = TextView(context)
+    private val colStatus    = LinearLayout(context)
+    private val tvStatus     = TextView(context)
+    private val tvXferDelay  = TextView(context)
+    private val tvStops      = TextView(context)
 
     init {
         orientation = HORIZONTAL
@@ -376,10 +378,22 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         tvStatus.apply {
             textSize = if (land) 10f else 11f
             gravity = Gravity.TOP
-            minWidth = (40 * dp).toInt()
+            maxLines = 1
+        }
+        tvXferDelay.apply {
+            textSize = if (land) 9f else 10f
+            gravity = Gravity.TOP
+            maxLines = 1
+            visibility = View.GONE
+        }
+        colStatus.apply {
+            orientation = VERTICAL
+            gravity = Gravity.TOP
+            minimumWidth = (40 * dp).toInt()
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
                 it.marginEnd = gap
             }
+            addView(tvStatus); addView(tvXferDelay)
         }
 
         tvStops.apply {
@@ -391,7 +405,7 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        addView(colLine); addView(tvTime); addView(tvStatus); addView(tvStops)
+        addView(colLine); addView(tvTime); addView(colStatus); addView(tvStops)
     }
 
     fun bind(dep: DbTransitRepository.Departure) {
@@ -404,11 +418,17 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             tvXfer.visibility = View.GONE
         }
 
+        // Transfer delay: worst depDelay among non-first legs → shown below tvStatus
+        val xferDelay = if (dep.transfers > 0)
+            dep.legs.drop(1).mapNotNull { it.depDelay }.maxOrNull()
+        else null
+
         if (dep.cancelled) {
             tvTime.text = dep.plannedTime
             tvTime.setTextColor(0xFFFF4444.toInt())
             tvStatus.text = context.getString(R.string.transit_cancelled)
             tvStatus.setTextColor(0xFFFF4444.toInt())
+            tvXferDelay.visibility = View.GONE
         } else {
             tvTime.setTextColor(Color.WHITE)
             tvTime.text = dep.realtimeTime ?: dep.plannedTime
@@ -418,6 +438,19 @@ class TransitRowView(context: Context) : LinearLayout(context) {
                 d <= 0    -> { tvStatus.text = "✓";       tvStatus.setTextColor(0xFF66DD66.toInt()) }
                 d <= 5    -> { tvStatus.text = "+${d}'";  tvStatus.setTextColor(0xFFFFAA00.toInt()) }
                 else      -> { tvStatus.text = "+${d}'";  tvStatus.setTextColor(0xFFFF4444.toInt()) }
+            }
+            when {
+                xferDelay == null || xferDelay <= 0 -> tvXferDelay.visibility = View.GONE
+                xferDelay <= 5 -> {
+                    tvXferDelay.text = "↺+${xferDelay}'"
+                    tvXferDelay.setTextColor(0xFFFFAA00.toInt())
+                    tvXferDelay.visibility = View.VISIBLE
+                }
+                else -> {
+                    tvXferDelay.text = "↺+${xferDelay}'"
+                    tvXferDelay.setTextColor(0xFFFF4444.toInt())
+                    tvXferDelay.visibility = View.VISIBLE
+                }
             }
         }
 
