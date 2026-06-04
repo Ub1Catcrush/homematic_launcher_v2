@@ -407,7 +407,7 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <!-- Navigation: Einstellungs-Hauptseite -->
     <string name="pref_nav_ccu">CCU-Verbindung &amp; Sync</string>
     <string name="pref_nav_ccu_summary">Hostname, HTTPS, API-Pfad, Sync-Intervall</string>
-    <string name="pref_nav_display">Anzeige &amp; Thermostat</string>
+    <string name="pref_nav_display">Anzeige</string>
     <string name="pref_nav_display_summary">Farbschema, Statusleiste, Bildschirm, Schimmelwarnung</string>
     <string name="pref_nav_notifications_summary">Hintergrund-Benachrichtigungen, Batterie, Fenster</string>
     <string name="pref_nav_camera_summary">RTSP / Snapshot-URL, Zugangsdaten, Anzeige</string>
@@ -813,7 +813,6 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_title_settings_import">Einstellungen importieren</string>
     <string name="pref_summary_settings_import">Einstellungen aus einer gesicherten JSON-Datei wiederherstellen</string>
 
-    <string name="pref_main_cat_connection">Verbindung</string>
     <string name="pref_main_cat_display">Anzeige &amp; Darstellung</string>
     <string name="pref_main_cat_smarthome">Smart Home</string>
     <string name="pref_main_cat_camera">Kamera &amp; Erkennung</string>
@@ -897,7 +896,7 @@ Kein Tracking · Keine Werbung · Open Source</string>
 
     <!-- Update-Check (Einstellungen → Über die App) -->
     <string name="update_check_title">Nach Updates suchen</string>
-    <string name="update_check_summary">Aktuelle Version auf GitHub prüfen</string>
+    <string name="update_check_summary">Auf Updates für Version %1$s auf GitHub prüfen</string>
     <string name="update_checking">Suche nach Updates…</string>
     <string name="update_available">Version %1$s verfügbar – Tippen zum Laden</string>
     <string name="update_up_to_date">App ist aktuell</string>

@@ -1,16 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ── Verbindung ─────────────────────────────────────────────────────── -->
-    <PreferenceCategory android:title="@string/pref_main_cat_connection">
-
-        <Preference android:key="nav_ccu"
-            android:title="@string/pref_nav_ccu"
-            android:summary="@string/pref_nav_ccu_summary"
-            android:icon="@drawable/ic_sync_black_24dp" />
-
-    </PreferenceCategory>
-
     <!-- ── Anzeige & Inhalt ───────────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/pref_main_cat_display">
 
@@ -28,6 +18,11 @@
 
     <!-- ── Smart Home ─────────────────────────────────────────────────────── -->
     <PreferenceCategory android:title="@string/pref_main_cat_smarthome">
+
+        <Preference android:key="nav_ccu"
+            android:title="@string/pref_nav_ccu"
+            android:summary="@string/pref_nav_ccu_summary"
+            android:icon="@drawable/ic_sync_black_24dp" />
 
         <Preference android:key="nav_ha"
             android:title="@string/pref_nav_ha"

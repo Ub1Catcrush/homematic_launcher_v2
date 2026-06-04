@@ -203,6 +203,14 @@ class SettingsActivity : AppCompatActivity(),
                 true
             }
 
+            val ctx = requireContext()
+            val version = try {
+                ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
+            } catch (_: Exception) { "?" }
+            findPreference<Preference>("action_check_update")?.apply {
+                summary = getString(R.string.update_check_summary, version)
+            }
+
             // Export / Import
             findPreference<Preference>("action_settings_export")?.setOnPreferenceClickListener {
                 (requireActivity() as SettingsActivity).profileIO.export()
