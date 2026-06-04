@@ -116,7 +116,7 @@ jobs:
           # Lädt das bundletool-all-*.jar Asset des neuesten Releases direkt herunter
           # gh release download --repo google/bundletool --pattern "bundletool-all-*.jar"
           # Benennt die Datei um, da der Name die Versionsnummer enthält
-          ä mv bundletool-all-*.jar bundletool.jar
+          # mv bundletool-all-*.jar bundletool.jar
           
           # Ausführung des Verifizierungs-Befehls
           java -jar bundletool.jar validate --bundle=app/build/outputs/bundle/release/app-release-signed.aab
