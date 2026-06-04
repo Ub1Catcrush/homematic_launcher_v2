@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
+    <!-- Bestehend: Profil-Export -->
     <cache-path name="profile_exports" path="." />
+    <!-- Neu: APK-Downloads für den Update-Installer -->
+    <external-files-path name="apk_downloads" path="Download/" />
 </paths>

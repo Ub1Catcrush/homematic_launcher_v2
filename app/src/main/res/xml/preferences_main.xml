@@ -94,6 +94,12 @@
             android:summary="@string/pref_summary_about"
             android:icon="@drawable/ic_info_black_24dp" />
 
+        <!-- Update-Check -->
+        <Preference android:key="action_check_update"
+            android:title="@string/update_check_title"
+            android:summary="@string/update_check_summary"
+            android:icon="@drawable/ic_sync_black_24dp" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

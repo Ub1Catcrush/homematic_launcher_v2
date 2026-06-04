@@ -16,6 +16,8 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
 import androidx.preference.SwitchPreferenceCompat
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 // ── Top-level helper so all fragments can use it ──────────────────────────────
 private fun switchLabel(ctx: Context, on: Boolean) =
@@ -195,6 +197,12 @@ class SettingsActivity : AppCompatActivity(),
                 true
             }
 
+            // Update-Check
+            findPreference<Preference>("action_check_update")?.setOnPreferenceClickListener {
+                checkForUpdates()
+                true
+            }
+
             // Export / Import
             findPreference<Preference>("action_settings_export")?.setOnPreferenceClickListener {
                 (requireActivity() as SettingsActivity).profileIO.export()
@@ -221,6 +229,64 @@ class SettingsActivity : AppCompatActivity(),
                 .setMessage(ctx.getString(R.string.about_message, version))
                 .setPositiveButton(android.R.string.ok, null)
                 .show()
+        }
+
+        private fun checkForUpdates() {
+            if (!isResumed) return
+            val updatePref = findPreference<Preference>("action_check_update") ?: return
+            updatePref.isEnabled = false
+            updatePref.summary   = getString(R.string.update_checking)
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                UpdateManager.checkForUpdates(requireContext())
+                    .onSuccess { info ->
+                        if (!isResumed) return@onSuccess
+                        if (info.hasUpdate && info.downloadUrl != null) {
+                            updatePref.summary  = getString(R.string.update_available, info.latestVersion)
+                            updatePref.isEnabled = true
+                            updatePref.setOnPreferenceClickListener {
+                                UpdateManager.downloadAndInstall(
+                                    requireContext(),
+                                    info.downloadUrl,
+                                    "homematic-launcher-${info.latestVersion}.apk"
+                                )
+                                android.widget.Toast.makeText(
+                                    requireContext(),
+                                    getString(R.string.update_download_started),
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                true
+                            }
+
+                            com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                                .setTitle(getString(R.string.update_dialog_title))
+                                .setMessage(getString(R.string.update_dialog_message,
+                                    info.latestVersion, info.releaseNotes ?: ""))
+                                .setPositiveButton(getString(R.string.update_dialog_install)) { _, _ ->
+                                    UpdateManager.downloadAndInstall(
+                                        requireContext(),
+                                        info.downloadUrl,
+                                        "homematic-launcher-${info.latestVersion}.apk"
+                                    )
+                                }
+                                .setNegativeButton(getString(R.string.update_dialog_later), null)
+                                .show()
+                        } else {
+                            updatePref.summary   = getString(R.string.update_up_to_date)
+                            updatePref.isEnabled = false
+                        }
+                    }
+                    .onFailure {
+                        if (!isResumed) return@onFailure
+                        updatePref.summary   = getString(R.string.update_error)
+                        updatePref.isEnabled = true
+                        android.widget.Toast.makeText(
+                            requireContext(),
+                            getString(R.string.update_check_failed, it.message),
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+            }
         }
     }
 

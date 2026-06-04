@@ -10,7 +10,9 @@ android {
         applicationId="com.tvcs.homematic"
         minSdk=26
         targetSdk=36
-        versionName "${app_versions.versionMajor}.${app_versions.versionMinor}.${app_versions.versionPatch}"
+        versionName project.hasProperty('versionName')
+            ? project.property('versionName') as String
+            : "${app_versions.versionMajor}.${app_versions.versionMinor}.${app_versions.versionPatch}"
         versionCode app_versions.versionMajor * 1000000 + app_versions.versionMinor * 10000 + app_versions.versionPatch
     }
 
@@ -28,6 +30,7 @@ android {
 
     buildFeatures {
         viewBinding=true
+        buildConfig=true   // Ermöglicht BuildConfig.VERSION_NAME im Code
     }
 }
 
