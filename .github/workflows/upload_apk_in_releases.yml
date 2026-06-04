@@ -108,10 +108,16 @@ jobs:
 
       - name: Verify aligned AAB signature
         run: |
+          # Ermittelt die Browser-Download-URL der neuesten bundletool-all-*.jar
+          URL=$(curl -s https://api.github.com/repos/google/bundletool/releases/latest \
+            | jq -r '.assets[] | select(.name | test("bundletool-all-.*\\.jar")) | .browser_download_url')
+          curl -L "$URL" -o bundletool.jar
+          
           # Lädt das bundletool-all-*.jar Asset des neuesten Releases direkt herunter
-          gh release download --repo google/bundletool --pattern "bundletool-all-*.jar"
+          # gh release download --repo google/bundletool --pattern "bundletool-all-*.jar"
           # Benennt die Datei um, da der Name die Versionsnummer enthält
-          mv bundletool-all-*.jar bundletool.jar
+          ä mv bundletool-all-*.jar bundletool.jar
+          
           # Ausführung des Verifizierungs-Befehls
           java -jar bundletool.jar validate --bundle=app/build/outputs/bundle/release/app-release-signed.aab
 
