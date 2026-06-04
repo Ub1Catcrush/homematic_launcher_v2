@@ -815,4 +815,19 @@ No tracking · No ads · Open source</string>
     <string name="extra_app_launch_failed">App not found. Check package name in settings.</string>
     <string name="pref_summary_extra_app_selected">Selected: %1$s</string>
     <string name="pref_summary_no_extra_apps_found">No apps found</string>
+
+    <!-- Update-Check (Settings → About the App) -->
+    <string name="update_check_title">Check for updates</string>
+    <string name="update_check_summary">Check for latest version on GitHub</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_available">Version %1$s available – Tap to download</string>
+    <string name="update_up_to_date">App is up to date</string>
+    <string name="update_error">Update check failed – tap to retry</string>
+    <string name="update_check_failed">Update check failed: %1$s</string>
+    <string name="update_download_started">Download started…</string>
+    <string name="update_dialog_title">Update available</string>
+    <string name="update_dialog_message">Version v%1$s is available.\n\n%2$s</string>
+    <string name="update_dialog_install">Download &amp; Install</string>
+    <string name="update_dialog_later">Later</string>
 </resources>
+
