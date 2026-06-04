@@ -682,7 +682,7 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_hint_grid_columns_portrait">Automatisch (2)</string>
     <string name="pref_title_grid_columns_landscape">Spalten Querformat</string>
     <string name="pref_summary_grid_columns_landscape">Anzahl Spalten im Querformat (leer = automatisch: 3 bzw. 4 auf breiten Bildschirmen)</string>
-    <string name="pref_hint_grid_columns_landscape">Automatisch (3 / 4)</string>
+    <string name="pref_hint_grid_columns_landscape">Automatisch (¾)</string>
 
 
     <!-- Home Assistant tile -->
@@ -907,4 +907,8 @@ Kein Tracking · Keine Werbung · Open Source</string>
     <string name="update_dialog_message">Version v%1$s ist verfügbar.\n\n%2$s</string>
     <string name="update_dialog_install">Laden &amp; Installieren</string>
     <string name="update_dialog_later">Später</string>
+
+    <string name="weather_wind_format">💨 %1$.0f km/h</string>
+    <string name="weather_gust_format"> (Böen %1$.0f)</string>
+    <string name="weather_precip_format">💧 %1$.1f mm</string>
 </resources>

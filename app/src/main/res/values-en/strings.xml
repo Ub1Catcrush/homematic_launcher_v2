@@ -603,7 +603,7 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_hint_grid_columns_portrait">Auto (2)</string>
     <string name="pref_title_grid_columns_landscape">Columns landscape</string>
     <string name="pref_summary_grid_columns_landscape">Number of columns in landscape mode (empty = auto: 3 or 4 on wide screens)</string>
-    <string name="pref_hint_grid_columns_landscape">Auto (3 / 4)</string>
+    <string name="pref_hint_grid_columns_landscape">Auto (¾)</string>
 
 
     <!-- Home Assistant tile -->
@@ -828,5 +828,8 @@ No tracking · No ads · Open source</string>
     <string name="update_dialog_message">Version v%1$s is available.\n\n%2$s</string>
     <string name="update_dialog_install">Download &amp; Install</string>
     <string name="update_dialog_later">Later</string>
+    <string name="weather_wind_format">💨 %1$.0f km/h</string>
+    <string name="weather_gust_format">" (Gusts %1$.0f)"</string>
+    <string name="weather_precip_format">💧 %1$.1f mm</string>
 </resources>
 

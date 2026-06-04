@@ -25,8 +25,8 @@ object WeatherRepository {
     private const val FORECAST_URL =
         "https://api.open-meteo.com/v1/forecast" +
         "?latitude=%s&longitude=%s" +
-        "&hourly=temperature_2m,precipitation,weathercode,apparent_temperature" +
-        "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode" +
+        "&hourly=temperature_2m,precipitation,weathercode,apparent_temperature,wind_speed_10m,wind_gusts_10m" +
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,wind_speed_10m_max,wind_gusts_10m_max" +
         "&timezone=auto&forecast_days=2"
 
     private const val GEO_URL =
@@ -44,7 +44,9 @@ object WeatherRepository {
         val precipMm:    Float,
         val weatherCode: Int,
         val icon:        String,
-        val description: String
+        val description: String,
+        val windSpeed:   Float,    // km/h
+        val windGust:    Float     // km/h
     )
 
     /** All horizons bundled together. */
@@ -109,15 +111,18 @@ object WeatherRepository {
                     Log.d(TAG, "Hour fallback: startIdx=$startIdx (nowHourStr=$nowHourStr, entry=${times.optString(startIdx)})")
                 }
 
-                val hTemps   = hourly.getJSONArray("temperature_2m")
-                val hPrec    = hourly.getJSONArray("precipitation")
-                val hCodes   = hourly.getJSONArray("weathercode")
+                val hTemps      = hourly.getJSONArray("temperature_2m")
+                val hPrec       = hourly.getJSONArray("precipitation")
+                val hCodes      = hourly.getJSONArray("weathercode")
+                val hWindSpeed  = hourly.optJSONArray("wind_speed_10m")
+                val hWindGusts  = hourly.optJSONArray("wind_gusts_10m")
 
                 fun hourWindow(hours: Int, label: String): WeatherForecast? {
                     val end = (startIdx + hours).coerceAtMost(times.length() - 1)
                     if (end <= startIdx) return null
                     var sumTemp = 0.0; var maxTemp = Double.MIN_VALUE; var minTemp = Double.MAX_VALUE
                     var sumPrec = 0.0; val codes = mutableListOf<Int>()
+                    var sumWind = 0.0; var maxGust = 0.0
                     for (i in startIdx until end) {
                         val t = hTemps.optDouble(i, 0.0)
                         sumTemp += t
@@ -125,19 +130,28 @@ object WeatherRepository {
                         if (t < minTemp) minTemp = t
                         sumPrec += hPrec.optDouble(i, 0.0)
                         codes.add(hCodes.optInt(i, 0))
+                        if (hWindSpeed != null) {
+                            sumWind += hWindSpeed.optDouble(i, 0.0)
+                        }
+                        if (hWindGusts != null) {
+                            val g = hWindGusts.optDouble(i, 0.0)
+                            if (g > maxGust) maxGust = g
+                        }
                     }
                     val count = end - startIdx
                     val dominantCode = codes.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: 0
                     val (icon, desc) = wmoToIconAndDesc(dominantCode)
                     return WeatherForecast(
-                        label      = label,
-                        tempAvg    = (sumTemp / count).toFloat(),
-                        tempMax    = maxTemp.toFloat(),
-                        tempMin    = minTemp.toFloat(),
-                        precipMm   = sumPrec.toFloat(),
+                        label       = label,
+                        tempAvg     = (sumTemp / count).toFloat(),
+                        tempMax     = maxTemp.toFloat(),
+                        tempMin     = minTemp.toFloat(),
+                        precipMm    = sumPrec.toFloat(),
                         weatherCode = dominantCode,
-                        icon       = icon,
-                        description = desc
+                        icon        = icon,
+                        description = desc,
+                        windSpeed   = (sumWind / count).toFloat(),
+                        windGust    = maxGust.toFloat()
                     )
                 }
 
@@ -146,6 +160,8 @@ object WeatherRepository {
                 val dMax  = daily.getJSONArray("temperature_2m_max").optDouble(0, 0.0).toFloat()
                 val dMin  = daily.getJSONArray("temperature_2m_min").optDouble(0, 0.0).toFloat()
                 val dPrec = daily.getJSONArray("precipitation_sum").optDouble(0, 0.0).toFloat()
+                val dWindSpeed = daily.optJSONArray("wind_speed_10m_max")?.optDouble(0, 0.0)?.toFloat() ?: 0f
+                val dWindGust  = daily.optJSONArray("wind_gusts_10m_max")?.optDouble(0, 0.0)?.toFloat() ?: 0f
                 val (dIcon, dDesc) = wmoToIconAndDesc(dCode)
                 val dailyFc = WeatherForecast(
                     label       = "Heute",
@@ -155,7 +171,9 @@ object WeatherRepository {
                     precipMm    = dPrec,
                     weatherCode = dCode,
                     icon        = dIcon,
-                    description = dDesc
+                    description = dDesc,
+                    windSpeed   = dWindSpeed,
+                    windGust    = dWindGust
                 )
 
                 Result.Success(

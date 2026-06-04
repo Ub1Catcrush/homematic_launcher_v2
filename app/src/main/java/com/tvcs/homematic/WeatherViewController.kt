@@ -253,7 +253,13 @@ class WeatherViewController(
         sb.append("${fc.label}  ${fc.icon}  ${fc.description}")
         sb.append("  ▲ ${"%.1f".format(fc.tempMax)}°")
         sb.append("  ▼ ${"%.1f".format(fc.tempMin)}°")
-        if (fc.precipMm > 0f) sb.append("  💧 ${"%.1f".format(fc.precipMm)} mm")
+        if (fc.precipMm > 0f) {
+            sb.append("  ").append(context.getString(R.string.weather_precip_format, fc.precipMm))
+        }
+        sb.append("  ").append(context.getString(R.string.weather_wind_format, fc.windSpeed))
+        if (fc.windGust > fc.windSpeed) {
+            sb.append(context.getString(R.string.weather_gust_format, fc.windGust))
+        }
         return sb.toString()
     }
 
@@ -292,8 +298,18 @@ class WeatherViewController(
             slides.forEach { fc ->
                 addView(tv("${fc.label}", 10f, 0xFFAAAAAA.toInt()))
                 addView(tv("${fc.icon} ${fc.description}  ▲${"%.1f".format(fc.tempMax)}° ▼${"%.1f".format(fc.tempMin)}°", 11f))
-                if (fc.precipMm > 0f)
-                    addView(tv("💧 ${"%.1f".format(fc.precipMm)} mm", 10f, 0xFF88CCFF.toInt()))
+                
+                val detailParts = mutableListOf<String>()
+                if (fc.precipMm > 0f) {
+                    detailParts.add(context.getString(R.string.weather_precip_format, fc.precipMm))
+                }
+                var windStr = context.getString(R.string.weather_wind_format, fc.windSpeed)
+                if (fc.windGust > fc.windSpeed) {
+                    windStr += context.getString(R.string.weather_gust_format, fc.windGust)
+                }
+                detailParts.add(windStr)
+                
+                addView(tv(detailParts.joinToString("   "), 10f, 0xFF88CCFF.toInt()))
             }
         }
     }
