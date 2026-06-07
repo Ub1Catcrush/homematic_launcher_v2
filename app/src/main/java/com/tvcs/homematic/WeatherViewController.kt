@@ -2,9 +2,7 @@ package com.tvcs.homematic
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.Typeface
 import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -12,7 +10,15 @@ import android.widget.TextView
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.preference.PreferenceManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * WeatherViewController
@@ -53,8 +59,10 @@ class WeatherViewController(
     /** Index of the slide currently shown in overlay mode. */
     @Volatile private var slideIndex = 0
 
-    /** Overlay view injected into cameraPanel. */
-    private var overlayView: TextView? = null
+    /** Overlay container — holds two TextViews stacked vertically. */
+    private var overlayContainer: LinearLayout? = null
+    private var overlayLine1: TextView? = null
+    private var overlayLine2: TextView? = null
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -79,7 +87,7 @@ class WeatherViewController(
 
     private fun startAll() {
         startRefreshing()
-        if (displayMode() == "overlay") startSlideshow()
+        if (displayMode() == "overlay" || displayMode() == "both") startSlideshow()
     }
 
     private fun stopAll() {
@@ -206,7 +214,8 @@ class WeatherViewController(
     // ── Display ───────────────────────────────────────────────────────────────
 
     private fun applyDisplay(all: WeatherRepository.AllForecasts) {
-        if (displayMode() == "overlay") {
+        val mode = displayMode()
+        if (mode == "overlay" || mode == "both") {
             val slides = enabledSlides()
             if (slides.isNotEmpty()) {
                 slideIndex = slideIndex.coerceIn(0, slides.lastIndex)
@@ -215,18 +224,17 @@ class WeatherViewController(
                 if (slideshowJob?.isActive != true) startSlideshow()
             }
         }
-        // room mode: RoomAdapter polls lastForecasts
+        // room / both mode: RoomAdapter polls lastForecasts
     }
 
     private fun showOverlay(fc: WeatherRepository.WeatherForecast) {
         val panel = cameraPanel ?: return
-        if (overlayView == null) {
-            overlayView = TextView(context).apply {
-                id = View.generateViewId()
-                setTextColor(Color.WHITE)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-                setTypeface(typeface, Typeface.BOLD)
-                gravity = Gravity.CENTER
+        val fontSp = AppThemeHelper.fontWeatherOverlay(context)
+
+        if (overlayContainer == null) {
+            val container = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER_HORIZONTAL
                 setPadding(12, 4, 12, 4)
                 setBackgroundColor(Color.TRANSPARENT)
                 layoutParams = FrameLayout.LayoutParams(
@@ -235,28 +243,58 @@ class WeatherViewController(
                     android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
                 )
             }
-            panel.addView(overlayView)
+
+            fun makeLine() = TextView(context).apply {
+                id = View.generateViewId()
+                setTextColor(Color.WHITE)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                gravity = android.view.Gravity.CENTER
+                setBackgroundColor(Color.TRANSPARENT)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            overlayLine1 = makeLine()
+            overlayLine2 = makeLine()
+            container.addView(overlayLine1)
+            container.addView(overlayLine2)
+            overlayContainer = container
+            panel.addView(container)
         }
-        overlayView?.apply {
-            text = buildOverlayText(fc)
+
+        overlayLine1?.apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSp)
+            text = buildOverlayLine1(fc)
+            visibility = View.VISIBLE
+        }
+        overlayLine2?.apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSp * 0.9f)
+            text = buildOverlayLine2(fc)
+            visibility = View.VISIBLE
+        }
+        overlayContainer?.apply {
             visibility = View.VISIBLE
             bringToFront()
         }
     }
 
     private fun removeOverlay() {
-        overlayView?.visibility = View.GONE
+        overlayContainer?.visibility = View.GONE
     }
 
-    private fun buildOverlayText(fc: WeatherRepository.WeatherForecast): String {
+    /** Zeile 1: Zeitraum + allgemeine Vorhersage (Icon + Beschreibung) */
+    private fun buildOverlayLine1(fc: WeatherRepository.WeatherForecast): String =
+        "${fc.label}  ${fc.icon}  ${fc.description}"
+
+    /** Zeile 2: Temperaturen, Niederschlag, Wind */
+    private fun buildOverlayLine2(fc: WeatherRepository.WeatherForecast): String {
         val sb = StringBuilder()
-        sb.append("${fc.label}  ${fc.icon}  ${fc.description}")
-        sb.append("  ▲ ${"%.1f".format(fc.tempMax)}°")
-        sb.append("  ▼ ${"%.1f".format(fc.tempMin)}°")
+        sb.append("▲ ${"%.1f".format(fc.tempMax)}°  ▼ ${"%.1f".format(fc.tempMin)}°")
         if (fc.precipMm > 0f) {
-            sb.append("  ").append(context.getString(R.string.weather_precip_format, fc.precipMm))
+            sb.append("   ").append(context.getString(R.string.weather_precip_format, fc.precipMm))
         }
-        sb.append("  ").append(context.getString(R.string.weather_wind_format, fc.windSpeed))
+        sb.append("   ").append(context.getString(R.string.weather_wind_format, fc.windSpeed))
         if (fc.windGust > fc.windSpeed) {
             sb.append(context.getString(R.string.weather_gust_format, fc.windGust))
         }
@@ -275,6 +313,7 @@ class WeatherViewController(
 
     private fun buildRoomTileInternal(): LinearLayout {
         val dp = context.resources.displayMetrics.density
+        val fontBase = AppThemeHelper.fontWeatherTile(context)
 
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -290,14 +329,22 @@ class WeatherViewController(
 
             val slides = enabledSlides()
             if (slides.isEmpty()) {
-                addView(tv("Kein Wetter", 12f))
+                addView(tv("Kein Wetter", fontBase))
                 return@apply
             }
 
             // Show all enabled horizons stacked in the tile
             slides.forEach { fc ->
-                addView(tv("${fc.label}", 10f, 0xFFAAAAAA.toInt()))
-                addView(tv("${fc.icon} ${fc.description}  ▲${"%.1f".format(fc.tempMax)}° ▼${"%.1f".format(fc.tempMin)}°", 11f))
+                addView(tv("${fc.label}", fontBase * 0.9f, 0xFFAAAAAA.toInt()))
+                addView(
+                    tv(
+                        "${fc.icon} ${fc.description}  ▲${"%.1f".format(fc.tempMax)}° ▼${
+                            "%.1f".format(
+                                fc.tempMin
+                            )
+                        }°", fontBase
+                    )
+                )
                 
                 val detailParts = mutableListOf<String>()
                 if (fc.precipMm > 0f) {
@@ -308,8 +355,8 @@ class WeatherViewController(
                     windStr += context.getString(R.string.weather_gust_format, fc.windGust)
                 }
                 detailParts.add(windStr)
-                
-                addView(tv(detailParts.joinToString("   "), 10f, 0xFF88CCFF.toInt()))
+
+                addView(tv(detailParts.joinToString("   "), fontBase * 0.9f, 0xFF88CCFF.toInt()))
             }
         }
     }

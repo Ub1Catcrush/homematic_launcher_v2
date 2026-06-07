@@ -437,6 +437,21 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="transit_detail_via_station">Station</string>
     <string name="transit_detail_arrival">Arrival</string>
     <string name="transit_detail_hint">Tap another connection for details</string>
+    <!-- TransitDetailBottomSheet -->
+    <string name="transit_detail_no_data">Connection data no longer available.\nPlease tap to reload.</string>
+    <string name="transit_detail_close">Close</string>
+    <string name="transit_detail_dep_time">From %1$s</string>
+    <string name="transit_detail_dep_time_rt">From %1$s (%2$s)</string>
+    <string name="transit_detail_dep_time_ontime">From %1$s  ✓</string>
+    <string name="transit_detail_dep_time_rt_ontime">From %1$s (%2$s)  ✓</string>
+    <string name="transit_detail_dep_time_delay">From %1$s  +%2$d\'</string>
+    <string name="transit_detail_dep_time_rt_delay">From %1$s (%2$s)  +%3$d\'</string>
+    <string name="transit_detail_walk">🚶 Walk%1$s  %2$s → %3$s</string>
+    <string name="transit_detail_header">%1$s  %2$s → %3$s</string>
+    <!-- SeekBarPreference font preview samples -->
+    <string name="seekbar_preview_transit">14:32  S1  Mannheim → Heidelberg  ✓</string>
+    <string name="seekbar_preview_weather_overlay">☀ 22° · Clear Sky</string>
+    <string name="seekbar_preview_weather_tile">☀ 22°  Clear Sky  Today</string>
     <string name="pref_title_transit_watched_stations">Add intermediate stop</string>
     <string name="pref_summary_transit_watched_stations_action">Search for a stop and add it to the transfer display (column 4)</string>
     <string name="pref_title_transit_watched_clear">Clear intermediate stops</string>
@@ -488,6 +503,14 @@ Unknown device_types: %3$d · Unknown DP types: %4$d</string>
     <string name="pref_summary_font_room_data">Default: 11.5 sp</string>
     <string name="pref_title_font_transit">Transit departure row</string>
     <string name="pref_summary_font_transit">Default: 11 sp</string>
+    <string name="pref_title_font_weather_overlay">Weather overlay (camera)</string>
+    <string name="pref_summary_font_weather_overlay">Font size for the 2-line weather overlay on the camera view. Default: 11 sp</string>
+    <string name="pref_title_font_weather_tile">Weather tile</string>
+    <string name="pref_summary_font_weather_tile">Font size of the weather tile in the room grid. Default: 11 sp</string>
+    <string name="pref_title_font_ha_tile">Home Assistant tile</string>
+    <string name="pref_summary_font_ha_tile">Font size of the HA tile. Default: 11 sp</string>
+    <string name="pref_title_font_camera_status">Camera status text</string>
+    <string name="pref_summary_font_camera_status">Font size of the status label in the WebCam view. Default: 10 sp</string>
 
     <!-- Appearance colours -->
     <string name="pref_category_colors_dark">Colours – Dark mode</string>

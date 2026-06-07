@@ -1,7 +1,6 @@
 package com.tvcs.homematic
 
 import android.content.Context
-import android.graphics.Color
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -49,7 +48,7 @@ class HaTileViewController(
 
         /** Parse the HA_ENTITIES JSON string into a list of EntityRow configs. */
         /**
-         * Serialise/deserialise a list of HaTileConfig objects.
+         * Serialize/deserialize a list of HaTileConfig objects.
          * Format: [{"id":"tile_1","title":"Solar","entities":[...]}, …]
          */
         fun parseTiles(json: String): List<HaTileConfig> {
@@ -70,9 +69,9 @@ class HaTileViewController(
         }
 
         fun tilesToJson(tiles: List<HaTileConfig>): String {
-            val arr = org.json.JSONArray()
+            val arr = JSONArray()
             tiles.forEach { tile ->
-                val entArr = org.json.JSONArray()
+                val entArr = JSONArray()
                 tile.entities.forEach { e ->
                     entArr.put(org.json.JSONObject().apply {
                         put("entity_id", e.entityId)
@@ -152,8 +151,7 @@ class HaTileViewController(
     private fun token()  = prefs.getString(PreferenceKeys.HA_TOKEN,     "") ?: ""
     private fun entities(): List<EntityRow> {
         val cfg = tileConfig
-        return if (cfg != null) cfg.entities
-        else parseEntities(prefs.getString(PreferenceKeys.HA_ENTITIES, "") ?: "")
+        return cfg?.entities ?: parseEntities(prefs.getString(PreferenceKeys.HA_ENTITIES, "") ?: "")
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -178,12 +176,6 @@ class HaTileViewController(
         stateJob?.cancel()
     }
 
-    /** Update the tile config (for multi-tile edits) without recreating the controller. */
-    fun updateConfig(config: HaTileConfig) {
-        tileConfig = config
-        applyPrefsChange()
-    }
-
     /** Call after settings change to reconnect / disconnect as needed. */
     fun applyPrefsChange() {
         stateJob?.cancel()
@@ -191,7 +183,7 @@ class HaTileViewController(
             if (isEnabled()) {
                 // Set entity filter before reconnect so the new connection uses it
                 val myIds = entities().map { it.entityId }.toSet()
-                if (myIds.isNotEmpty()) HaRepository.watchedEntityIds = HaRepository.watchedEntityIds + myIds
+                if (myIds.isNotEmpty()) HaRepository.watchedEntityIds += myIds
                 HaRepository.reconnect(wsUrl(), token())
                 startWatching()
             } else {
@@ -214,7 +206,7 @@ class HaTileViewController(
             // This prevents OOM on large HA installations.
             val myEntityIds = entities().map { it.entityId }.toSet()
             if (myEntityIds.isNotEmpty()) {
-                HaRepository.watchedEntityIds = HaRepository.watchedEntityIds + myEntityIds
+                HaRepository.watchedEntityIds += myEntityIds
             }
             HaRepository.connect(wsUrl(), token())
         } catch (e: Exception) {
@@ -275,7 +267,7 @@ class HaTileViewController(
         val dp      = context.resources.displayMetrics.density
         val isLand  = context.resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val textSp  = AppThemeHelper.fontRoomData(context).let { if (isLand) it * 0.87f else it }
+        val textSp = AppThemeHelper.fontHaTile(context).let { if (isLand) it * 0.87f else it }
         val textCol = AppThemeHelper.textRoom(context)
         val dimCol  = AppThemeHelper.textDim(context)
 
@@ -303,7 +295,7 @@ class HaTileViewController(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                setStretchAllColumns(false)
+                isStretchAllColumns = false
                 setColumnStretchable(0, true)   // label column stretches
                 setColumnShrinkable(0, true)    // label shrinks first under pressure
                 setColumnShrinkable(1, false)   // value column never clips numbers
@@ -345,8 +337,8 @@ class HaTileViewController(
         // Pre-measure value text so we can reserve the exact width needed —
         // no wasted gap on the right, no premature line-break on the left.
         val valuePaint = android.graphics.Paint().apply {
-            textSize = android.util.TypedValue.applyDimension(
-                android.util.TypedValue.COMPLEX_UNIT_SP,
+            textSize = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
                 textSp,
                 context.resources.displayMetrics
             )
@@ -366,7 +358,7 @@ class HaTileViewController(
             layoutParams = TableRow.LayoutParams(valueWidth, TableRow.LayoutParams.WRAP_CONTENT)
         }
 
-        // Label: takes all remaining space, ellipsizes if still too long
+        // Label: takes all remaining space, ellipses if still too long
         val tv1 = TextView(context).apply {
             text      = label
             setTextColor(labelColor)

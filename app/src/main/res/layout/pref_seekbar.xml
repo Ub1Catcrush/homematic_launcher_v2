@@ -31,7 +31,8 @@
             android:textColor="?android:attr/colorAccent"
             android:minWidth="44dp"
             android:gravity="end"
-            android:paddingStart="8dp" />
+            android:paddingStart="8dp"
+            android:paddingEnd="0dp" />
 
     </LinearLayout>
 
@@ -60,6 +61,7 @@
             android:layout_height="wrap_content"
             android:textSize="11sp"
             android:textColor="?android:attr/textColorSecondary"
+            android:paddingStart="0dp"
             android:paddingEnd="4dp" />
 
         <SeekBar
@@ -74,8 +76,24 @@
             android:layout_height="wrap_content"
             android:textSize="11sp"
             android:textColor="?android:attr/textColorSecondary"
-            android:paddingStart="4dp" />
+            android:paddingStart="4dp"
+            android:paddingEnd="0dp" />
 
     </LinearLayout>
+
+    <!-- Live font preview (only visible when showPreview=true via SeekBarPreference) -->
+    <TextView
+        android:id="@+id/seekbar_preview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:paddingStart="2dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="2dp"
+        android:paddingBottom="2dp"
+        android:singleLine="true"
+        android:text="@string/seekbar_preview_transit"
+        android:textColor="?android:attr/textColorPrimary"
+        android:visibility="gone" />
 
 </LinearLayout>

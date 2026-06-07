@@ -25,28 +25,53 @@
     <!-- ========== SCHRIFTGRÖSSEN ========== -->
     <PreferenceCategory android:title="@string/pref_category_font_sizes">
 
-        <EditTextPreference
+        <com.tvcs.homematic.SeekBarPreference
             android:key="font_room_title"
             android:title="@string/pref_title_font_room_title"
             android:summary="@string/pref_summary_font_room_title"
             android:defaultValue="12"
-            android:inputType="numberDecimal"
             android:persistent="true" />
 
-        <EditTextPreference
+        <com.tvcs.homematic.SeekBarPreference
             android:key="font_room_data"
             android:title="@string/pref_title_font_room_data"
             android:summary="@string/pref_summary_font_room_data"
-            android:defaultValue="11.5"
-            android:inputType="numberDecimal"
+            android:defaultValue="11"
             android:persistent="true" />
 
-        <EditTextPreference
+        <com.tvcs.homematic.SeekBarPreference
             android:key="font_transit"
             android:title="@string/pref_title_font_transit"
             android:summary="@string/pref_summary_font_transit"
             android:defaultValue="11"
-            android:inputType="numberDecimal"
+            android:persistent="true" />
+
+        <com.tvcs.homematic.SeekBarPreference
+            android:defaultValue="11"
+            android:key="font_weather_overlay"
+            android:persistent="true"
+            android:summary="@string/pref_summary_font_weather_overlay"
+            android:title="@string/pref_title_font_weather_overlay" />
+
+        <com.tvcs.homematic.SeekBarPreference
+            android:defaultValue="11"
+            android:key="font_weather_tile"
+            android:persistent="true"
+            android:summary="@string/pref_summary_font_weather_tile"
+            android:title="@string/pref_title_font_weather_tile" />
+
+        <com.tvcs.homematic.SeekBarPreference
+            android:defaultValue="11"
+            android:key="font_ha_tile"
+            android:persistent="true"
+            android:summary="@string/pref_summary_font_ha_tile"
+            android:title="@string/pref_title_font_ha_tile" />
+
+        <com.tvcs.homematic.SeekBarPreference
+            android:defaultValue="10"
+            android:key="font_camera_status"
+            android:summary="@string/pref_summary_font_camera_status"
+            android:title="@string/pref_title_font_camera_status"
             android:persistent="true" />
 
     </PreferenceCategory>

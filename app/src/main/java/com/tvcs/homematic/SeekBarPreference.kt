@@ -1,5 +1,6 @@
 package com.tvcs.homematic
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
 import android.view.View
@@ -34,6 +35,12 @@ class SeekBarPreference @JvmOverloads constructor(
     var step: Int    = 1
     var unit: String = ""
 
+    /** When true, shows a live preview line that scales with the seekbar value. */
+    var showPreview: Boolean = false
+
+    /** String resource ID for the preview text; 0 = use XML default from layout. */
+    var previewResId: Int = 0
+
     private var currentValue: Int = min
 
     init {
@@ -49,18 +56,29 @@ class SeekBarPreference @JvmOverloads constructor(
         currentValue = getPersistedString(default.toString()).toIntOrNull()?.coerceIn(min, max) ?: default
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
         super.onBindViewHolder(holder)
         val seekBar  = holder.findViewById(R.id.seekbar)      as? SeekBar  ?: return
         val tvValue  = holder.findViewById(R.id.seekbar_value) as? TextView ?: return
         val tvMin    = holder.findViewById(R.id.seekbar_min)   as? TextView
         val tvMax    = holder.findViewById(R.id.seekbar_max)   as? TextView
+        val tvPreview = holder.findViewById(R.id.seekbar_preview) as? TextView
 
         seekBar.max      = (max - min) / step
         seekBar.progress = ((currentValue - min) / step).coerceIn(0, seekBar.max)
-        tvValue.text     = "${currentValue}${unit}"
-        tvMin?.text      = "$min"
-        tvMax?.text      = "$max"
+        tvValue.text = "$currentValue$unit"
+        tvMin?.text = min.toString()
+        tvMax?.text = max.toString()
+
+        // Configure preview
+        if (showPreview && tvPreview != null) {
+            tvPreview.visibility = View.VISIBLE
+            if (previewResId != 0) tvPreview.setText(previewResId)
+            tvPreview.textSize = currentValue.toFloat()
+        } else {
+            tvPreview?.visibility = View.GONE
+        }
 
         // Disable interaction if preference is disabled
         seekBar.isEnabled = isEnabled
@@ -69,7 +87,8 @@ class SeekBarPreference @JvmOverloads constructor(
             override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
                 if (!fromUser) return
                 currentValue = min + progress * step
-                tvValue.text = "${currentValue}${unit}"
+                tvValue.text = "$currentValue$unit"
+                if (showPreview && tvPreview != null) tvPreview.textSize = currentValue.toFloat()
             }
             override fun onStartTrackingTouch(sb: SeekBar) {}
             override fun onStopTrackingTouch(sb: SeekBar) {

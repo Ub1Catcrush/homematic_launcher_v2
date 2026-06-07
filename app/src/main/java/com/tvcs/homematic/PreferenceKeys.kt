@@ -209,6 +209,18 @@ object PreferenceKeys {
     /** Transit row font size in sp */
     const val FONT_TRANSIT               = "font_transit"
 
+    /** Weather overlay (camera) font size in sp */
+    const val FONT_WEATHER_OVERLAY = "font_weather_overlay"
+
+    /** Weather room tile font size in sp */
+    const val FONT_WEATHER_TILE = "font_weather_tile"
+
+    /** Home Assistant tile font size in sp */
+    const val FONT_HA_TILE = "font_ha_tile"
+
+    /** Camera status / info label font size in sp */
+    const val FONT_CAMERA_STATUS = "font_camera_status"
+
     // ── Weather ───────────────────────────────────────────────────────────────
     
 

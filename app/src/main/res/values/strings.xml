@@ -478,6 +478,21 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="transit_cancelled">Ausfall</string>
     <string name="transit_hin">Hin</string>
     <string name="transit_rueck">Rück</string>
+    <!-- TransitDetailBottomSheet -->
+    <string name="transit_detail_no_data">Verbindungsdaten nicht mehr verfügbar.\nBitte Anzeige antippen um neu zu laden.</string>
+    <string name="transit_detail_close">Schließen</string>
+    <string name="transit_detail_dep_time">Ab %1$s</string>
+    <string name="transit_detail_dep_time_rt">Ab %1$s (%2$s)</string>
+    <string name="transit_detail_dep_time_ontime">Ab %1$s  ✓</string>
+    <string name="transit_detail_dep_time_rt_ontime">Ab %1$s (%2$s)  ✓</string>
+    <string name="transit_detail_dep_time_delay">Ab %1$s  +%2$d\'</string>
+    <string name="transit_detail_dep_time_rt_delay">Ab %1$s (%2$s)  +%3$d\'</string>
+    <string name="transit_detail_walk">🚶 Fußweg%1$s  %2$s → %3$s</string>
+    <string name="transit_detail_header">%1$s  %2$s → %3$s</string>
+    <!-- SeekBarPreference font preview samples -->
+    <string name="seekbar_preview_transit">14:32  S1  Mannheim → Heidelberg  ✓</string>
+    <string name="seekbar_preview_weather_overlay">☀ 22° · Klarer Himmel</string>
+    <string name="seekbar_preview_weather_tile">☀ 22°  Klarer Himmel  Heute</string>
     <string name="transit_detail_departure">Abfahrt</string>
     <string name="transit_detail_planned">Planmäßig</string>
     <string name="transit_detail_realtime">Echtzeit</string>
@@ -551,6 +566,14 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string name="pref_summary_font_room_data">Standard: 11.5 sp</string>
     <string name="pref_title_font_transit">DB-Abfahrtszeile</string>
     <string name="pref_summary_font_transit">Standard: 11 sp</string>
+    <string name="pref_title_font_weather_overlay">Wetter-Overlay (Kamera)</string>
+    <string name="pref_summary_font_weather_overlay">Schriftgröße des 2-zeiligen Wetter-Overlays auf der Kamera. Standard: 11 sp</string>
+    <string name="pref_title_font_weather_tile">Wetter-Kachel</string>
+    <string name="pref_summary_font_weather_tile">Schriftgröße der Wetter-Kachel im Raumgitter. Standard: 11 sp</string>
+    <string name="pref_title_font_ha_tile">Home Assistant-Kachel</string>
+    <string name="pref_summary_font_ha_tile">Schriftgröße der HA-Kachel. Standard: 11 sp</string>
+    <string name="pref_title_font_camera_status">Kamera-Statustext</string>
+    <string name="pref_summary_font_camera_status">Schriftgröße des Status-Labels im WebCam View. Standard: 10 sp</string>
 
     <!-- Appearance: colors -->
     <string name="pref_category_colors_dark">Farben – Dark Mode</string>
@@ -626,10 +649,12 @@ Unbekannte device_types: %3$d · Unbekannte DP-Typen: %4$d</string>
     <string-array name="pref_weather_mode_titles">
         <item>Raumkachel</item>
         <item>Kamera-Overlay</item>
+        <item>Kachel + Overlay</item>
     </string-array>
     <string-array name="pref_weather_mode_values">
         <item>room</item>
         <item>overlay</item>
+        <item>both</item>
     </string-array>
 
     <string name="weather_tile_title">Wetter</string>

@@ -34,9 +34,13 @@ object AppThemeHelper {
     private const val DEF_LIGHT_TEXT_DIM   = "#AA111111"
 
     // ── Default font sizes ────────────────────────────────────────────────────
-    private const val DEF_FONT_ROOM_TITLE  = 12f   // sp
-    private const val DEF_FONT_ROOM_DATA   = 11.5f // sp  (portrait)
-    private const val DEF_FONT_TRANSIT     = 11f   // sp
+    private const val DEF_FONT_ROOM_TITLE = 12f   // sp
+    private const val DEF_FONT_ROOM_DATA = 11.5f // sp  (portrait)
+    private const val DEF_FONT_TRANSIT = 11f   // sp
+    private const val DEF_FONT_WEATHER_OVERLAY = 11f   // sp
+    private const val DEF_FONT_WEATHER_TILE = 11f   // sp
+    private const val DEF_FONT_HA_TILE = 11f   // sp
+    private const val DEF_FONT_CAMERA_STATUS = 10f   // sp
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -115,13 +119,35 @@ object AppThemeHelper {
         prefs(context).getString(PreferenceKeys.FONT_TRANSIT, DEF_FONT_TRANSIT.toString())
             ?.toFloatOrNull() ?: DEF_FONT_TRANSIT
 
+    fun fontWeatherOverlay(context: Context): Float =
+        prefs(context).getString(
+            PreferenceKeys.FONT_WEATHER_OVERLAY,
+            DEF_FONT_WEATHER_OVERLAY.toString()
+        )
+            ?.toFloatOrNull() ?: DEF_FONT_WEATHER_OVERLAY
+
+    fun fontWeatherTile(context: Context): Float =
+        prefs(context).getString(PreferenceKeys.FONT_WEATHER_TILE, DEF_FONT_WEATHER_TILE.toString())
+            ?.toFloatOrNull() ?: DEF_FONT_WEATHER_TILE
+
+    fun fontHaTile(context: Context): Float =
+        prefs(context).getString(PreferenceKeys.FONT_HA_TILE, DEF_FONT_HA_TILE.toString())
+            ?.toFloatOrNull() ?: DEF_FONT_HA_TILE
+
+    fun fontCameraStatus(context: Context): Float =
+        prefs(context).getString(
+            PreferenceKeys.FONT_CAMERA_STATUS,
+            DEF_FONT_CAMERA_STATUS.toString()
+        )
+            ?.toFloatOrNull() ?: DEF_FONT_CAMERA_STATUS
+
     // ── Util: build colour pref key ───────────────────────────────────────────
     /** Used by settings to know the full key when saving a colour. */
     fun colorKey(base: String, dark: Boolean) = key(base, dark)
 
     // ── Window indicator colours ──────────────────────────────────────────────
-    fun windowOpen(context: Context)   = android.graphics.Color.parseColor("#FFE53935") // red
-    fun windowTilted(context: Context) = android.graphics.Color.parseColor("#FFFFA726") // orange
-    fun windowClosed(context: Context) = android.graphics.Color.parseColor("#FF43A047") // green
+    fun windowOpen(context: Context) = Color.parseColor("#FFE53935") // red
+    fun windowTilted(context: Context) = Color.parseColor("#FFFFA726") // orange
+    fun windowClosed(context: Context) = Color.parseColor("#FF43A047") // green
 
 }

@@ -1,5 +1,6 @@
 package com.tvcs.homematic
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
@@ -12,7 +13,15 @@ import android.widget.TextView
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.preference.PreferenceManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * DbTransitViewController
@@ -64,7 +73,9 @@ class DbTransitViewController(
     private var rowScrollView: ScrollView? = null
     private var rowContainer: LinearLayout? = null
 
-    private val controlRow: LinearLayout by lazy { buildControlRow() }
+    private var _controlRow: LinearLayout? = null
+    private val controlRow: LinearLayout
+        get() = _controlRow ?: buildControlRow().also { _controlRow = it }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -75,7 +86,13 @@ class DbTransitViewController(
 
     fun applyPrefsChange() {
         stopRefreshing()
+        // Remove old control row from panel so it can be rebuilt with new font size
+        _controlRow?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
+        _controlRow = null
         if (isEnabled()) { connectionIndex = 0; startRefreshing() } else hide()
+        // Re-apply font sizes to any already-existing rows
+        val fontSp = AppThemeHelper.fontTransit(context)
+        dynamicRows.forEach { it.applyFontSizes(fontSp) }
     }
 
     fun isEnabled(): Boolean {
@@ -121,6 +138,9 @@ class DbTransitViewController(
             container.addView(row)
             dynamicRows.add(row)
         }
+        // Apply current font size to all new rows
+        val fontSp = AppThemeHelper.fontTransit(context)
+        dynamicRows.forEach { it.applyFontSizes(fontSp) }
     }
 
     private fun ensureRowViews() {
@@ -134,8 +154,9 @@ class DbTransitViewController(
         val isLand = context.resources.configuration.orientation ==
             android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val touch  = (32 * dp).toInt()
-        val iconSp = if (isLand) 13f else 15f
-        val labSp  = if (isLand)  9f else 10f
+        val baseSp = AppThemeHelper.fontTransit(context)
+        val iconSp = if (isLand) baseSp * 1.18f else baseSp * 1.36f
+        val labSp = if (isLand) baseSp * 0.82f else baseSp * 0.91f
 
         fun btn(label: String, action: () -> Unit) = TextView(context).apply {
             text = label; textSize = iconSp
@@ -344,17 +365,8 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         setPadding(hPad, vPad, hPad, vPad)
         gravity = Gravity.TOP
 
-        tvLine.apply {
-            textSize = if (land) 11f else 12f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            maxLines = 1
-        }
-        tvXfer.apply {
-            textSize = if (land) 9f else 10f
-            setTextColor(0xAAFFFFFF.toInt())
-            maxLines = 1
-        }
+        applyFontSizes(AppThemeHelper.fontTransit(context))
+
         colLine.apply {
             orientation = VERTICAL
             gravity = Gravity.TOP
@@ -366,8 +378,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         }
 
         tvTime.apply {
-            textSize = if (land) 12f else 13f
-            setTextColor(Color.WHITE)
             gravity = Gravity.TOP
             minWidth = (44 * dp).toInt()
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).also {
@@ -375,17 +385,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             }
         }
 
-        tvStatus.apply {
-            textSize = if (land) 10f else 11f
-            gravity = Gravity.TOP
-            maxLines = 1
-        }
-        tvXferDelay.apply {
-            textSize = if (land) 9f else 10f
-            gravity = Gravity.TOP
-            maxLines = 1
-            visibility = View.GONE
-        }
         colStatus.apply {
             orientation = VERTICAL
             gravity = Gravity.TOP
@@ -397,8 +396,6 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         }
 
         tvStops.apply {
-            textSize = if (land) 9f else 10f
-            setTextColor(0xBBFFFFFF.toInt())
             gravity = Gravity.TOP
             maxLines = 4
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -408,14 +405,49 @@ class TransitRowView(context: Context) : LinearLayout(context) {
         addView(colLine); addView(tvTime); addView(colStatus); addView(tvStops)
     }
 
+    /** Re-applies all font sizes relative to [baseSp]. Call after prefs change. */
+    fun applyFontSizes(baseSp: Float) {
+        val land = isLand
+        tvLine.apply {
+            textSize = if (land) baseSp else baseSp * 1.09f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            maxLines = 1
+        }
+        tvXfer.apply {
+            textSize = if (land) baseSp * 0.82f else baseSp * 0.91f
+            setTextColor(0xAAFFFFFF.toInt())
+            maxLines = 1
+        }
+        tvTime.apply {
+            textSize = if (land) baseSp * 1.09f else baseSp * 1.18f
+            setTextColor(Color.WHITE)
+        }
+        tvStatus.apply {
+            textSize = if (land) baseSp * 0.91f else baseSp
+            gravity = Gravity.TOP
+            maxLines = 1
+        }
+        tvXferDelay.apply {
+            textSize = if (land) baseSp * 0.82f else baseSp * 0.91f
+            gravity = Gravity.TOP
+            maxLines = 1
+        }
+        tvStops.apply {
+            textSize = if (land) baseSp * 0.82f else baseSp * 0.91f
+            setTextColor(0xBBFFFFFF.toInt())
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
     fun bind(dep: DbTransitRepository.Departure) {
         tvLine.text = dep.line
         if (dep.transfers > 0) {
             tvXfer.text = "+${dep.transfers}"
-            tvXfer.visibility = View.VISIBLE
+            tvXfer.visibility = VISIBLE
         } else {
             tvXfer.text = ""
-            tvXfer.visibility = View.GONE
+            tvXfer.visibility = GONE
         }
 
         // Transfer delay: worst depDelay among non-first legs → shown below tvStatus
@@ -428,7 +460,7 @@ class TransitRowView(context: Context) : LinearLayout(context) {
             tvTime.setTextColor(0xFFFF4444.toInt())
             tvStatus.text = context.getString(R.string.transit_cancelled)
             tvStatus.setTextColor(0xFFFF4444.toInt())
-            tvXferDelay.visibility = View.GONE
+            tvXferDelay.visibility = GONE
         } else {
             tvTime.setTextColor(Color.WHITE)
             tvTime.text = dep.realtimeTime ?: dep.plannedTime
@@ -440,16 +472,16 @@ class TransitRowView(context: Context) : LinearLayout(context) {
                 else      -> { tvStatus.text = "+${d}'";  tvStatus.setTextColor(0xFFFF4444.toInt()) }
             }
             when {
-                xferDelay == null || xferDelay <= 0 -> tvXferDelay.visibility = View.GONE
+                xferDelay == null || xferDelay <= 0 -> tvXferDelay.visibility = GONE
                 xferDelay <= 5 -> {
                     tvXferDelay.text = "↺+${xferDelay}'"
                     tvXferDelay.setTextColor(0xFFFFAA00.toInt())
-                    tvXferDelay.visibility = View.VISIBLE
+                    tvXferDelay.visibility = VISIBLE
                 }
                 else -> {
                     tvXferDelay.text = "↺+${xferDelay}'"
                     tvXferDelay.setTextColor(0xFFFF4444.toInt())
-                    tvXferDelay.visibility = View.VISIBLE
+                    tvXferDelay.visibility = VISIBLE
                 }
             }
         }
@@ -468,10 +500,10 @@ class TransitRowView(context: Context) : LinearLayout(context) {
                 if (t.isNotBlank()) sb.append(" $t")
             }
             tvStops.text = sb.toString()
-            tvStops.visibility = View.VISIBLE
+            tvStops.visibility = VISIBLE
         } else {
             tvStops.text = ""
-            tvStops.visibility = View.INVISIBLE
+            tvStops.visibility = INVISIBLE
         }
     }
 }

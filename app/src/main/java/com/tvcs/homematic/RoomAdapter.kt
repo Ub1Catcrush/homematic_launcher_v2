@@ -11,7 +11,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
 import android.view.animation.Animation
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TableLayout
 import android.widget.TableRow
@@ -58,7 +57,9 @@ class RoomAdapter(
 
     private fun hasWeatherTile(): Boolean {
         val wvc = weatherVC
-        return wvc != null && wvc.isEnabled() && wvc.displayMode() == "room" && wvc.lastForecasts != null
+        return wvc != null && wvc.isEnabled() &&
+                (wvc.displayMode() == "room" || wvc.displayMode() == "both") &&
+                wvc.lastForecasts != null
     }
 
     private fun hasHaTile(): Boolean {
@@ -229,7 +230,7 @@ private fun addRoomView(table: TableLayout, room: Room, titleView: TextView) {
         // ── Row 1: window indicators  [title row already has room name] ───────
         if (windowCount > 0) {
             val countToShow  = windowCount.coerceAtMost(maxIndicators)
-            val closedCount  = windowCount - openCount - tiltedCount
+            windowCount - openCount - tiltedCount
 
             // Build a plain TableRow: col-0 is empty (label side), col-1 has squares
             val indicatorRow = TableRow(context).apply {
@@ -242,7 +243,7 @@ private fun addRoomView(table: TableLayout, room: Room, titleView: TextView) {
             })
             // Squares container (right-aligned)
             val squaresLayout = LinearLayout(context).apply {
-                orientation = android.widget.LinearLayout.HORIZONTAL
+                orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.END or Gravity.CENTER_VERTICAL
             }
             repeat(countToShow) { i ->

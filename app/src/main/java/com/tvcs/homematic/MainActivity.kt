@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.graphics.BlendMode
 import android.graphics.BlendModeColorFilter
 import android.graphics.Color
@@ -17,15 +18,13 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Display
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
-import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
@@ -36,16 +35,20 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
-import android.util.Log
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.ui.PlayerView
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.RecyclerView
-import android.content.res.Configuration
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import com.homematic.Room
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -280,13 +283,13 @@ class MainActivity : AppCompatActivity() {
      */
     private fun applyPanelHeights() {
         val isLand  = resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val metrics = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Configuration.ORIENTATION_LANDSCAPE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             windowManager.currentWindowMetrics
         } else null
 
         // Usable height = window height minus status bar minus nav bar
-        val totalPx = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        val totalPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val windowMetrics = windowManager.currentWindowMetrics
             val insets = windowMetrics.windowInsets.getInsetsIgnoringVisibility(
                 android.view.WindowInsets.Type.systemBars()
@@ -408,15 +411,15 @@ class MainActivity : AppCompatActivity() {
             var flags = window.decorView.systemUiVisibility
             // Always keep layout-stable flags to avoid content jumping
             flags = flags or
-                android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            flags = if (showStatus) flags and android.view.View.SYSTEM_UI_FLAG_FULLSCREEN.inv()
-                    else flags or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
-            flags = if (showNav)   flags and (android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                                              android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY).inv()
-                    else flags or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                                  android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            flags = if (showStatus) flags and View.SYSTEM_UI_FLAG_FULLSCREEN.inv()
+            else flags or View.SYSTEM_UI_FLAG_FULLSCREEN
+            flags = if (showNav) flags and (View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY).inv()
+            else flags or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
             window.decorView.systemUiVisibility = flags
         }
     }
@@ -590,6 +593,40 @@ class MainActivity : AppCompatActivity() {
                     rebuildHaTileControllers()
                 }
 
+                // Font sizes — re-apply to all live views and rebind adapter
+                PreferenceKeys.FONT_ROOM_TITLE,
+                PreferenceKeys.FONT_ROOM_DATA,
+                PreferenceKeys.FONT_TRANSIT,
+                PreferenceKeys.FONT_WEATHER_OVERLAY,
+                PreferenceKeys.FONT_WEATHER_TILE,
+                PreferenceKeys.FONT_HA_TILE,
+                PreferenceKeys.FONT_CAMERA_STATUS -> {
+                    applyThemeColors()
+                    transitViewController.applyPrefsChange()
+                    weatherViewController.applyPrefsChange()
+                    haTileViewControllers.forEach { it.applyPrefsChange() }
+                    mAdapter.notifyDataSetChanged()
+                }
+
+                // Appearance colors
+                PreferenceKeys.COLOR_BG_STATUS,
+                "${PreferenceKeys.COLOR_BG_STATUS}_dark",
+                PreferenceKeys.COLOR_BG_HEADER,
+                "${PreferenceKeys.COLOR_BG_HEADER}_dark",
+                PreferenceKeys.COLOR_BG_TRANSIT,
+                "${PreferenceKeys.COLOR_BG_TRANSIT}_dark",
+                PreferenceKeys.COLOR_BG_CAMERA,
+                "${PreferenceKeys.COLOR_BG_CAMERA}_dark",
+                PreferenceKeys.COLOR_BORDER_ROOM,
+                "${PreferenceKeys.COLOR_BORDER_ROOM}_dark",
+                PreferenceKeys.COLOR_TEXT_ROOM,
+                "${PreferenceKeys.COLOR_TEXT_ROOM}_dark",
+                PreferenceKeys.COLOR_TEXT_DIM,
+                "${PreferenceKeys.COLOR_TEXT_DIM}_dark" -> {
+                    applyThemeColors()
+                    mAdapter.notifyDataSetChanged()
+                }
+
                 // Grid-only changes — re-render without CCU reload
                 PreferenceKeys.MAX_WINDOW_INDICATORS,
                 PreferenceKeys.OUTDOOR_ROOM_NAME,
@@ -640,7 +677,7 @@ class MainActivity : AppCompatActivity() {
     // ── Network ───────────────────────────────────────────────────────────────
 
     private fun setupNetworkCallback() {
-        val cm  = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
         val req = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build()
         networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -751,6 +788,21 @@ class MainActivity : AppCompatActivity() {
         // Camera panel
         val cameraBg = AppThemeHelper.bgCamera(this)
         cameraPanel.setBackgroundColor(cameraBg)
+
+        // ── Dynamic font sizes ────────────────────────────────────────────────
+        val camStatusSp = AppThemeHelper.fontCameraStatus(this)
+        findViewById<TextView?>(R.id.camera_status_label)
+            ?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, camStatusSp)
+
+        val transitSp = AppThemeHelper.fontTransit(this)
+        val isLand = resources.configuration.orientation ==
+                Configuration.ORIENTATION_LANDSCAPE
+        val headerSp = if (isLand) transitSp * 0.91f else transitSp
+        val errorSp = headerSp
+        findViewById<TextView?>(R.id.transit_header)
+            ?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, headerSp)
+        findViewById<TextView?>(R.id.transit_error)
+            ?.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, errorSp)
     }
 
     private fun showThermostatDialog(iseId: Int, currentValue: Double, roomName: String) {
@@ -794,7 +846,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkDisplayTimeout() {
         if (!sharedPreferences.getBoolean(PreferenceKeys.DISABLE_DISPLAY, false)) return
-        val isOn = (getSystemService(Context.DISPLAY_SERVICE) as DisplayManager)
+        val isOn = (getSystemService(DISPLAY_SERVICE) as DisplayManager)
             .displays.any { it.state != Display.STATE_OFF }
         when {
             isOn  && mDisplayOn == 0L -> { mDisplayOn = System.currentTimeMillis(); displayTimeoutToastShown = false }
@@ -823,7 +875,7 @@ class MainActivity : AppCompatActivity() {
             addAction(MotionDetectionService.ACTION_MOTION_DETECTED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-            registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(broadcastReceiver, filter, RECEIVER_NOT_EXPORTED)
         else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(broadcastReceiver, filter)
         applyThemeColors()
         val interval = sharedPreferences.getString(PreferenceKeys.SYNC_FREQUENCY, "30")?.toIntOrNull() ?: 30
@@ -861,7 +913,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         // Nach dem RoleManager-Flow (Android 10+) prüfen wir beim nächsten onResume erneut —
         // das passiert automatisch, da onResume nach onActivityResult aufgerufen wird.
@@ -951,8 +1003,8 @@ class MainActivity : AppCompatActivity() {
      * disable battery optimization for reliable motion detection.
      */
     private fun checkBatteryOptimization() {
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) return
-        val pm = getSystemService(android.content.Context.POWER_SERVICE)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val pm = getSystemService(POWER_SERVICE)
                  as android.os.PowerManager
         if (pm.isIgnoringBatteryOptimizations(packageName)) return
 
@@ -962,12 +1014,12 @@ class MainActivity : AppCompatActivity() {
 
         showSnackbar(
             getString(R.string.battery_opt_warning),
-            com.google.android.material.snackbar.Snackbar.LENGTH_INDEFINITE,
+            Snackbar.LENGTH_INDEFINITE,
             actionLabel = getString(R.string.battery_opt_action)
         ) {
             // Open system battery optimization settings for this app
             try {
-                val intent = android.content.Intent(
+                val intent = Intent(
                     android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                     android.net.Uri.parse("package:$packageName")
                 )
@@ -975,8 +1027,11 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 // Fallback: open general battery settings
                 try {
-                    startActivity(android.content.Intent(
-                        android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+                        )
+                    )
                 } catch (_: Exception) {}
             }
         }
@@ -1007,7 +1062,7 @@ class MainActivity : AppCompatActivity() {
         localCameraSource?.stop()   // safety cleanup for any leftover migration instances
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
         networkCallback?.let {
-            (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager)
+            (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager)
                 .unregisterNetworkCallback(it)
         }
     }

@@ -16,8 +16,6 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
 import androidx.preference.SwitchPreferenceCompat
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 
 // ── Top-level helper so all fragments can use it ──────────────────────────────
 private fun switchLabel(ctx: Context, on: Boolean) =
@@ -67,7 +65,7 @@ private fun PreferenceFragmentCompat.bindList(key: String) {
  *  Silently skips keys that use SeekBarPreference (they manage their own display). */
 private fun PreferenceFragmentCompat.bindNumber(key: String, unit: String = "") {
     // If the preference is a SeekBarPreference, skip — it handles its own value display
-    val pref = findPreference<androidx.preference.Preference>(key)
+    val pref = findPreference<Preference>(key)
     if (pref is SeekBarPreference) return
     bindEditText(key) { v -> if (v.isNotBlank()) "$v$unit" else "" }
 }
@@ -469,7 +467,7 @@ class SettingsActivity : AppCompatActivity(),
             bindSwitch(PreferenceKeys.CAMERA_ENABLED)
             // SeekBar ranges for camera settings
             fun configSeekBar(key: String, min: Int, max: Int, step: Int, unit: String) {
-                (findPreference<androidx.preference.Preference>(key) as? SeekBarPreference)?.apply {
+                (findPreference<Preference>(key) as? SeekBarPreference)?.apply {
                     this.min = min; this.max = max; this.step = step; this.unit = unit
                 }
             }
@@ -477,9 +475,9 @@ class SettingsActivity : AppCompatActivity(),
             configSeekBar(PreferenceKeys.CAMERA_PANEL_PCT_PORTRAIT,   5,  60, 5, "%")
             configSeekBar(PreferenceKeys.CAMERA_PANEL_PCT_LAND,       5,  60, 5, "%")
             // transit panel pcts share the camera fragment
-            (findPreference<androidx.preference.Preference>("transit_panel_pct_portrait") as? SeekBarPreference)
+            (findPreference<Preference>("transit_panel_pct_portrait") as? SeekBarPreference)
                 ?.apply { this.min = 5; this.max = 60; this.step = 5; this.unit = "%" }
-            (findPreference<androidx.preference.Preference>("transit_panel_pct_land") as? SeekBarPreference)
+            (findPreference<Preference>("transit_panel_pct_land") as? SeekBarPreference)
                 ?.apply { this.min = 5; this.max = 60; this.step = 5; this.unit = "%" }
             // Motion settings moved to MotionFragment (nav_motion)
             findPreference<EditTextPreference>(PreferenceKeys.CAMERA_PASSWORD)?.apply {
@@ -687,7 +685,7 @@ class SettingsActivity : AppCompatActivity(),
                 val pad = (16*dp).toInt(); setPadding(pad, (8*dp).toInt(), pad, 0)
                 addView(input); addView(statusText); addView(listView)
             }
-            val dialog = androidx.appcompat.app.AlertDialog.Builder(ctx)
+            val dialog = AlertDialog.Builder(ctx)
                 .setTitle(title).setView(container).setNegativeButton(android.R.string.cancel, null).create()
 
             var searchJob: kotlinx.coroutines.Job? = null
@@ -767,7 +765,7 @@ class SettingsActivity : AppCompatActivity(),
                 val labels = launchers.map { it.second }.toTypedArray()
                 val pkgs   = launchers.map { it.first }.toTypedArray()
                 if (!isResumed) return@setOnPreferenceClickListener true
-                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                AlertDialog.Builder(requireContext())
                     .setTitle(getString(R.string.dialog_select_launcher_title))
                     .setItems(labels) { _, i ->
                         val chosen = pkgs[i]
@@ -785,7 +783,7 @@ class SettingsActivity : AppCompatActivity(),
                 val labels = apps.map { it.second }.toTypedArray()
                 val pkgs   = apps.map { it.first }.toTypedArray()
                 if (!isResumed) return@setOnPreferenceClickListener true
-                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                AlertDialog.Builder(requireContext())
                     .setTitle(getString(R.string.dialog_select_extra_app_title))
                     .setItems(labels) { _, i ->
                         val chosen = pkgs[i]
@@ -834,12 +832,46 @@ class SettingsActivity : AppCompatActivity(),
         }
 
         private fun bindFonts() {
-            listOf(PreferenceKeys.FONT_ROOM_TITLE, PreferenceKeys.FONT_ROOM_DATA, PreferenceKeys.FONT_TRANSIT).forEach { key ->
-                findPreference<EditTextPreference>(key)?.apply {
-                    val cur = PreferenceManager.getDefaultSharedPreferences(requireContext()).getString(key, "") ?: ""
-                    if (cur.isNotEmpty()) summary = "$cur sp"
-                    onPreferenceChangeListener = Preference.OnPreferenceChangeListener { p, v -> p.summary = "$v sp"; true }
-                }
+            data class FontCfg(
+                val key: String,
+                val default: Int,
+                val min: Int = 7,
+                val max: Int = 24,
+                val previewResId: Int = 0
+            )
+
+            val configs = listOf(
+                FontCfg(PreferenceKeys.FONT_ROOM_TITLE, 12),
+                FontCfg(PreferenceKeys.FONT_ROOM_DATA, 11),
+                FontCfg(
+                    PreferenceKeys.FONT_TRANSIT, 11,
+                    previewResId = R.string.seekbar_preview_transit
+                ),
+                FontCfg(
+                    PreferenceKeys.FONT_WEATHER_OVERLAY, 11,
+                    previewResId = R.string.seekbar_preview_weather_overlay
+                ),
+                FontCfg(
+                    PreferenceKeys.FONT_WEATHER_TILE, 11,
+                    previewResId = R.string.seekbar_preview_weather_tile
+                ),
+                FontCfg(PreferenceKeys.FONT_HA_TILE, 11),
+                FontCfg(PreferenceKeys.FONT_CAMERA_STATUS, 10)
+            )
+            val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+            configs.forEach { cfg ->
+                (findPreference<Preference>(cfg.key) as? SeekBarPreference)
+                    ?.apply {
+                        min = cfg.min
+                        max = cfg.max
+                        step = 1
+                        unit = " sp"
+                        showPreview = cfg.previewResId != 0
+                        previewResId = cfg.previewResId
+                        val stored = prefs.getString(cfg.key, cfg.default.toString())
+                            ?.toFloatOrNull()?.toInt()?.coerceIn(cfg.min, cfg.max) ?: cfg.default
+                        setValue(stored)
+                    }
             }
         }
 
@@ -865,6 +897,10 @@ class SettingsActivity : AppCompatActivity(),
             val keys = listOf(
                 PreferenceKeys.GRID_COLUMNS_PORTRAIT, PreferenceKeys.GRID_COLUMNS_LANDSCAPE,
                 PreferenceKeys.FONT_ROOM_TITLE, PreferenceKeys.FONT_ROOM_DATA, PreferenceKeys.FONT_TRANSIT,
+                PreferenceKeys.FONT_WEATHER_OVERLAY,
+                PreferenceKeys.FONT_WEATHER_TILE,
+                PreferenceKeys.FONT_HA_TILE,
+                PreferenceKeys.FONT_CAMERA_STATUS,
                 PreferenceKeys.COLOR_BG_STATUS,   "${PreferenceKeys.COLOR_BG_STATUS}_dark",
                 PreferenceKeys.COLOR_BG_HEADER,   "${PreferenceKeys.COLOR_BG_HEADER}_dark",
                 PreferenceKeys.COLOR_BG_TRANSIT,  "${PreferenceKeys.COLOR_BG_TRANSIT}_dark",
@@ -1030,7 +1066,7 @@ class SettingsActivity : AppCompatActivity(),
         }
 
         private fun configureSeekBar(key: String, min: Int, max: Int, step: Int, unit: String) {
-            (findPreference<androidx.preference.Preference>(key) as? SeekBarPreference)?.apply {
+            (findPreference<Preference>(key) as? SeekBarPreference)?.apply {
                 this.min  = min
                 this.max  = max
                 this.step = step
@@ -1245,7 +1281,7 @@ class SettingsActivity : AppCompatActivity(),
                 text = getString(R.string.ha_tile_title_label)
                 setTextColor(0xFFCCCCCC.toInt()); textSize = 11f
             })
-            val etTitle = android.widget.EditText(ctx).apply {
+            val etTitle = EditText(ctx).apply {
                 setText(config.title)
                 setTextColor(android.graphics.Color.WHITE)
                 setHintTextColor(0xFF888888.toInt())
@@ -1355,19 +1391,19 @@ class SettingsActivity : AppCompatActivity(),
             val suggestionItems = knownEntities.map { (id, name) ->
                 if (name == id) id else "$id  —  $name"
             }.toTypedArray()
-            val etLabel = android.widget.EditText(ctx).apply {
+            val etLabel = EditText(ctx).apply {
                 hint = getString(R.string.ha_field_label)
                 setTextColor(android.graphics.Color.WHITE); setHintTextColor(0xFF888888.toInt())
                 textSize = 12f; setSingleLine()
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
-            val etUnit = android.widget.EditText(ctx).apply {
+            val etUnit = EditText(ctx).apply {
                 hint = getString(R.string.ha_field_unit)
                 setTextColor(android.graphics.Color.WHITE); setHintTextColor(0xFF888888.toInt())
                 textSize = 12f; setSingleLine()
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
-            val etIcon = android.widget.EditText(ctx).apply {
+            val etIcon = EditText(ctx).apply {
                 hint = getString(R.string.ha_field_icon)
                 setTextColor(android.graphics.Color.WHITE); setHintTextColor(0xFF888888.toInt())
                 textSize = 12f; setSingleLine()
@@ -1600,7 +1636,7 @@ class SettingsActivity : AppCompatActivity(),
             acEntityId.setAdapter(acAdapter)
 
             // When user selects a suggestion, extract entity_id and auto-fill label
-            val etLabel = android.widget.EditText(ctx).apply {
+            val etLabel = EditText(ctx).apply {
                 hint = ctx.getString(R.string.ha_field_label)
                 setTextColor(android.graphics.Color.WHITE)
                 setHintTextColor(0xFF888888.toInt())
@@ -1609,7 +1645,7 @@ class SettingsActivity : AppCompatActivity(),
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT)
             }
-            val etUnit = android.widget.EditText(ctx).apply {
+            val etUnit = EditText(ctx).apply {
                 hint = ctx.getString(R.string.ha_field_unit)
                 setTextColor(android.graphics.Color.WHITE)
                 setHintTextColor(0xFF888888.toInt())
@@ -1618,7 +1654,7 @@ class SettingsActivity : AppCompatActivity(),
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT)
             }
-            val etIcon = android.widget.EditText(ctx).apply {
+            val etIcon = EditText(ctx).apply {
                 hint = ctx.getString(R.string.ha_field_icon)
                 setTextColor(android.graphics.Color.WHITE)
                 setHintTextColor(0xFF888888.toInt())
@@ -1737,7 +1773,7 @@ class SettingsActivity : AppCompatActivity(),
          * Uses AutoCompleteTextView for the entity_id field as well.
          */
         private fun showEntityEditor(
-            ctx: android.content.Context,
+            ctx: Context,
             dp: Float,
             entity: HaTileViewController.EntityRow,
             onSave: (HaTileViewController.EntityRow) -> Unit
@@ -1756,7 +1792,7 @@ class SettingsActivity : AppCompatActivity(),
             }
 
             fun editField(hint: String, prefill: String) =
-                android.widget.EditText(ctx).apply {
+                EditText(ctx).apply {
                     this.hint = hint
                     setText(prefill)
                     setTextColor(android.graphics.Color.WHITE)
