@@ -32,6 +32,12 @@ android {
         viewBinding=true
         buildConfig=true   // Ermöglicht BuildConfig.VERSION_NAME im Code
     }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
